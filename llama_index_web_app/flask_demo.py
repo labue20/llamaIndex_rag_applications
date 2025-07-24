@@ -10,20 +10,20 @@ CORS(app)
 # initialize manager connection
 # NOTE: you might want to handle the password in a less hardcoded way
 manager = BaseManager(('', 5602), b'password')
-manager.register('query_index')
+manager.register('query_index_route')
 manager.register('insert_into_index')
 manager.register('get_documents_list')
 manager.connect()
 
 
 @app.route("/query", methods=["GET"])
-def query_index():
+def query_index_route():
     global manager
     query_text = request.args.get("text", None)
     if query_text is None:
         return "No text found, please include a ?text=blah parameter in the URL", 400
     
-    response = manager.query_index(query_text)._getvalue()
+    response = manager.query_index_route(query_text)._getvalue()
     response_json = {
         "text": str(response),
         "sources": [{"text": str(x.text), 
