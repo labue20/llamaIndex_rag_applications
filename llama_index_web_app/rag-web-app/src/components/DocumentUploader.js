@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CircleLoader } from 'react-spinners';
-import insertDocument from '../apis/insertDocument';
+import insertDocument from '../apis/insertDocuments';
 
 const DocumentUploader = ({ setRefreshViewer }) => {
   const [selectedFile, setSelectedFile] = useState();
