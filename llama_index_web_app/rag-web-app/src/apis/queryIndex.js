@@ -1,6 +1,6 @@
 
 const queryIndex = async (query) => {
-  const queryURL = new URL('http://localhost:5601/query?');
+  const queryURL = new URL('http://localhost:5601/queryFile?');
   queryURL.searchParams.append('text', query);
 
   const response = await fetch(queryURL, { mode: 'cors' });
