@@ -1,5 +1,5 @@
-const MAX_TITLE_LENGTH = 32;
-const MAX_DOC_LENGTH = 150;
+const MAX_TITLE_LENGTH = 45;
+const MAX_DOC_LENGTH = 200;
 
 const DocumentViewer = ({ documentList }) => {
   const prepend = (array, value) => {
@@ -8,20 +8,22 @@ const DocumentViewer = ({ documentList }) => {
     return newArray;
   };
 
-  let documentListElems = documentList.map((document) => {
-    // TODO - redo trimming using CSS and text-overflow: ellipsis
-    const id =
-      document.id.length < MAX_TITLE_LENGTH
-        ? document.id
-        : document.id.substring(0, MAX_TITLE_LENGTH) + '...';
-    const text =
-      document.text.length < MAX_DOC_LENGTH
-        ? document.text
-        : document.text.substring(0, MAX_DOC_LENGTH) + '...';
+  const truncateText = (text, maxLength) => {
+    return text.length <= maxLength ? text : text.substring(0, maxLength) + '...';
+  };
+
+  let documentListElems = documentList.map((document, index) => {
+    const truncatedId = truncateText(document.id, MAX_TITLE_LENGTH);
+    const truncatedText = truncateText(document.text, MAX_DOC_LENGTH);
+    
     return (
       <div key={document.id} className='viewer__list__item'>
-        <p className='viewer__list__title'>{id}</p>
-        <p className='viewer__list__text'>{text}</p>
+        <p className='viewer__list__title' title={document.id}>
+          📄 {truncatedId}
+        </p>
+        <p className='viewer__list__text' title={document.text}>
+          {truncatedText}
+        </p>
       </div>
     );
   });
@@ -30,24 +32,35 @@ const DocumentViewer = ({ documentList }) => {
   documentListElems = prepend(
     documentListElems,
     <div key='viewer_title' className='viewer__list__item'>
-      <p className='viewer__list__header'>My Documents</p>
+      <p className='viewer__list__header'>
+        📚 Document Library ({documentList.length} documents)
+      </p>
     </div>
   );
-
-  console.log(documentListElems);
 
   return (
     <div className='viewer'>
       <div className='viewer__list'>
-        {documentListElems.length > 0 ? (
+        {documentList.length > 0 ? (
           documentListElems
         ) : (
-          <div>
-            <p className='viewer__list__title'>Upload your first document!</p>
-            <p className='viewer__list__text'>
-              You will see the title and content here
-            </p>
-          </div>
+          <>
+            <div className='viewer__list__item'>
+              <p className='viewer__list__header'>📚 Document Library (0 documents)</p>
+            </div>
+            <div className='viewer__list__item'>
+              <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
+                <p className='viewer__list__title' style={{ marginBottom: '0.5rem' }}>
+                  No documents yet
+                </p>
+                <p className='viewer__list__text'>
+                  Upload your first document to start building your knowledge base. 
+                  Supported formats: PDF, TXT, JSON, MD, DOCX
+                </p>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

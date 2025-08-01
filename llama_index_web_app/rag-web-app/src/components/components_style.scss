@@ -1,67 +1,103 @@
-/****  Header.tsx  ****/
+/****  Header.js  ****/
 .app-header {
-  display: flex;
-  flex-direction: row;
-  height: 250px;
-  width: 900px;
-
-  &__main {
+  background: linear-gradient(135deg, theme-color(header-gradient-start) 0%, theme-color(header-gradient-end) 100%);
+  color: theme-color(text-contrast);
+  padding: 1rem 0;
+  box-shadow: 0 4px 6px -1px theme-color(shadow);
+  
+  &__container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
     display: flex;
-    align-items: flex-end;
-    width: 25%;
-    background-color: theme-color(header-big-block);
-    color: theme-color(text-contrast);
-
-    p {
-      width: 100%;
-      text-align: center;
-      margin: 0;
-      font-size: 35px;
-      font-weight: 600;
-      padding-bottom: 3px;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  &__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  &__title {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    
+    &--primary {
+      color: theme-color(text-contrast);
+    }
+    
+    &--secondary {
+      color: rgba(255, 255, 255, 0.8);
+      margin-left: 0.25rem;
     }
   }
-
-  &__sub {
+  
+  &__subtitle {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.05em;
+  }
+  
+  &__actions {
     display: flex;
-    align-items: flex-end;
-    width: 75%;
-    color: theme-color(text-main);
-
-    div {
-      display: flex;
-      align-items: flex-end;
-      padding-left: 25px;
-      width: 100%;
-      // position: absolute;
-      height: 50px;
-      background-color: theme-color(header-narrow-block);
-      p {
-        text-align: left;
-        margin: 0;
-        font-size: 25px;
-        font-weight: 400;
-        padding-bottom: 5px;
-        letter-spacing: 3px;
-      }
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: theme-color(success);
+      animation: pulse 2s infinite;
+    }
+    
+    .status-text {
+      font-size: 0.875rem;
+      font-weight: 500;
     }
   }
 }
 
-/****  DocumentViewer.tsx  ****/
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/****  DocumentTools.js  ****/
 .document-tools {
   display: flex;
   flex-direction: column;
-  width: 50%;
+  height: 100%;
+  gap: 1.5rem;
 }
 
-/****  DocumentUploader.tsx  ****/
+/****  DocumentUploader.js  ****/
 .uploader {
-  width: 100%;
   display: flex;
   flex-direction: column;
-  height: 150px;
-  gap: 5px;
+  gap: 1rem;
 
   &__input {
     width: 0.1px;
@@ -74,46 +110,57 @@
 
   &__label {
     cursor: pointer;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 600;
-    color: theme-color(text-main);
-    font-size: 14px;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 2px dashed theme-color(border);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: theme-color(text-secondary);
     background-color: theme-color(secondary);
-    box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.25);
-    width: 100%;
-    height: 40px;
+    transition: all 0.3s ease;
+    min-height: 100px;
 
     svg {
-      height: 16px;
-      margin-right: 4px;
+      width: 24px;
+      height: 24px;
     }
 
     &:hover {
-      background-color: theme-color(secondary-hover);
+      border-color: theme-color(accent);
+      background-color: theme-color(primary);
+      color: theme-color(accent);
+    }
+
+    &:focus {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 2px;
     }
   }
 
   &__details {
     display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-    height: 40px;
-    text-align: left;
-    overflow: hidden;
-    border-radius: 5px;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background-color: theme-color(secondary);
+    border-radius: 8px;
+    border: 1px solid theme-color(border);
 
-    p {
-      background-color: theme-color(primary);
-      text-align: center;
-      font-size: 15px;
-      padding: 5px;
-      width: 100%;
-      width: 450px;
+    &__info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: theme-color(text-secondary);
+        word-break: break-all;
+      }
     }
   }
 
@@ -122,88 +169,154 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 600;
-    color: theme-color(text-main);
-    font-size: 14px;
-    padding: 5px 8px;
-    box-shadow: 0px 0px 2px rgba(0, 0, 0, 0.25);
-    width: 100px;
+    padding: 0.75rem 1.5rem;
     border: none;
-    align-self: center;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: theme-color(text-contrast);
+    background-color: theme-color(accent);
+    box-shadow: 0 1px 2px 0 theme-color(shadow);
+    transition: all 0.2s ease;
+
+    &:hover {
+      background-color: theme-color(accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px -1px theme-color(shadow);
+    }
+
+    &:focus {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
   }
 
   &__loader {
-    align-self: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
   }
 }
 
-/**** DocumentViewer.tsx ****/
+/**** DocumentViewer.js ****/
 .viewer {
   background-color: theme-color(primary);
-  height: calc(50vh - 10px);
-  overflow-x: scroll;
-  border-radius: 5px;
+  border: 1px solid theme-color(border);
+  border-radius: 8px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 
   &__list {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    padding: 5px 5px;
+    gap: 0;
+    flex: 1;
+    overflow-y: auto;
+    max-height: 400px;
 
     &__item {
-      border-bottom: 1px solid theme-color(text-main);
-      height: 75px;
-      overflow: hidden;
+      padding: 1rem;
+      border-bottom: 1px solid theme-color(border);
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: theme-color(secondary);
+      }
 
       &:last-child {
         border-bottom: none;
       }
 
       &:first-child {
-        height: 40px;
-        border-bottom: 1px solid theme-color(text-main) !important;
+        background-color: theme-color(secondary);
+        font-weight: 600;
+        
+        &:hover {
+          background-color: theme-color(secondary);
+        }
       }
     }
+
     &__header {
       margin: 0;
-      font-size: 25px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: theme-color(text-primary);
     }
+
     &__title {
       text-align: left;
-      margin: 0;
-      font-size: 25px;
+      margin: 0 0 0.5rem 0;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: theme-color(text-primary);
+      word-break: break-word;
     }
+
     &__text {
       text-align: left;
-      font-size: 12px;
+      font-size: 0.75rem;
       margin: 0;
-      padding: 3px 0px;
+      color: theme-color(text-secondary);
+      line-height: 1.4;
     }
   }
 }
 
-/****  IndexQuery.tsx  ****/
+/****  IndexQuery.js  ****/
 .query {
   display: flex;
   flex-direction: column;
-  width: 50%;
-  gap: 15px;
+  height: 100%;
+  gap: 1.5rem;
 
   &__input {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    background-color: theme-color(primary);
-    border-radius: 5px;
-    padding: 10px;
+    gap: 0.75rem;
+
+    label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: theme-color(text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    input {
+      padding: 0.75rem;
+      border: 1px solid theme-color(border);
+      border-radius: 6px;
+      font-size: 0.875rem;
+      color: theme-color(text-primary);
+      background-color: theme-color(primary);
+      transition: all 0.2s ease;
+
+      &:focus {
+        outline: none;
+        border-color: theme-color(accent);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      &::placeholder {
+        color: theme-color(text-secondary);
+      }
+    }
   }
 
   &__loader {
-    align-self: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     opacity: 0;
-    transition: opacity 300ms linear;
+    transition: opacity 300ms ease;
 
     &--loading {
       opacity: 1;
@@ -211,47 +324,49 @@
   }
 
   &__results {
-    opacity: 1;
-    transition: opacity 300ms linear;
     background-color: theme-color(primary);
-    border-radius: 5px;
-    font-size: 12px;
-    padding: 5px;
-    height: 20vh;
-    overflow-x: scroll;
+    border: 1px solid theme-color(border);
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 150px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: theme-color(text-primary);
+    opacity: 1;
+    transition: opacity 300ms ease;
 
     &--loading {
-      opacity: 0;
+      opacity: 0.5;
     }
   }
 
   &__sources {
-    opacity: 1;
-    transition: opacity 300ms linear;
     background-color: theme-color(primary);
-    border-radius: 5px;
+    border: 1px solid theme-color(border);
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
-    height: calc(26.3vh - 22px);
-    padding: 5px;
-    text-align: left;
-    overflow-x: scroll;
+    flex: 1;
+    min-height: 200px;
+    overflow-y: auto;
+    opacity: 1;
+    transition: opacity 300ms ease;
 
     &--loading {
-      opacity: 0;
+      opacity: 0.5;
     }
 
     &__item {
-      height: 100px;
-      border-bottom: 1px solid theme-color(text-main);
-      margin: 0px;
-      width: 100%;
-
+      padding: 1rem;
+      border-bottom: 1px solid theme-color(border);
+      
       &:first-child {
-        height: 40px;
-        border-bottom: 1px solid theme-color(text-main) !important;
+        background-color: theme-color(secondary);
         text-align: center;
-        margin-bottom: 5px;
+        font-weight: 600;
+        padding: 0.75rem;
       }
 
       &:last-child {
@@ -259,20 +374,25 @@
       }
 
       &__id {
-        font-size: 25px;
-        margin-bottom: 3px;
-        margin-top: 0;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin: 0 0 0.5rem 0;
+        color: theme-color(text-primary);
+        word-break: break-word;
       }
 
       &__text {
-        font-size: 12px;
-        margin-bottom: 3px;
-        margin-top: 0;
+        font-size: 0.75rem;
+        margin: 0 0 0.5rem 0;
+        color: theme-color(text-secondary);
+        line-height: 1.4;
       }
 
       &__footer {
-        font-size: 10px;
+        font-size: 0.625rem;
         margin: 0;
+        color: theme-color(text-secondary);
+        font-style: italic;
       }
     }
   }
