@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CircleLoader } from 'react-spinners';
+import { PulseLoader } from 'react-spinners';
 import insertDocument from '../apis/insertDocuments';
 
 const DocumentUploader = ({ setRefreshViewer }) => {
@@ -94,7 +94,7 @@ const DocumentUploader = ({ setRefreshViewer }) => {
 
       {isLoading && (
         <div className='uploader__loader'>
-          <CircleLoader color='#3b82f6' size={30} />
+          <PulseLoader color='#3b82f6' size={8} margin={2} />
           <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
             Processing document...
           </p>

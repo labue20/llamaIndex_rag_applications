@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CircleLoader } from 'react-spinners';
+import { PulseLoader } from 'react-spinners';
 import classNames from 'classnames';
 import queryIndex from '../apis/queryIndex';
 
@@ -101,13 +101,17 @@ const IndexQuery = () => {
         </div>
       </div>
 
-      <CircleLoader
+      <div
         className={classNames('query__loader', {
           'query__loader--loading': isLoading,
         })}
-        color='#3b82f6'
-        size={30}
-      />
+      >
+        <PulseLoader
+          color='#3b82f6'
+          size={8}
+          margin={2}
+        />
+      </div>
 
       <div
         className={classNames('query__results', {
