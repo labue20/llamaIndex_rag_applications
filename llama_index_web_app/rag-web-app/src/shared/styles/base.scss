@@ -1,28 +1,10 @@
+/**
+ * Base Application Styles
+ * Core styles and layout for the entire application
+ */
 
 @import url(https://fonts.googleapis.com/css?family=Inter:300,400,500,600,700&display=swap);
-
-$theme-colors: (
-  primary: #ffffff,
-  secondary: #f8fafc,
-  accent: #3b82f6,
-  accent-hover: #2563eb,
-  success: #10b981,
-  warning: #f59e0b,
-  error: #ef4444,
-  text-primary: #1f2937,
-  text-secondary: #6b7280,
-  text-contrast: #ffffff,
-  border: #e5e7eb,
-  shadow: rgba(0, 0, 0, 0.1),
-  header-gradient-start: #667eea,
-  header-gradient-end: #764ba2,
-);
-
-@function theme-color($key) {
-  @return map-get($theme-colors, $key);
-}
-
-@import './components/components_style';
+@import './variables';
 
 * {
   box-sizing: border-box;
@@ -149,9 +131,5 @@ body {
   
   .app-header__subtitle {
     font-size: 0.75rem;
-  }
-  
-  .section-title {
-    font-size: 1rem;
   }
 }

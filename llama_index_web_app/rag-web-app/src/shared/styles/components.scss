@@ -1,0 +1,93 @@
+/**
+ * Shared Components Styles
+ * Styles for components used across multiple features
+ */
+
+@import './variables';
+
+/****  Header.js  ****/
+.app-header {
+  background: linear-gradient(135deg, theme-color(header-gradient-start) 0%, theme-color(header-gradient-end) 100%);
+  color: theme-color(text-contrast);
+  padding: 1rem 0;
+  box-shadow: 0 4px 6px -1px theme-color(shadow);
+  
+  &__container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  &__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  &__title {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    
+    &--primary {
+      color: theme-color(text-contrast);
+    }
+    
+    &--secondary {
+      color: rgba(255, 255, 255, 0.8);
+      margin-left: 0.25rem;
+    }
+  }
+  
+  &__subtitle {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.05em;
+  }
+  
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: theme-color(success);
+      animation: pulse 2s infinite;
+    }
+    
+    .status-text {
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}

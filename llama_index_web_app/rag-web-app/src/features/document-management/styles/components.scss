@@ -1,89 +1,9 @@
-/****  Header.js  ****/
-.app-header {
-  background: linear-gradient(135deg, theme-color(header-gradient-start) 0%, theme-color(header-gradient-end) 100%);
-  color: theme-color(text-contrast);
-  padding: 1rem 0;
-  box-shadow: 0 4px 6px -1px theme-color(shadow);
-  
-  &__container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  &__brand {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  &__title {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 700;
-    
-    &--primary {
-      color: theme-color(text-contrast);
-    }
-    
-    &--secondary {
-      color: rgba(255, 255, 255, 0.8);
-      margin-left: 0.25rem;
-    }
-  }
-  
-  &__subtitle {
-    margin: 0.25rem 0 0 0;
-    font-size: 0.875rem;
-    font-weight: 400;
-    color: rgba(255, 255, 255, 0.7);
-    letter-spacing: 0.05em;
-  }
-  
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  
-  &__status {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    backdrop-filter: blur(10px);
-    
-    .status-indicator {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background-color: theme-color(success);
-      animation: pulse 2s infinite;
-    }
-    
-    .status-text {
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-  }
-}
+/**
+ * Document Management Feature Styles
+ * All styles related to document management components
+ */
 
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-  100% {
-    opacity: 1;
-  }
-}
+@import '../../../shared/styles/variables';
 
 /****  DocumentTools.js  ****/
 .document-tools {
@@ -310,6 +230,7 @@
 
       &:first-child {
         background-color: theme-color(secondary);
+        text-align: center;
         font-weight: 600;
         
         &:hover {
@@ -444,133 +365,6 @@
     small {
       font-size: 0.65rem;
       color: theme-color(text-secondary);
-    }
-  }
-}
-
-/****  IndexQuery.js  ****/
-.query {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap: 1.5rem;
-
-  &__input {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-
-    label {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: theme-color(text-primary);
-      margin-bottom: 0.5rem;
-    }
-
-    input {
-      padding: 0.75rem;
-      border: 1px solid theme-color(border);
-      border-radius: 6px;
-      font-size: 0.875rem;
-      color: theme-color(text-primary);
-      background-color: theme-color(primary);
-      transition: all 0.2s ease;
-
-      &:focus {
-        outline: none;
-        border-color: theme-color(accent);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-      }
-
-      &::placeholder {
-        color: theme-color(text-secondary);
-      }
-    }
-  }
-
-  &__loader {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    opacity: 0;
-    transition: opacity 300ms ease;
-
-    &--loading {
-      opacity: 1;
-    }
-  }
-
-  &__results {
-    background-color: theme-color(primary);
-    border: 1px solid theme-color(border);
-    border-radius: 8px;
-    padding: 1rem;
-    min-height: 150px;
-    max-height: 200px;
-    overflow-y: auto;
-    font-size: 1rem;
-    line-height: 1.6;
-    color: theme-color(text-primary);
-    opacity: 1;
-    transition: opacity 300ms ease;
-
-    &--loading {
-      opacity: 0.5;
-    }
-  }
-
-  &__sources {
-    background-color: theme-color(primary);
-    border: 1px solid theme-color(border);
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 200px;
-    overflow-y: auto;
-    opacity: 1;
-    transition: opacity 300ms ease;
-
-    &--loading {
-      opacity: 0.5;
-    }
-
-    &__item {
-      padding: 1rem;
-      border-bottom: 1px solid theme-color(border);
-      
-      &:first-child {
-        background-color: theme-color(secondary);
-        text-align: center;
-        font-weight: 600;
-        padding: 0.75rem;
-      }
-
-      &:last-child {
-        border-bottom: none;
-      }
-
-      &__id {
-        font-size: 0.875rem;
-        font-weight: 500;
-        margin: 0 0 0.5rem 0;
-        color: theme-color(text-primary);
-        word-break: break-word;
-      }
-
-      &__text {
-        font-size: 0.75rem;
-        margin: 0 0 0.5rem 0;
-        color: theme-color(text-secondary);
-        line-height: 1.4;
-      }
-
-      &__footer {
-        font-size: 0.625rem;
-        margin: 0;
-        color: theme-color(text-secondary);
-        font-style: italic;
-      }
     }
   }
 }

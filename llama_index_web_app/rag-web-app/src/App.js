@@ -1,7 +1,10 @@
-import Header from './components/Header';
-import DocumentTools from './components/DocumentTools';
-import IndexQuery from './components/IndexQuery';
-import './style.scss';
+import { Header } from './shared';
+import { DocumentTools } from './features/document-management';
+import { IndexQuery } from './features/query-interface';
+import './shared/styles/base.scss';
+import './shared/styles/components.scss';
+import './features/document-management/styles/components.scss';
+import './features/query-interface/styles/components.scss';
 
 function App() {
   return (

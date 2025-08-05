@@ -1,55 +1,31 @@
-import { useState } from 'react';
 import { PulseLoader } from 'react-spinners';
-import insertDocument from '../apis/insertDocuments';
+import { useDocumentUpload } from '../hooks/useDocuments';
 
-const DocumentUploader = ({ setRefreshViewer }) => {
-  const [selectedFile, setSelectedFile] = useState();
-  const [isFilePicked, setIsFilePicked] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [processingMode, setProcessingMode] = useState('fast');
-  const [uploadResult, setUploadResult] = useState(null);
+const DocumentUploader = ({ onUploadSuccess }) => {
+  const {
+    selectedFile,
+    isUploading,
+    uploadResult,
+    processingMode,
+    selectFile,
+    uploadDocument,
+    setProcessingMode,
+    clearResult,
+  } = useDocumentUpload();
+
+  const isFilePicked = !!selectedFile;
 
   const changeHandler = (event) => {
     if (event.target && event.target.files && event.target.files.length > 0) {
-      setSelectedFile(event.target.files[0]);
-      setIsFilePicked(true);
-      setUploadResult(null); // Clear previous results
+      selectFile(event.target.files[0]);
     }
   };
 
   const handleSubmission = async () => {
-    if (selectedFile) {
-      setIsLoading(true);
-      setUploadResult(null);
-      
-      try {
-        const result = await insertDocument(selectedFile, processingMode);
-        
-        if (result.success) {
-          setUploadResult({
-            success: true,
-            message: result.data.message,
-            processingTime: result.data.processing_time,
-            nodesCreated: result.data.nodes_created,
-            chunkingStrategy: result.data.chunking_strategy
-          });
-          setRefreshViewer(true);
-          setSelectedFile(undefined);
-          setIsFilePicked(false);
-        } else {
-          setUploadResult({
-            success: false,
-            error: result.error
-          });
-        }
-      } catch (error) {
-        setUploadResult({
-          success: false,
-          error: error.message
-        });
-      } finally {
-        setIsLoading(false);
-      }
+    try {
+      await uploadDocument(onUploadSuccess);
+    } catch (error) {
+      console.error('Upload failed:', error);
     }
   };
 
@@ -70,7 +46,7 @@ const DocumentUploader = ({ setRefreshViewer }) => {
         id='file-input'
         accept='.pdf,.txt,.json,.md,.docx'
         onChange={changeHandler}
-        disabled={isLoading}
+        disabled={isUploading}
       />
       <label className='uploader__label' htmlFor='file-input'>
         <svg
@@ -118,7 +94,7 @@ const DocumentUploader = ({ setRefreshViewer }) => {
                   value='fast'
                   checked={processingMode === 'fast'}
                   onChange={(e) => setProcessingMode(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isUploading}
                 />
                 <span className='uploader__radio-label'>
                   ⚡ Fast <small>(Sentence chunking, ~5-10s)</small>
@@ -130,7 +106,7 @@ const DocumentUploader = ({ setRefreshViewer }) => {
                   value='enhanced'
                   checked={processingMode === 'enhanced'}
                   onChange={(e) => setProcessingMode(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isUploading}
                 />
                 <span className='uploader__radio-label'>
                   🧠 Enhanced <small>(Semantic + AI metadata, ~30-60s)</small>
@@ -139,7 +115,7 @@ const DocumentUploader = ({ setRefreshViewer }) => {
             </div>
           </div>
           
-          {!isLoading && (
+          {!isUploading && (
             <button className='uploader__btn' onClick={handleSubmission}>
               Upload Document ({processingMode === 'fast' ? 'Fast' : 'Enhanced'})
             </button>
@@ -178,7 +154,7 @@ const DocumentUploader = ({ setRefreshViewer }) => {
         </div>
       )}
 
-      {isLoading && (
+      {isUploading && (
         <div className='uploader__loader'>
           <PulseLoader color='#3b82f6' size={8} margin={2} />
           <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>

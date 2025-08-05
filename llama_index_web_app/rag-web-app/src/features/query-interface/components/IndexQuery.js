@@ -1,13 +1,16 @@
-import { useState } from 'react';
 import { PulseLoader } from 'react-spinners';
 import classNames from 'classnames';
-import queryIndex from '../apis/queryIndex';
+import { useQuery } from '../hooks/useQuery';
 
 const IndexQuery = () => {
-  const [isLoading, setLoading] = useState(false);
-  const [responseText, setResponseText] = useState('');
-  const [responseSources, setResponseSources] = useState([]);
-  const [queryText, setQueryText] = useState('');
+  const {
+    queryText,
+    setQueryText,
+    isLoading,
+    responseText,
+    responseSources,
+    executeQuery,
+  } = useQuery();
 
   const handleQuery = (e) => {
     if (e.key === 'Enter' && queryText.trim()) {
@@ -19,20 +22,6 @@ const IndexQuery = () => {
     if (queryText.trim()) {
       executeQuery();
     }
-  };
-
-  const executeQuery = () => {
-    setLoading(true);
-    queryIndex(queryText).then((response) => {
-      setLoading(false);
-      setResponseText(response.text);
-      setResponseSources(response.sources);
-    }).catch((error) => {
-      setLoading(false);
-      setResponseText('Sorry, there was an error processing your query. Please try again.');
-      setResponseSources([]);
-      console.error('Query error:', error);
-    });
   };
 
   const handleInputChange = (e) => {
