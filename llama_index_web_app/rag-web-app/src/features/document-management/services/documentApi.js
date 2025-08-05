@@ -12,7 +12,7 @@ export const documentApi = {
    */
   async fetchDocuments() {
     try {
-      const response = await apiClient.get('/documents');
+      const response = await apiClient.get('/getDocuments');
       return response;
     } catch (error) {
       console.error('Error fetching documents:', error);

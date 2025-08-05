@@ -10,15 +10,23 @@ const DocumentTools = () => {
   // Get the list on first load
   useEffect(() => {
     fetchDocuments().then((documents) => {
-      setDocumentList(documents);
+      console.log('DocumentTools: Fetched documents:', documents?.length || 0);
+      setDocumentList(documents || []);
+    }).catch((error) => {
+      console.error('DocumentTools: Error fetching documents:', error);
+      setDocumentList([]);
     });
   }, []);
 
   useEffect(() => {
     if (refreshViewer) {
+      console.log('DocumentTools: Refreshing viewer');
       setRefreshViewer(false);
       fetchDocuments().then((documents) => {
-        setDocumentList(documents);
+        console.log('DocumentTools: Refreshed documents:', documents?.length || 0);
+        setDocumentList(documents || []);
+      }).catch((error) => {
+        console.error('DocumentTools: Error refreshing documents:', error);
       });
     }
   }, [refreshViewer]);

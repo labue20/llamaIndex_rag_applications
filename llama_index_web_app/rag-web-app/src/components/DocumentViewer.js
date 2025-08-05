@@ -36,7 +36,7 @@ const DocumentViewer = ({ documentList }) => {
     }
   };
 
-  let documentListElems = documentList.map((document, index) => {
+  let documentListElems = (documentList || []).map((document, index) => {
     const truncatedId = truncateText(document.id, MAX_TITLE_LENGTH);
     const truncatedText = truncateText(document.text, MAX_DOC_LENGTH);
     const fileIcon = getFileTypeIcon(document.file_type);
@@ -120,7 +120,7 @@ const DocumentViewer = ({ documentList }) => {
     documentListElems,
     <div key='viewer_title' className='viewer__list__item'>
       <p className='viewer__list__header'>
-        📚 Document Library ({documentList.length} documents)
+        📚 Document Library ({documentList ? documentList.length : 0} documents)
       </p>
     </div>
   );
@@ -128,7 +128,7 @@ const DocumentViewer = ({ documentList }) => {
   return (
     <div className='viewer'>
       <div className='viewer__list'>
-        {documentList.length > 0 ? (
+        {documentList && documentList.length > 0 ? (
           documentListElems
         ) : (
           <>
