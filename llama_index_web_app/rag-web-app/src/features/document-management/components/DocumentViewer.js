@@ -88,22 +88,6 @@ const DocumentViewer = ({ documentList }) => {
           {truncatedText}
         </p>
         
-        {document.key_sections && document.key_sections.length > 0 && (
-          <div className='viewer__key-sections'>
-            <p className='viewer__sections-title'>🔑 Key Sections:</p>
-            {document.key_sections.slice(0, 2).map((section, idx) => (
-              <p key={idx} className='viewer__section-item'>
-                • {truncateText(section, 60)}
-              </p>
-            ))}
-            {document.key_sections.length > 2 && (
-              <p className='viewer__section-item viewer__section-more'>
-                +{document.key_sections.length - 2} more sections...
-              </p>
-            )}
-          </div>
-        )}
-        
         {document.processing_timestamp && (
           <div className='viewer__timestamp'>
             <small>

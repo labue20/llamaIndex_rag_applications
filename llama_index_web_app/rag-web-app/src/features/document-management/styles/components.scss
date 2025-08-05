@@ -326,37 +326,6 @@
     font-weight: 500;
   }
 
-  &__key-sections {
-    background-color: rgba(59, 130, 246, 0.05);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    border-radius: 6px;
-    padding: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-
-  &__sections-title {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: theme-color(accent);
-    margin: 0 0 0.25rem 0;
-  }
-
-  &__section-item {
-    font-size: 0.65rem;
-    color: theme-color(text-secondary);
-    margin: 0 0 0.15rem 0;
-    line-height: 1.3;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-
-  &__section-more {
-    font-style: italic;
-    color: theme-color(accent);
-  }
-
   &__timestamp {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
