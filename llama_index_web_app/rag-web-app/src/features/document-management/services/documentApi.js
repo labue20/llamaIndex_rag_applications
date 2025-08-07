@@ -28,9 +28,17 @@ export const documentApi = {
    */
   async uploadDocument(file, processingMode = 'fast') {
     try {
+      console.log('Uploading file:', file.name, 'Type:', file.type, 'Size:', file.size);
+      
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', file, file.name); // Explicitly set filename
+      formData.append('filename_as_doc_id', 'true');
       formData.append('processing_mode', processingMode);
+      
+      console.log('FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, ':', value);
+      }
 
       const uploadURL = 'http://localhost:5601/uploadFile';
       const response = await fetch(uploadURL, {
@@ -44,7 +52,9 @@ export const documentApi = {
         throw new Error(`Upload failed: ${errorText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log('Upload response:', result);
+      return result;
     } catch (error) {
       console.error('Error uploading document:', error);
       throw error;

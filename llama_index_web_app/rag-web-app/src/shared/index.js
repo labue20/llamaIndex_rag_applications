@@ -3,8 +3,16 @@
  * Centralized exports for all shared functionality
  */
 
-// Components
+/**
+ * Shared Components and Utilities
+ * Centralized exports for shared functionality
+ */
+
 export { default as Header } from './components/Header';
+export { default as TabContainer } from './components/TabContainer';
+export { default as SplitLayout } from './components/SplitLayout';
+export { default as RightPane } from './components/RightPane';
+export { default as SidebarLayout } from './components/SidebarLayout';
 
 // Services
 export { apiClient, ApiClient } from './services/apiClient';

@@ -1,7 +1,7 @@
 import { PulseLoader } from 'react-spinners';
 import { useDocumentUpload } from '../hooks/useDocuments';
 
-const DocumentUploader = ({ onUploadSuccess }) => {
+const DocumentUploader = ({ onUploadSuccess, compact = false }) => {
   const {
     selectedFile,
     isUploading,
@@ -15,9 +15,23 @@ const DocumentUploader = ({ onUploadSuccess }) => {
 
   const isFilePicked = !!selectedFile;
 
-  const changeHandler = (event) => {
+  const changeHandler = async (event) => {
     if (event.target && event.target.files && event.target.files.length > 0) {
-      selectFile(event.target.files[0]);
+      const file = event.target.files[0];
+      selectFile(file);
+      
+      // If in compact mode, auto-upload the file
+      if (compact) {
+        try {
+          await uploadDocument(onUploadSuccess, file);
+          // Reset the input to allow selecting the same file again
+          event.target.value = '';
+        } catch (error) {
+          console.error('Auto-upload failed:', error);
+          // Reset the input on error as well
+          event.target.value = '';
+        }
+      }
     }
   };
 
@@ -38,7 +52,7 @@ const DocumentUploader = ({ onUploadSuccess }) => {
   };
 
   return (
-    <div className='uploader'>
+    <div className={`uploader ${compact ? 'uploader--compact' : ''}`}>
       <input
         className='uploader__input'
         type='file'
@@ -48,31 +62,55 @@ const DocumentUploader = ({ onUploadSuccess }) => {
         onChange={changeHandler}
         disabled={isUploading}
       />
-      <label className='uploader__label' htmlFor='file-input'>
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M12 15V3M12 3L16 7M12 3L8 7M2 17L2 19C2 20.1046 2.89543 21 4 21L20 21C21.1046 21 22 20.1046 22 19L22 17"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <div>
-          <div>Choose file to upload</div>
-          <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.25rem' }}>
-            Supports PDF, TXT, JSON, MD, DOCX
+      
+      {compact ? (
+        // Compact button for header
+        <label className={`uploader__compact-btn ${isUploading ? 'uploader__compact-btn--uploading' : ''}`} htmlFor='file-input'>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 15V3M12 3L16 7M12 3L8 7M2 17L2 19C2 20.1046 2.89543 21 4 21L20 21C21.1046 21 22 20.1046 22 19L22 17"
+              stroke="#3b82f6"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>{isUploading ? 'Uploading...' : 'Select Files'}</span>
+        </label>
+      ) : (
+        // Full upload area
+        <label className='uploader__label' htmlFor='file-input'>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 15V3M12 3L16 7M12 3L8 7M2 17L2 19C2 20.1046 2.89543 21 4 21L20 21C21.1046 21 22 20.1046 22 19L22 17"
+              stroke="#3b82f6"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <div>
+            <div style={{ color: '#3b82f6' }}>Select Files</div>
+            <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.25rem' }}>
+              Supports PDF, TXT, JSON, MD, DOCX
+            </div>
           </div>
-        </div>
-      </label>
+        </label>
+      )}
 
-      {isFilePicked && selectedFile ? (
+      {!compact && isFilePicked && selectedFile ? (
         <div className='uploader__details'>
           <div className='uploader__details__info'>
             <div>
@@ -137,9 +175,7 @@ const DocumentUploader = ({ onUploadSuccess }) => {
               <div className='uploader__result-title'>✅ {uploadResult.message}</div>
               <div className='uploader__result-details'>
                 <small>
-                  • Processing time: {uploadResult.processingTime?.toFixed(2)}s<br/>
-                  • Nodes created: {uploadResult.nodesCreated}<br/>
-                  • Strategy: {uploadResult.chunkingStrategy}
+                  • Processing time: {uploadResult.processingTime?.toFixed(2)}s
                 </small>
               </div>
             </div>

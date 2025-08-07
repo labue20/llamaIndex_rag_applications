@@ -23,7 +23,9 @@ export const useDocuments = () => {
     setError(null);
     
     try {
+      console.log('Fetching documents...');
       const fetchedDocuments = await documentApi.fetchDocuments();
+      console.log('Fetched documents:', fetchedDocuments);
       setDocuments(fetchedDocuments);
     } catch (err) {
       setError(err.message);
@@ -91,9 +93,12 @@ export const useDocumentUpload = () => {
   /**
    * Upload the selected document
    * @param {Function} onSuccess - Callback for successful upload
+   * @param {File} fileToUpload - Optional file to upload directly (bypasses selectedFile state)
    */
-  const uploadDocument = useCallback(async (onSuccess) => {
-    if (!selectedFile) {
+  const uploadDocument = useCallback(async (onSuccess, fileToUpload = null) => {
+    const fileToUse = fileToUpload || selectedFile;
+    
+    if (!fileToUse) {
       throw new Error('No file selected');
     }
 
@@ -101,7 +106,7 @@ export const useDocumentUpload = () => {
     setUploadResult(null);
 
     try {
-      const result = await documentApi.uploadDocument(selectedFile, processingMode);
+      const result = await documentApi.uploadDocument(fileToUse, processingMode);
       
       setUploadResult({
         success: true,
@@ -109,8 +114,10 @@ export const useDocumentUpload = () => {
         ...result
       });
 
-      // Clear the selected file after successful upload
-      setSelectedFile(null);
+      // Clear the selected file after successful upload (only if using state file)
+      if (!fileToUpload) {
+        setSelectedFile(null);
+      }
       
       // Call success callback if provided
       if (onSuccess) {
