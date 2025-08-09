@@ -1,0 +1,104 @@
+/**
+ * Authentication Components Styles
+ */
+
+/* Login Component Styles */
+.auth-form {
+  max-width: 400px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: theme-color(primary);
+  border: 1px solid theme-color(border);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px theme-color(shadow);
+
+  h2 {
+    text-align: center;
+    margin: 0 0 2rem 0;
+    color: theme-color(text-primary);
+    font-weight: 600;
+  }
+
+  .form-group {
+    margin-bottom: 1.5rem;
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: theme-color(text-primary);
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid theme-color(border);
+      border-radius: 6px;
+      font-size: 1rem;
+      color: theme-color(text-primary);
+      background-color: theme-color(primary);
+      transition: all 0.2s ease;
+
+      &:focus {
+        outline: none;
+        border-color: theme-color(accent);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      &:disabled {
+        background-color: theme-color(secondary);
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      &::placeholder {
+        color: theme-color(text-secondary);
+      }
+    }
+  }
+
+  .error-message {
+    background-color: rgba(239, 68, 68, 0.1);
+    border: 1px solid theme-color(error);
+    color: theme-color(error);
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+  }
+
+  button[type="submit"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    color: theme-color(text-contrast);
+    background-color: theme-color(accent);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background-color: theme-color(accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px -1px theme-color(shadow);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+}
+
+/* Authentication Container */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: theme-color(secondary);
+  padding: 1rem;
+}
