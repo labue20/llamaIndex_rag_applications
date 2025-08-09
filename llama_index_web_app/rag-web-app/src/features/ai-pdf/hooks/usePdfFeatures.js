@@ -4,6 +4,16 @@
  */
 
 import { useState, useCallback } from 'react';
+import { generateMessageId, sanitizeInput, handleApiError } from '../utils/helpers';
+
+// Configuration
+const API_CONFIG = {
+  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:5601',
+  ENDPOINTS: {
+    CHAT: '/chat',
+    SUMMARIZE: '/summarize'
+  }
+};
 
 /**
  * Hook for PDF chat functionality
@@ -18,10 +28,16 @@ export const usePdfChat = () => {
   /**
    * Send a message to chat with PDF
    * @param {string} message - User message
+   * @param {string} pdfId - Selected PDF document ID
    */
-  const sendMessage = useCallback(async (message) => {
-    if (!selectedPdf) {
+  const sendMessage = useCallback(async (message, pdfId) => {
+    if (!pdfId) {
       throw new Error('No PDF selected for chat');
+    }
+
+    const sanitizedMessage = sanitizeInput(message);
+    if (!sanitizedMessage) {
+      throw new Error('Message cannot be empty');
     }
 
     setIsLoading(true);
@@ -29,33 +45,49 @@ export const usePdfChat = () => {
 
     // Add user message
     const userMessage = {
-      id: Date.now(),
+      id: generateMessageId('user'),
       type: 'user',
-      content: message,
+      content: sanitizedMessage,
       timestamp: new Date().toISOString()
     };
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      // TODO: Implement API call for PDF chat
-      // For now, simulate a response
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHAT}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: sanitizedMessage,
+          documentId: pdfId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Chat request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
       
       const botMessage = {
-        id: Date.now() + 1,
+        id: generateMessageId('assistant'),
         type: 'assistant',
-        content: `I'm analyzing your PDF "${selectedPdf.name}" regarding: "${message}". This is a placeholder response.`,
+        content: data.response || 'I apologize, but I could not generate a response.',
         timestamp: new Date().toISOString()
       };
       
       setMessages(prev => [...prev, botMessage]);
     } catch (err) {
-      setError(err.message);
-      console.error('Error in PDF chat:', err);
+      const errorMessage = handleApiError(err, 'PDF chat');
+      setError(errorMessage);
+      
+      // Remove user message on error
+      setMessages(prev => prev.filter(msg => msg.id !== userMessage.id));
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPdf]);
+  }, []);
 
   /**
    * Clear chat messages
@@ -65,23 +97,12 @@ export const usePdfChat = () => {
     setError(null);
   }, []);
 
-  /**
-   * Select a PDF for chat
-   * @param {Object} pdf - PDF document object
-   */
-  const selectPdf = useCallback((pdf) => {
-    setSelectedPdf(pdf);
-    clearChat();
-  }, [clearChat]);
-
   return {
     messages,
     isLoading,
     error,
-    selectedPdf,
     sendMessage,
     clearChat,
-    selectPdf,
   };
 };
 
@@ -93,14 +114,14 @@ export const usePdfSummary = () => {
   const [summary, setSummary] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedPdf, setSelectedPdf] = useState(null);
-  const [summaryType, setSummaryType] = useState('overview'); // overview, detailed, bullet-points
 
   /**
    * Generate PDF summary
+   * @param {string} pdfId - PDF document ID
+   * @param {string} summaryType - Type of summary (overview, detailed, bullet-points)
    */
-  const generateSummary = useCallback(async () => {
-    if (!selectedPdf) {
+  const generateSummary = useCallback(async (pdfId, summaryType = 'overview') => {
+    if (!pdfId) {
       throw new Error('No PDF selected for summarization');
     }
 
@@ -109,31 +130,37 @@ export const usePdfSummary = () => {
     setSummary(null);
 
     try {
-      // TODO: Implement API call for PDF summarization
-      // For now, simulate a response
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SUMMARIZE}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          documentId: pdfId,
+          summaryType
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Summarization request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
       
-      const mockSummary = {
+      setSummary({
         type: summaryType,
-        content: `This is a ${summaryType} summary of "${selectedPdf.name}". Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.`,
-        keyPoints: [
-          'Key insight 1 from the document',
-          'Important finding 2',
-          'Critical point 3',
-          'Main conclusion 4'
-        ],
-        wordCount: selectedPdf.size ? Math.floor(selectedPdf.size / 10) : 1500,
+        content: data.summary || 'Unable to generate summary.',
+        keyPoints: data.keyPoints || [],
+        wordCount: data.wordCount || 0,
         generatedAt: new Date().toISOString()
-      };
-      
-      setSummary(mockSummary);
+      });
     } catch (err) {
-      setError(err.message);
-      console.error('Error generating PDF summary:', err);
+      const errorMessage = handleApiError(err, 'PDF summarization');
+      setError(errorMessage);
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedPdf, summaryType]);
+  }, []);
 
   /**
    * Clear summary
@@ -143,24 +170,11 @@ export const usePdfSummary = () => {
     setError(null);
   }, []);
 
-  /**
-   * Select a PDF for summarization
-   * @param {Object} pdf - PDF document object
-   */
-  const selectPdf = useCallback((pdf) => {
-    setSelectedPdf(pdf);
-    clearSummary();
-  }, [clearSummary]);
-
   return {
     summary,
     isGenerating,
     error,
-    selectedPdf,
-    summaryType,
     generateSummary,
     clearSummary,
-    selectPdf,
-    setSummaryType,
   };
 };
