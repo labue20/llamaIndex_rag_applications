@@ -20,7 +20,6 @@ const DocumentQuery = () => {
   const [queryText, setQueryText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [responseText, setResponseText] = useState('');
-  const [responseSources, setResponseSources] = useState([]);
   const [error, setError] = useState(null);
 
   /**
@@ -36,7 +35,6 @@ const DocumentQuery = () => {
     setIsLoading(true);
     setError(null);
     setResponseText('');
-    setResponseSources([]);
 
     try {
       const queryURL = new URL(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.QUERY}`);
@@ -54,13 +52,11 @@ const DocumentQuery = () => {
       const queryResponse = await response.json();
       
       setResponseText(queryResponse.text || 'No response generated.');
-      setResponseSources(queryResponse.sources || []);
 
     } catch (err) {
       const errorMessage = handleApiError(err, 'document query');
       setError(errorMessage);
       setResponseText('');
-      setResponseSources([]);
     } finally {
       setIsLoading(false);
     }
@@ -84,36 +80,6 @@ const DocumentQuery = () => {
     if (error) {
       setError(null);
     }
-  };
-
-  const renderSourceItems = () => {
-    return responseSources.map((source, index) => {
-      const nodeTitle = source.doc_id && source.doc_id.length > 35
-        ? `${source.doc_id.substring(0, 35)}...`
-        : source.doc_id || 'Unknown Document';
-        
-      const nodeText = source.text && source.text.length > 180
-        ? `${source.text.substring(0, 180)}...`
-        : source.text || 'No preview available';
-
-      const similarity = source.similarity 
-        ? (source.similarity * 100).toFixed(1) 
-        : 'N/A';
-
-      return (
-        <div key={`${source.doc_id}-${index}`} className='query__sources__item'>
-          <p className='query__sources__item__id' title={source.doc_id}>
-            📄 {nodeTitle}
-          </p>
-          <p className='query__sources__item__text' title={source.text}>
-            {nodeText}
-          </p>
-          <p className='query__sources__item__footer'>
-            Relevance: {similarity}% | Position: {source.start}-{source.end}
-          </p>
-        </div>
-      );
-    });
   };
 
   return (
@@ -154,8 +120,8 @@ const DocumentQuery = () => {
       </div>
 
       <div className='query__results'>
-        <div className='query__sources__item'>
-          <p className='query__sources__item__id'>🤖 AI Response</p>
+        <div className='query__response-header'>
+          <p className='query__response-title'>🤖 AI Response</p>
         </div>
         <div className='query__response-content'>
           {responseText ? (
@@ -177,21 +143,6 @@ const DocumentQuery = () => {
             </p>
           )}
         </div>
-      </div>
-
-      <div className='query__sources'>
-        <div className='query__sources__item'>
-          <p className='query__sources__item__id'>
-            📋 Source References ({responseSources.length})
-          </p>
-        </div>
-        {responseSources.length > 0 ? (
-          renderSourceItems()
-        ) : (
-          <div className='query__sources-placeholder'>
-            Source references will appear here after you search.
-          </div>
-        )}
       </div>
 
       {error && (

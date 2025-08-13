@@ -5,11 +5,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PdfChat from './PdfChat';
 import PdfSummary from './PdfSummary';
-import DocumentQuery from './DocumentQuery';
 
 const FEATURE_TABS = [
   { key: 'chat', label: 'Chat with PDF', component: PdfChat },
-  { key: 'query', label: '🔍 Query Documents', component: DocumentQuery },
   { key: 'summary', label: '📄 Summarize PDF', component: PdfSummary }
 ];
 

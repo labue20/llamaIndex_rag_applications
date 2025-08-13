@@ -8,7 +8,6 @@ const IndexQuery = () => {
     setQueryText,
     isLoading,
     responseText,
-    responseSources,
     executeQuery,
   } = useQuery();
 
@@ -27,33 +26,6 @@ const IndexQuery = () => {
   const handleInputChange = (e) => {
     setQueryText(e.target.value);
   };
-
-  const sourceElems = responseSources.map((source, index) => {
-    const nodeTitle =
-      source.doc_id && source.doc_id.length > 35
-        ? source.doc_id.substring(0, 35) + '...'
-        : source.doc_id;
-    const nodeText =
-      source.text && source.text.length > 180
-        ? source.text.substring(0, 180) + '...'
-        : source.text;
-
-    const similarity = source.similarity ? (source.similarity * 100).toFixed(1) : 'N/A';
-
-    return (
-      <div key={`${source.doc_id}-${index}`} className='query__sources__item'>
-        <p className='query__sources__item__id' title={source.doc_id}>
-          📄 {nodeTitle}
-        </p>
-        <p className='query__sources__item__text' title={source.text}>
-          {nodeText}
-        </p>
-        <p className='query__sources__item__footer'>
-          Relevance: {similarity}% | Position: {source.start}-{source.end}
-        </p>
-      </div>
-    );
-  });
 
   return (
     <div className='query'>
@@ -107,8 +79,8 @@ const IndexQuery = () => {
           'query__results--loading': isLoading,
         })}
       >
-        <div className='query__sources__item'>
-          <p className='query__sources__item__id'>🤖 AI Response</p>
+        <div className='query__response-header'>
+          <p className='query__response-title'>🤖 AI Response</p>
         </div>
         <div style={{ padding: '1rem' }}>
           {responseText ? (
@@ -135,30 +107,6 @@ const IndexQuery = () => {
             </p>
           )}
         </div>
-      </div>
-
-      <div
-        className={classNames('query__sources', {
-          'query__sources--loading': isLoading,
-        })}
-      >
-        <div className='query__sources__item'>
-          <p className='query__sources__item__id'>
-            📋 Source References ({responseSources.length})
-          </p>
-        </div>
-        {responseSources.length > 0 ? (
-          sourceElems
-        ) : (
-          <div style={{ 
-            padding: '2rem 1rem', 
-            textAlign: 'center',
-            color: '#6b7280',
-            fontStyle: 'italic'
-          }}>
-            Source references will appear here after you ask a question.
-          </div>
-        )}
       </div>
     </div>
   );

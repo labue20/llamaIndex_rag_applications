@@ -40,6 +40,8 @@ export const usePdfChat = () => {
       throw new Error('Message cannot be empty');
     }
 
+    console.log('Sending chat request:', { message: sanitizedMessage, documentId: pdfId });
+    
     setIsLoading(true);
     setError(null);
 
@@ -53,7 +55,10 @@ export const usePdfChat = () => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHAT}`, {
+      const apiUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHAT}`;
+      console.log('Making API request to:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,21 +69,28 @@ export const usePdfChat = () => {
         })
       });
 
+      console.log('API response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error(`Chat request failed: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('API error response:', errorText);
+        throw new Error(`Chat request failed: ${response.status} ${response.statusText}. ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('API response data:', data);
       
       const botMessage = {
         id: generateMessageId('assistant'),
         type: 'assistant',
         content: data.response || 'I apologize, but I could not generate a response.',
+        documentName: data.document_name,
         timestamp: new Date().toISOString()
       };
       
       setMessages(prev => [...prev, botMessage]);
     } catch (err) {
+      console.error('Chat error:', err);
       const errorMessage = handleApiError(err, 'PDF chat');
       setError(errorMessage);
       

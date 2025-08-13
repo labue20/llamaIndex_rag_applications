@@ -14,7 +14,6 @@ export const useQuery = () => {
   const [queryText, setQueryText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [responseText, setResponseText] = useState('');
-  const [responseSources, setResponseSources] = useState([]);
   const [error, setError] = useState(null);
 
   /**
@@ -35,7 +34,6 @@ export const useQuery = () => {
       const response = await queryApi.executeQuery(textToQuery);
       
       setResponseText(response.text || '');
-      setResponseSources(response.sources || []);
 
       // Optionally save to query history
       try {
@@ -48,7 +46,6 @@ export const useQuery = () => {
     } catch (err) {
       setError(err.message);
       setResponseText('Sorry, there was an error processing your query. Please try again.');
-      setResponseSources([]);
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +56,6 @@ export const useQuery = () => {
    */
   const clearResults = useCallback(() => {
     setResponseText('');
-    setResponseSources([]);
     setError(null);
   }, []);
 
@@ -69,7 +65,6 @@ export const useQuery = () => {
   const resetQuery = useCallback(() => {
     setQueryText('');
     setResponseText('');
-    setResponseSources([]);
     setError(null);
     setIsLoading(false);
   }, []);
@@ -79,7 +74,6 @@ export const useQuery = () => {
     setQueryText,
     isLoading,
     responseText,
-    responseSources,
     error,
     executeQuery,
     clearResults,

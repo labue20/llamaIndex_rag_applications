@@ -5,7 +5,7 @@ const queryIndex = async (query) => {
 
   const response = await fetch(queryURL, { mode: 'cors' });
   if (!response.ok) {
-    return { text: 'Error in query', sources: [] };
+    return { text: 'Error in query' };
   }
 
   const queryResponse = await response.json();

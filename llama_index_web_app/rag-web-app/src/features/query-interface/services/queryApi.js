@@ -9,7 +9,7 @@ export const queryApi = {
   /**
    * Execute a query against the document index
    * @param {string} queryText - The query text
-   * @returns {Promise<Object>} Query response with text and sources
+   * @returns {Promise<Object>} Query response with text
    */
   async executeQuery(queryText) {
     try {
@@ -27,8 +27,7 @@ export const queryApi = {
     } catch (error) {
       console.error('Query error:', error);
       return { 
-        text: 'Sorry, there was an error processing your query. Please try again.', 
-        sources: [] 
+        text: 'Sorry, there was an error processing your query. Please try again.' 
       };
     }
   },
