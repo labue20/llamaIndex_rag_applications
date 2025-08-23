@@ -1,3 +1,9 @@
+/**
+ * Document Uploader Component
+ * Handles file selection and upload with processing mode options
+ */
+
+import React from 'react';
 import { PulseLoader } from 'react-spinners';
 import { useDocumentUpload } from '../hooks/useDocuments';
 
