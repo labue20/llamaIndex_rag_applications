@@ -45,13 +45,7 @@ const PdfChat = ({ resetTrigger }) => {
     };
   }, []);
 
-  // Cleanup old URLs when uploadedDocument changes (but preserve the current one)
-  useEffect(() => {
-    return () => {
-      // This cleanup runs when uploadedDocument changes, but we handle it carefully
-      // The URL cleanup is handled elsewhere to avoid premature cleanup
-    };
-  }, [uploadedDocument]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
