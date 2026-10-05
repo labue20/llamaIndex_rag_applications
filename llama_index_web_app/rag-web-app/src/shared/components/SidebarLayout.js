@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 
-const SidebarLayout = ({ sections, defaultSection = 0 }) => {
+const SidebarLayout = ({ sections, defaultSection = 0, footer = null }) => {
   const [activeSection, setActiveSection] = useState(defaultSection);
   const [hoveredSection, setHoveredSection] = useState(null);
 
@@ -80,6 +80,7 @@ const SidebarLayout = ({ sections, defaultSection = 0 }) => {
             </div>
           </div>
         ))}
+        {footer}
       </div>
     </div>
   );

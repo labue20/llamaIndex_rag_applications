@@ -1,9 +1,11 @@
-import React, { useMemo, useCallback } from 'react';
-import { Header, SidebarLayout, Icon } from './shared';
+import React, { useMemo, useCallback, useRef, useState } from 'react';
+import { Header, Footer, SidebarLayout, Icon } from './shared';
 import { DocumentTools, CompactUploadButton } from './features/document-management';
-import { AiPdfTools } from './features/ai-pdf';
+import { AiPdfTools, ChatHeaderActions } from './features/ai-pdf';
 import { useDocuments } from './features/document-management';
 import { PdfToWordConverter } from './features/pdf-to-word-converter';
+import { WordToPdfConverter } from './features/word-to-pdf-converter';
+import { SplitPdf } from './features/split-pdf';
 import './shared/styles/base.scss';
 import './shared/styles/components.scss';
 import './features/document-management/styles/components.scss';
@@ -11,6 +13,8 @@ import './features/ai-pdf/styles/components.scss';
 
 function App() {
   const { documents, refreshDocuments } = useDocuments();
+  const chatRef = useRef(null);
+  const [chatStatus, setChatStatus] = useState({ hasDocument: false, hasMessages: false, isBusy: false });
 
   const handleUploadSuccess = useCallback(async (result) => {
     console.log('Upload successful, refreshing documents...', result);
@@ -38,7 +42,8 @@ function App() {
       label: 'AI PDF',
       icon: <Icon name='chat' />,
       title: 'Chat with PDF',
-      content: <AiPdfTools documents={documents} onUploadSuccess={handleUploadSuccess} />
+      content: <AiPdfTools ref={chatRef} onStatusChange={setChatStatus} />,
+      headerAction: <ChatHeaderActions chatRef={chatRef} status={chatStatus} />
     },
     {
       label: 'PDF to Word',
@@ -51,22 +56,22 @@ function App() {
       label: 'Word to PDF',
       icon: <Icon name='fileToPdf' />,
       title: 'Word to PDF Converter',
-      // content: <WordToPdfConverter />
+      content: <WordToPdfConverter />
     },
     {
       label: 'Split PDF',
       icon: <Icon name='scissors' />,
       title: 'Split PDF Converter',
-      // content: <Settings />
+      content: <SplitPdf />
     }
 
-  ], [documents, refreshDocuments, handleUploadSuccess]);
+  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus]);
 
   return (
     <div className='app'>
       <Header />
       <div className='app-container'>
-        <SidebarLayout sections={sections} defaultSection={0} />
+        <SidebarLayout sections={sections} defaultSection={0} footer={<Footer />} />
       </div>
     </div>
   );

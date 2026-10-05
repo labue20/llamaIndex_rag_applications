@@ -1,70 +1,57 @@
 import React, { useState } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
 import '../../../shared/styles/converter.scss';
 
+const formatSize = (bytes) => {
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+};
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
-const PdfToWordConverter = () => {
+const WordToPdfConverter = () => {
   const [file, setFile] = useState(null);
   const [isConverting, setIsConverting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [pdfInfo, setPdfInfo] = useState(null); // PDF file information
 
-  const handleFileSelect = async (event) => {
+  const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
+    event.target.value = ''; // allow choosing the same file again
+    if (!selectedFile) return;
+
+    if (selectedFile.name.toLowerCase().endsWith('.docx')) {
       setFile(selectedFile);
-      try {
-        const arrayBuffer = await selectedFile.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        setPdfInfo({
-          numPages: pdf.numPages,
-          title: selectedFile.name,
-          size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB'
-        });
-      } catch (error) {
-        console.error('Error reading PDF info:', error);
-      }
     } else {
-      alert('Please select a valid PDF file');
+      alert('Please select a Word document (.docx)');
     }
   };
 
-  const convertToWord = async () => {
+  const convertToPdf = async () => {
     if (!file) return;
-    
+
     setIsConverting(true);
     setProgress(10);
-    
+
     try {
-      // Create FormData to send file to backend
       const formData = new FormData();
       formData.append('file', file);
-      
+
       setProgress(30);
-      
-      // Send file to backend for conversion using PyMuPDF
-      const response = await fetch('http://localhost:5601/convertPdfToWord', {
+
+      const response = await fetch('http://localhost:5601/convertWordToPdf', {
         method: 'POST',
         body: formData,
       });
-      
-      setProgress(60);
-      
+
+      setProgress(70);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Conversion failed');
       }
-      
-      setProgress(80);
-      
-      // Get the converted Word document as blob
+
       const blob = await response.blob();
       setProgress(95);
-      
-      // Create download link and trigger download
-      const fileName = file.name.replace('.pdf', '_converted.docx');
+
+      // Trigger download of the converted PDF
+      const fileName = file.name.replace(/\.docx$/i, '_converted.pdf');
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -73,16 +60,11 @@ const PdfToWordConverter = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       setProgress(100);
-      
-      setTimeout(() => {
-        alert('Successfully converted PDF to Word document using PyMuPDF!');
-      }, 500);
-      
     } catch (error) {
       console.error('Conversion failed:', error);
-      alert(`Failed to convert PDF to Word: ${error.message}`);
+      alert(`Failed to convert Word document to PDF: ${error.message}`);
     } finally {
       setIsConverting(false);
       setProgress(0);
@@ -95,53 +77,49 @@ const PdfToWordConverter = () => {
         <div className="upload-area">
           <input
             type="file"
-            accept=".pdf"
+            accept=".docx"
             onChange={handleFileSelect}
             disabled={isConverting}
-            id="pdf-file-input"
+            id="word-file-input"
           />
-          <label htmlFor="pdf-file-input" className="upload-label">
-            {file ? 'Change PDF File' : 'Choose PDF File'}
+          <label htmlFor="word-file-input" className="upload-label">
+            {file ? 'Change Word Doc' : 'Choose Word Doc'}
           </label>
-          <p className="upload-hint">Drop your PDF here or click to browse • Max 50MB</p>
+          <p className="upload-hint">Drop your Word document (.docx) here or click to browse</p>
         </div>
       </div>
-      
-      {pdfInfo && (
+
+      {file && (
         <div className="pdf-info">
           <h4>Document Information</h4>
           <div className="info-grid">
             <div className="info-item">
               <span className="info-label">File:</span>
-              <span className="info-value">{pdfInfo.title}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Pages:</span>
-              <span className="info-value">{pdfInfo.numPages}</span>
+              <span className="info-value">{file.name}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Size:</span>
-              <span className="info-value">{pdfInfo.size}</span>
+              <span className="info-value">{formatSize(file.size)}</span>
             </div>
           </div>
         </div>
       )}
-      
+
       {file && (
         <div className="conversion-action">
-          <button 
-            onClick={convertToWord}
+          <button
+            onClick={convertToPdf}
             disabled={isConverting}
             className="convert-btn"
           >
             <span className="btn-icon">
               {isConverting ? '⏳' : '🔄'}
             </span>
-            {isConverting ? 'Converting Magic...' : 'Convert to Word'}
+            {isConverting ? 'Converting...' : 'Convert to PDF'}
           </button>
         </div>
       )}
-      
+
       {isConverting && (
         <div className="progress-section">
           <div className="progress-header">
@@ -149,8 +127,8 @@ const PdfToWordConverter = () => {
             <span className="progress-percentage">{Math.round(progress)}%</span>
           </div>
           <div className="progress-bar">
-            <div 
-              className="progress-fill" 
+            <div
+              className="progress-fill"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -160,4 +138,4 @@ const PdfToWordConverter = () => {
   );
 };
 
-export default PdfToWordConverter;
+export default WordToPdfConverter;

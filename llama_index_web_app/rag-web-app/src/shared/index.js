@@ -8,6 +8,7 @@ export { default as SplitLayout } from './components/SplitLayout';
 export { default as SidebarLayout } from './components/SidebarLayout';
 export { default as FileSelector } from './components/FileSelector';
 export { default as Icon } from './components/Icon';
+export { default as Footer } from './components/Footer';
 
 // Services
 export { apiClient, ApiClient } from './services/apiClient';

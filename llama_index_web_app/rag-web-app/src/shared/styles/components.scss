@@ -78,6 +78,38 @@
   }
 }
 
+/****  Footer.js  ****/
+.app-footer {
+  flex-shrink: 0;
+  padding: 0.625rem 1.5rem;
+  border-top: 1px solid theme-color(border);
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: theme-color(text-secondary);
+
+  p {
+    margin: 0;
+  }
+
+  &__links {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    color: theme-color(text-muted);
+
+    a {
+      color: theme-color(accent);
+      text-decoration: none;
+
+      &:hover {
+        color: theme-color(accent-hover);
+        text-decoration: underline;
+      }
+    }
+  }
+}
+
 /****  SplitLayout.js  ****/
 .split-layout {
   display: flex;
@@ -280,7 +312,8 @@
   }
 
   &__panel {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
   }
@@ -291,9 +324,10 @@
     padding: 0.75rem 1.5rem;
     border-bottom: 1px solid theme-color(border);
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem 1rem;
   }
 
   &__title {
@@ -579,4 +613,62 @@
       margin: 0;
     }
   }
+}
+
+// Dropzone variant: matches the PDF to Word upload area
+.file-selector--dropzone {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 760px;
+  padding: 1.5rem 1rem;
+  border: 2px dashed theme-color(border);
+  border-radius: 10px;
+  text-align: center;
+  background: theme-color(primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: theme-color(accent);
+    box-shadow: 0 8px 25px rgba(theme-color(accent), 0.15);
+  }
+
+  .file-selector__dropzone-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+
+    &:disabled {
+      cursor: wait;
+    }
+  }
+
+  .file-selector__dropzone-btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: theme-color(accent);
+    color: theme-color(text-contrast);
+    border-radius: 8px;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    pointer-events: none;
+  }
+
+  &:hover .file-selector__dropzone-btn {
+    background: theme-color(accent-hover);
+  }
+
+  .file-selector__dropzone-hint {
+    margin: 1rem 0 0 0;
+    color: theme-color(text-muted);
+    font-size: 0.875rem;
+  }
+}
+
+.file-selector__btn--disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }

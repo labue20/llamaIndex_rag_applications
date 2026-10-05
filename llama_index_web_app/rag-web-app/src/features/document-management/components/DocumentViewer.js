@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { Icon } from '../../../shared';
 
 const MAX_TITLE_LENGTH = 45;
 
@@ -126,25 +127,17 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
     });
   };
 
-  const getFileTypeIcon = (fileType) => {
+  // Color tone for the file icon tile, by file type
+  const getFileTypeTone = (fileType) => {
     switch (fileType?.toLowerCase()) {
-      case '.pdf': return '📋'; // PDF document
-      case '.txt': return '📝'; // Text file
-      case '.md': return '📄'; // Markdown
+      case '.pdf': return 'pdf';
       case '.docx':
-      case '.doc': return '📝'; // Word document
-      case '.json': return '⚙️'; // JSON data
+      case '.doc': return 'doc';
       case '.xlsx':
-      case '.xls': return '📊'; // Excel spreadsheet
+      case '.xls': return 'sheet';
       case '.pptx':
-      case '.ppt': return '📺'; // PowerPoint
-      case '.zip':
-      case '.rar': return '📦'; // Archive
-      case '.jpg':
-      case '.jpeg':
-      case '.png':
-      case '.gif': return '🖼️'; // Image
-      default: return '📄'; // Generic document
+      case '.ppt': return 'slide';
+      default: return 'default';
     }
   };
 
@@ -300,7 +293,7 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
                 console.log('Document object:', document);
                 const displayName = getDocumentDisplayName(document);
                 const truncatedName = truncateText(displayName, MAX_TITLE_LENGTH);
-                const fileIcon = getFileTypeIcon(document.file_type);
+                const fileTone = getFileTypeTone(document.file_type);
                 const isSelected = selectedDocuments.has(document.id);
                 
                 return (
@@ -321,7 +314,9 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
                       )}
                     </td>
                     <td className='viewer__table-cell viewer__table-cell--name'>
-                      <span className='viewer__file-icon'>{fileIcon}</span>
+                      <span className={`viewer__file-icon viewer__file-icon--${fileTone}`}>
+                        <Icon name='file' size={16} />
+                      </span>
                       <span className='viewer__file-name' title={displayName}>
                         {truncatedName}
                       </span>

@@ -3,12 +3,12 @@
  * Interactive chat interface for conversing with PDF documents
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { FileSelector, SplitLayout } from '../../../shared';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { FileSelector, SplitLayout, Icon } from '../../../shared';
 import PdfViewer from './PdfViewer';
 import { usePdfChat } from '../hooks/usePdfFeatures';
 
-const PdfChat = () => {
+const PdfChat = forwardRef(({ onStatusChange }, ref) => {
   const [inputMessage, setInputMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadedDocument, setUploadedDocument] = useState(null);
@@ -71,6 +71,10 @@ const PdfChat = () => {
       URL.revokeObjectURL(uploadedDocument.url);
     }
     
+    // A new document starts a new conversation
+    clearChat();
+    setInputMessage('');
+
     // Store file in both state and ref for persistence
     setSelectedFile(file);
     fileRef.current = file; // Store in ref to prevent loss
@@ -174,8 +178,14 @@ const PdfChat = () => {
     }
   };
 
+  // Clear the conversation but keep the current document open
+  const handleClearChat = () => {
+    clearChat();
+    setInputMessage('');
+  };
+
   // Close the current document and return to the file selector
-  const handleNewDocument = () => {
+  const handleCloseDocument = () => {
     if (uploadedDocument?.url) {
       URL.revokeObjectURL(uploadedDocument.url);
     }
@@ -186,6 +196,22 @@ const PdfChat = () => {
     setInputMessage('');
     clearChat();
   };
+
+  // Let the page header (ChatHeaderActions) drive these actions
+  useImperativeHandle(ref, () => ({
+    selectFile: handleFileSelect,
+    uploadSucceeded: handleFileUpload,
+    uploadFailed: handleUploadError,
+    clearChat: handleClearChat,
+    closeDocument: handleCloseDocument,
+  }));
+
+  const hasDocument = !!uploadedDocument;
+  const hasMessages = messages.length > 0;
+  const isBusy = isProcessingForAI || isLoading;
+  useEffect(() => {
+    onStatusChange?.({ hasDocument, hasMessages, isBusy });
+  }, [onStatusChange, hasDocument, hasMessages, isBusy]);
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], { 
@@ -199,14 +225,23 @@ const PdfChat = () => {
     return (
       <div className='pdf-chat'>
         <div className='pdf-chat__upload-center'>
-          <p>Select a PDF file to start chatting</p>
+          <div className='pdf-chat__intro'>
+            <span className='pdf-chat__intro-icon'>
+              <Icon name='chat' size={24} />
+            </span>
+            <h3 className='pdf-chat__intro-title'>Select a PDF file to start chatting</h3>
+            <p className='pdf-chat__intro-text'>
+              Upload a document, then ask questions about it and get answers drawn from its content.
+            </p>
+          </div>
           <FileSelector
             onFileSelect={handleFileSelect}
             onUploadSuccess={handleFileUpload}
             onUploadError={handleUploadError}
             acceptedTypes='.pdf'
-            label='Select a file'
-            variant='compact'
+            label='Choose PDF File'
+            variant='dropzone'
+            hint='Drop your PDF here or click to browse'
             autoUpload={true}
             className='pdf-chat__file-selector'
           />
@@ -222,14 +257,6 @@ const PdfChat = () => {
         <p className='pdf-chat__selected'>
           Chatting with: <strong>{uploadedDocument.name || 'PDF Document'}</strong>
         </p>
-        <button
-          type='button'
-          className='pdf-chat__new-document'
-          onClick={handleNewDocument}
-          disabled={isProcessingForAI}
-        >
-          New PDF
-        </button>
         {isProcessingForAI && (
           <div className='pdf-chat__processing'>
             <span className='pdf-chat__processing-icon'>⏳</span>
@@ -360,6 +387,6 @@ const PdfChat = () => {
       leftWidth="50%"
     />
   );
-};
+});
 
 export default PdfChat;
