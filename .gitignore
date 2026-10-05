@@ -10,3 +10,7 @@ node_modules/
 # Editor
 .vscode/
 .DS_Store
+
+# App data (index and document metadata from uploads)
+llama_index_web_app/saved_index/
+llama_index_web_app/stored_documents.pkl
