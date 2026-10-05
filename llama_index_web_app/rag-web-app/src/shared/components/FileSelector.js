@@ -8,6 +8,7 @@ import { useDocumentUpload } from '../../features/document-management/hooks/useD
 
 const FileSelector = ({ 
   onUploadSuccess, 
+  onUploadError,
   onFileSelect, 
   acceptedTypes = '.pdf,.txt,.json,.md,.docx',
   label = 'Select Files',
@@ -44,6 +45,11 @@ const FileSelector = ({
           // Reset the input on error as well
           event.target.value = '';
           setSelectedFile(null);
+          
+          // Notify parent component about the error
+          if (onUploadError) {
+            onUploadError(error);
+          }
         });
       }
     }
@@ -56,6 +62,9 @@ const FileSelector = ({
         setSelectedFile(null);
       } catch (error) {
         console.error('Manual upload failed:', error);
+        if (onUploadError) {
+          onUploadError(error);
+        }
       }
     }
   };

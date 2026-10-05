@@ -534,11 +534,12 @@
 
   &__table-container {
     flex: 1;
-    overflow-y: auto;
+    overflow: auto;
   }
 
   &__table {
     width: 100%;
+    min-width: 560px; // scroll sideways on narrow screens instead of squashing columns
     border-collapse: collapse;
     background-color: theme-color(primary);
 

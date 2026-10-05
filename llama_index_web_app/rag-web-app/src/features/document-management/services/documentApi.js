@@ -92,21 +92,6 @@ export const documentApi = {
   },
 
   /**
-   * Generate summary for a document
-   * @param {string} documentId - The document ID
-   * @returns {Promise<Object>} Summary data
-   */
-  async generateSummary(documentId) {
-    try {
-      const response = await apiClient.post(`/documents/${documentId}/summary`);
-      return response;
-    } catch (error) {
-      console.error('Error generating summary:', error);
-      throw error;
-    }
-  },
-
-  /**
    * Generate MCQ for a document
    * @param {string} documentId - The document ID
    * @param {number} questionCount - Number of questions to generate

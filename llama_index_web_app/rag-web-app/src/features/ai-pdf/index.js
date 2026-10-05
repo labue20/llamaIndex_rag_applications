@@ -4,4 +4,4 @@
  */
 
 export { default as AiPdfTools } from './components/AiPdfTools';
-export { usePdfChat, usePdfSummary } from './hooks/usePdfFeatures';
+export { usePdfChat } from './hooks/usePdfFeatures';

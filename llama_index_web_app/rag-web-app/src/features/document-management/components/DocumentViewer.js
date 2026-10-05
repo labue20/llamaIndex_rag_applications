@@ -1,4 +1,9 @@
-import { useState } from 'react';
+/**
+ * Document Viewer Component
+ * Displays a table of documents with selection, deletion, and metadata viewing capabilities
+ */
+
+import React, { useState } from 'react';
 
 const MAX_TITLE_LENGTH = 45;
 
@@ -72,16 +77,41 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
   };
 
   const getDocumentSize = (document) => {
-    // Try different possible size properties
-    if (document.file_size) {
+    // Log the document structure for debugging
+    console.log('Document structure for size calculation:', document);
+    
+    // Try different possible size properties in order of preference
+    
+    // 1. Check for file_size (actual file size in bytes) - highest priority
+    if (document.file_size && document.file_size > 0) {
       return formatFileSize(document.file_size);
     }
+    
+    // 2. Check for statistics object from backend (text characters)
+    if (document.statistics?.total_characters) {
+      return formatFileSize(document.statistics.total_characters) + ' (text)';
+    }
+    
+    // 3. Check for full_document_summary statistics
+    if (document.full_document_summary?.statistics?.total_characters) {
+      return formatFileSize(document.full_document_summary.statistics.total_characters) + ' (text)';
+    }
+    
+    // 4. Check for full_text_length
     if (document.full_text_length) {
       return formatFileSize(document.full_text_length) + ' (text)';
     }
+    
+    // 5. Check for text length if available
+    if (document.text && document.text.length > 0) {
+      return formatFileSize(document.text.length) + ' (preview)';
+    }
+    
+    // 6. Check for generic size property
     if (document.size) {
       return formatFileSize(document.size);
     }
+    
     return 'N/A';
   };
 
@@ -260,7 +290,7 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
                     />
                   )}
                 </th>
-                <th>Document</th>
+                <th>Name</th>
                 <th>Size</th>
                 <th>Date Uploaded</th>
               </tr>

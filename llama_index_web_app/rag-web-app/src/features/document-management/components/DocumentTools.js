@@ -1,3 +1,8 @@
+/**
+ * Document Tools Component for document viewing and management
+ */
+
+import React from 'react';
 import { DocumentViewer } from '../index';
 import { useDocuments } from '../hooks/useDocuments';
 
@@ -18,11 +23,14 @@ const DocumentTools = ({ documents, refreshDocuments }) => {
   };
 
   return (
-    <div className="document-tools">
-      <DocumentViewer 
-        documentList={documents || []} 
-        onDeleteDocument={handleDeleteDocument}
-      />
+    <div className='document-tools'>
+      {/* Documents Table */}
+      <div className='document-tools__content'>
+        <DocumentViewer 
+          documentList={documents || []} 
+          onDeleteDocument={handleDeleteDocument}
+        />
+      </div>
     </div>
   );
 };

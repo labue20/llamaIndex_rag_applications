@@ -6,21 +6,23 @@
 $theme-colors: (
   primary: #ffffff,
   secondary: #f8fafc,
-  accent: #3b82f6,
-  accent-hover: #2563eb,
+  accent: #2563eb,
+  accent-hover: #1d4ed8,
   accent-light: #eff6ff,
   success: #10b981,
   warning: #f59e0b,
   error: #ef4444,
-  text-primary: #1f2937,
-  text-secondary: #6b7280,
+  text-primary: #0f172a,
+  text-secondary: #64748b,
+  text-muted: #94a3b8,
   text-contrast: #ffffff,
-  border: #e5e7eb,
-  shadow: rgba(0, 0, 0, 0.1),
-  header-gradient-start: #667eea,
-  header-gradient-end: #764ba2,
+  border: #e2e8f0,
+  shadow: rgba(15, 23, 42, 0.06),
 );
 
 @function theme-color($key) {
   @return map-get($theme-colors, $key);
 }
+
+$header-height: 56px;
+$sidebar-width: 220px;
