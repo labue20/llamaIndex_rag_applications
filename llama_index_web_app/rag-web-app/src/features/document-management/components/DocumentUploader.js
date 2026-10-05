@@ -16,7 +16,6 @@ const DocumentUploader = ({ onUploadSuccess, compact = false }) => {
     selectFile,
     uploadDocument,
     setProcessingMode,
-    clearResult,
   } = useDocumentUpload();
 
   const isFilePicked = !!selectedFile;

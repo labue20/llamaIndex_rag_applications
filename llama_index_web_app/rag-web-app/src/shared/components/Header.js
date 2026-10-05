@@ -1,13 +1,15 @@
+import Icon from './Icon';
+
 const Header = () => {
   return (
     <header className='app-header'>
       <div className='app-header__container'>
         <div className='app-header__brand'>
-          <h1 className='app-header__title'>
-            <span className='app-header__title--primary'>RAG Web</span>
-            <span className='app-header__title--secondary'>Application</span>
-          </h1>
-          <p className='app-header__subtitle'>Llama Index</p>
+          <span className='app-header__logo'>
+            <Icon name='layers' size={18} />
+          </span>
+          <h1 className='app-header__title'>RAG Web Application</h1>
+          <span className='app-header__subtitle'>LlamaIndex</span>
         </div>
         <div className='app-header__actions'>
           <div className='app-header__status'>

@@ -8,25 +8,16 @@ import { FileSelector, SplitLayout } from '../../../shared';
 import PdfViewer from './PdfViewer';
 import { usePdfChat } from '../hooks/usePdfFeatures';
 
-const PdfChat = ({ resetTrigger }) => {
+const PdfChat = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadedDocument, setUploadedDocument] = useState(null);
   const [isProcessingForAI, setIsProcessingForAI] = useState(false);
-  const { messages, isLoading, error, sendMessage } = usePdfChat();
+  const { messages, isLoading, error, sendMessage, clearChat } = usePdfChat();
   const messagesEndRef = useRef(null);
   
   // Use a ref to permanently store the file to prevent loss during state updates
   const fileRef = useRef(null);
-
-  // Handle reset trigger (when switching between tabs)
-  useEffect(() => {
-    if (resetTrigger > 0) {
-      console.log('PdfChat reset triggered, preserving document state');
-      // Don't reset document states - only reset input
-      setInputMessage('');
-    }
-  }, [resetTrigger]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -43,6 +34,7 @@ const PdfChat = ({ resetTrigger }) => {
       // Clear file ref
       fileRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -182,6 +174,19 @@ const PdfChat = ({ resetTrigger }) => {
     }
   };
 
+  // Close the current document and return to the file selector
+  const handleNewDocument = () => {
+    if (uploadedDocument?.url) {
+      URL.revokeObjectURL(uploadedDocument.url);
+    }
+    fileRef.current = null;
+    setSelectedFile(null);
+    setUploadedDocument(null);
+    setIsProcessingForAI(false);
+    setInputMessage('');
+    clearChat();
+  };
+
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], { 
       hour: '2-digit', 
@@ -217,6 +222,14 @@ const PdfChat = ({ resetTrigger }) => {
         <p className='pdf-chat__selected'>
           Chatting with: <strong>{uploadedDocument.name || 'PDF Document'}</strong>
         </p>
+        <button
+          type='button'
+          className='pdf-chat__new-document'
+          onClick={handleNewDocument}
+          disabled={isProcessingForAI}
+        >
+          New PDF
+        </button>
         {isProcessingForAI && (
           <div className='pdf-chat__processing'>
             <span className='pdf-chat__processing-icon'>⏳</span>
@@ -336,8 +349,6 @@ const PdfChat = ({ resetTrigger }) => {
       <PdfViewer 
         document={uploadedDocument}
         isVisible={true}
-        onStartChat={() => {}}
-        onGenerateSummary={() => {}}
       />
     )
   };

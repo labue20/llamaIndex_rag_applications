@@ -7,41 +7,79 @@ import React, { useState } from 'react';
 
 const SidebarLayout = ({ sections, defaultSection = 0 }) => {
   const [activeSection, setActiveSection] = useState(defaultSection);
+  const [hoveredSection, setHoveredSection] = useState(null);
+
+  const handleSectionClick = (index, subIndex = null) => {
+    setActiveSection(index);
+    // If there's a subsection, we can handle it here
+    if (sections[index].onSubItemClick && subIndex !== null) {
+      sections[index].onSubItemClick(subIndex);
+    }
+  };
 
   return (
     <div className='sidebar-layout'>
       <div className='sidebar-layout__sidebar'>
         <div className='sidebar-layout__nav'>
           {sections.map((section, index) => (
-            <button
+            <div
               key={index}
-              className={`sidebar-layout__nav-item ${activeSection === index ? 'sidebar-layout__nav-item--active' : ''}`}
-              onClick={() => setActiveSection(index)}
+              className='sidebar-layout__nav-container'
+              onMouseEnter={() => setHoveredSection(index)}
+              onMouseLeave={() => setHoveredSection(null)}
             >
-              {section.icon && <span className='sidebar-layout__nav-icon'>{section.icon}</span>}
-              <span className='sidebar-layout__nav-label'>{section.label}</span>
-            </button>
+              <button
+                className={`sidebar-layout__nav-item ${activeSection === index ? 'sidebar-layout__nav-item--active' : ''}`}
+                onClick={() => handleSectionClick(index)}
+                title={section.label}
+              >
+                {section.icon && <span className='sidebar-layout__nav-icon'>{section.icon}</span>}
+                <span className='sidebar-layout__nav-label'>{section.label}</span>
+               
+              </button>
+              
+              {/* Hover menu for subsections */}
+              {section.subItems && hoveredSection === index && (
+                <div className='sidebar-layout__submenu'>
+                  {section.subItems.map((subItem, subIndex) => (
+                    <button
+                      key={subIndex}
+                      className='sidebar-layout__submenu-item'
+                      onClick={() => handleSectionClick(index, subIndex)}
+                    >
+                      {subItem.icon && <span className='sidebar-layout__submenu-icon'>{subItem.icon}</span>}
+                      <span className='sidebar-layout__submenu-label'>{subItem.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </div>
       
       <div className='sidebar-layout__content'>
-        {sections[activeSection] && (
-          <div className='sidebar-layout__panel'>
+        {/* Keep every section mounted so state (e.g. an open PDF) survives switching sections */}
+        {sections.map((section, index) => (
+          <div
+            key={index}
+            className='sidebar-layout__panel'
+            style={activeSection === index ? undefined : { display: 'none' }}
+          >
             <div className='sidebar-layout__header'>
-              <h2 className='sidebar-layout__title'>{sections[activeSection].title}</h2>
+              <h2 className='sidebar-layout__title'>{section.title}</h2>
               {/* Pass the upload button as headerAction prop if available */}
-              {sections[activeSection].headerAction && (
+              {section.headerAction && (
                 <div className='sidebar-layout__header-actions'>
-                  {sections[activeSection].headerAction}
+                  {section.headerAction}
                 </div>
               )}
             </div>
             <div className='sidebar-layout__body'>
-              {sections[activeSection].content}
+              {section.content}
             </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

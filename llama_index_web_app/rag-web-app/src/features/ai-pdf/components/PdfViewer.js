@@ -4,12 +4,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { apiClient } from '../../../shared';
 import * as pdfjsLib from 'pdfjs-dist/webpack';
 
 // PDF.js worker is automatically configured when using the webpack import
 
-const PdfViewer = ({ document, isVisible, onStartChat, onGenerateSummary }) => {
+const PdfViewer = ({ document, isVisible }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [documentContent, setDocumentContent] = useState('');
   const [error, setError] = useState('');
@@ -18,7 +17,7 @@ const PdfViewer = ({ document, isVisible, onStartChat, onGenerateSummary }) => {
   const [pages, setPages] = useState([]);
   const [totalPages, setTotalPages] = useState(0);
   const [pdfPages, setPdfPages] = useState([]); // For actual PDF pages
-  const [pdfDocument, setPdfDocument] = useState(null);
+  const [, setPdfDocument] = useState(null);
   const canvasRefs = useRef([]);
 
   // Split content into pages (approximately 1000 characters per page)
@@ -51,6 +50,7 @@ const PdfViewer = ({ document, isVisible, onStartChat, onGenerateSummary }) => {
     if (isVisible && document) {
       loadDocumentContent();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVisible, document]);
 
   const loadDocumentContent = async () => {
@@ -216,6 +216,7 @@ const PdfViewer = ({ document, isVisible, onStartChat, onGenerateSummary }) => {
     if (pdfPages.length > 0 && viewMode === 'pdf') {
       renderPdfPage(currentPage);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdfPages, currentPage, viewMode]);
 
   const renderPdfPage = async (pageNumber) => {
@@ -289,7 +290,7 @@ Key Information:
 • Document Name: ${doc.name}
 • File Type: PDF
 • Upload Status: Ready for processing
-• Available Actions: Chat, Summarize, Query
+• Available Actions: Chat
 
 Note: Full PDF content rendering is available when connected to the document processing service.
 
@@ -316,39 +317,6 @@ Summary and concluding remarks from the original PDF document.`;
       setCurrentPage(currentPage - 1);
     }
   };
-
-  const goToFirstPage = () => {
-    setCurrentPage(1);
-  };
-
-  const goToLastPage = () => {
-    setCurrentPage(totalPages);
-  };
-
-  const handlePageInput = (e) => {
-    const pageNum = parseInt(e.target.value, 10);
-    if (pageNum >= 1 && pageNum <= totalPages) {
-      setCurrentPage(pageNum);
-    }
-  };
-
-  const handleStartChat = () => {
-    if (onStartChat && document) {
-      onStartChat(document);
-    }
-  };
-
-  const handleGenerateSummary = () => {
-    if (onGenerateSummary && document) {
-      onGenerateSummary(document);
-    }
-  };
-
-  const isPDF = (() => {
-    const path = document?.file_path || document?.name || '';
-    const type = document?.file_type || document?.type || '';
-    return path.toLowerCase().endsWith('.pdf') || String(type).toLowerCase().includes('pdf');
-  })();
 
   if (!isVisible || !document) {
     return (

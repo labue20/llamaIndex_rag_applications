@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Header, SidebarLayout } from './shared';
+import React, { useMemo, useCallback } from 'react';
+import { Header, SidebarLayout, Icon } from './shared';
 import { DocumentTools, CompactUploadButton } from './features/document-management';
 import { AiPdfTools } from './features/ai-pdf';
 import { useDocuments } from './features/document-management';
+import { PdfToWordConverter } from './features/pdf-to-word-converter';
 import './shared/styles/base.scss';
 import './shared/styles/components.scss';
 import './features/document-management/styles/components.scss';
@@ -10,7 +11,6 @@ import './features/ai-pdf/styles/components.scss';
 
 function App() {
   const { documents, refreshDocuments } = useDocuments();
-  const [aiPdfActiveTab, setAiPdfActiveTab] = useState('chat');
 
   const handleUploadSuccess = useCallback(async (result) => {
     console.log('Upload successful, refreshing documents...', result);
@@ -26,58 +26,41 @@ function App() {
     }, 2000);
   }, [refreshDocuments]);
 
-  const handleAiPdfSubItemClick = useCallback((subIndex) => {
-    console.log('handleAiPdfSubItemClick called with subIndex:', subIndex);
-    const tabs = ['chat', 'summary'];
-    const selectedTab = tabs[subIndex];
-    console.log('Setting aiPdfActiveTab to:', selectedTab);
-    setAiPdfActiveTab(selectedTab);
-  }, []);
-
-  const handleAiPdfTabChange = useCallback((tabKey) => {
-    console.log('handleAiPdfTabChange called with tabKey:', tabKey);
-    setAiPdfActiveTab(tabKey);
-  }, []);
-
-  // Dynamic title based on active AI PDF tab
-  const getAiPdfTitle = useCallback(() => {
-    console.log('getAiPdfTitle called with aiPdfActiveTab:', aiPdfActiveTab);
-    switch (aiPdfActiveTab) {
-      case 'chat':
-        return 'Chat with PDF';
-      case 'summary':
-        return 'Summarize';
-      default:
-        console.log('Unknown aiPdfActiveTab, defaulting to Chat with PDF');
-        return 'Chat with PDF';
-    }
-  }, [aiPdfActiveTab]);
-
   const sections = useMemo(() => [
     {
       label: 'Document Manager',
       title: 'My Documents',
-      icon: '🗂️',
+      icon: <Icon name='folder' />,
       content: <DocumentTools documents={documents} refreshDocuments={refreshDocuments} />,
       headerAction: <CompactUploadButton onUploadSuccess={handleUploadSuccess} />
     },
     {
       label: 'AI PDF',
-      title: getAiPdfTitle(),
-      content: <AiPdfTools documents={documents} onUploadSuccess={handleUploadSuccess} activeTab={aiPdfActiveTab} onTabChange={handleAiPdfTabChange} />,
-      subItems: [
-        {
-          label: 'Chat with PDF',
-          icon: '💬'
-        },
-        {
-          label: 'Summarize',
-          icon: '📄'
-        }
-      ],
-      onSubItemClick: handleAiPdfSubItemClick
+      icon: <Icon name='chat' />,
+      title: 'Chat with PDF',
+      content: <AiPdfTools documents={documents} onUploadSuccess={handleUploadSuccess} />
+    },
+    {
+      label: 'PDF to Word',
+      icon: <Icon name='fileToWord' />,
+      title: 'PDF to Word Converter',
+      content: <PdfToWordConverter />
+    },
+
+    {
+      label: 'Word to PDF',
+      icon: <Icon name='fileToPdf' />,
+      title: 'Word to PDF Converter',
+      // content: <WordToPdfConverter />
+    },
+    {
+      label: 'Split PDF',
+      icon: <Icon name='scissors' />,
+      title: 'Split PDF Converter',
+      // content: <Settings />
     }
-  ], [documents, refreshDocuments, handleUploadSuccess, aiPdfActiveTab, handleAiPdfSubItemClick, handleAiPdfTabChange, getAiPdfTitle]);
+
+  ], [documents, refreshDocuments, handleUploadSuccess]);
 
   return (
     <div className='app'>

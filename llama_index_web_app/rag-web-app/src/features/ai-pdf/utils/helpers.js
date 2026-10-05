@@ -4,16 +4,6 @@
  */
 
 /**
- * Get display name for a PDF document
- * @param {Object} pdf - PDF document object
- * @returns {string} Display name
- */
-export const getPdfDisplayName = (pdf) => {
-  if (!pdf) return 'Unknown';
-  return pdf.file_path ? pdf.file_path.split('/').pop() : pdf.id || 'Unknown';
-};
-
-/**
  * Format timestamp for display
  * @param {string} timestamp - ISO timestamp
  * @param {Object} options - Intl.DateTimeFormat options
@@ -26,15 +16,6 @@ export const formatTimestamp = (timestamp, options = {}) => {
     ...options
   };
   return new Date(timestamp).toLocaleTimeString([], defaultOptions);
-};
-
-/**
- * Format date for display
- * @param {string} timestamp - ISO timestamp
- * @returns {string} Formatted date string
- */
-export const formatDate = (timestamp) => {
-  return new Date(timestamp).toLocaleString();
 };
 
 /**

@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Node (frontend deps live in llama_index_web_app/rag-web-app)
+node_modules/
+
+# Editor
+.vscode/
+.DS_Store
