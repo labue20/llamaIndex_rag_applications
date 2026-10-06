@@ -1,29 +1,38 @@
-import React, { useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { downloadBlob, apiFetch } from '../../../shared';
+import { downloadBlob, apiFetch, Icon } from '../../../shared';
 import '../../../shared/styles/converter.scss';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-const PdfToWordConverter = () => {
+const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+const PdfToWordConverter = forwardRef(({ onStatusChange }, ref) => {
   const [file, setFile] = useState(null);
   const [isConverting, setIsConverting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [pdfInfo, setPdfInfo] = useState(null); // PDF file information
+  const [pageCount, setPageCount] = useState(null); // filled in once the PDF has been read
+  const currentFileRef = useRef(null);
 
-  const handleFileSelect = async (event) => {
+  const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
-    if (selectedFile && selectedFile.type === 'application/pdf') {
+    event.target.value = ''; // allow choosing the same file again
+    if (selectedFile) loadFile(selectedFile);
+  };
+
+  const loadFile = async (selectedFile) => {
+    if (isPdf(selectedFile)) {
       setFile(selectedFile);
+      setPageCount(null);
+      currentFileRef.current = selectedFile;
       try {
         const arrayBuffer = await selectedFile.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        setPdfInfo({
-          numPages: pdf.numPages,
-          title: selectedFile.name,
-          size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB'
-        });
+        // Ignore the result if another file was chosen in the meantime
+        if (currentFileRef.current === selectedFile) {
+          setPageCount(pdf.numPages);
+        }
       } catch (error) {
         console.error('Error reading PDF info:', error);
       }
@@ -31,6 +40,19 @@ const PdfToWordConverter = () => {
       alert('Please select a valid PDF file');
     }
   };
+
+  const reset = () => {
+    setFile(null);
+    setPageCount(null);
+    currentFileRef.current = null;
+  };
+
+  // Let the page header (ConverterHeaderActions) load a new file or close this one
+  useImperativeHandle(ref, () => ({ selectFile: loadFile, reset }));
+
+  useEffect(() => {
+    onStatusChange?.({ hasFile: !!file, isBusy: isConverting });
+  }, [onStatusChange, file, isConverting]);
 
   const convertToWord = async () => {
     if (!file) return;
@@ -101,21 +123,21 @@ const PdfToWordConverter = () => {
         </div>
       </div>
       
-      {pdfInfo && (
+      {file && (
         <div className="pdf-info">
           <h4>Document Information</h4>
           <div className="info-grid">
             <div className="info-item">
               <span className="info-label">File:</span>
-              <span className="info-value">{pdfInfo.title}</span>
+              <span className="info-value">{file.name}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Pages:</span>
-              <span className="info-value">{pdfInfo.numPages}</span>
+              <span className="info-value">{pageCount ?? '…'}</span>
             </div>
             <div className="info-item">
               <span className="info-label">Size:</span>
-              <span className="info-value">{pdfInfo.size}</span>
+              <span className="info-value">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
             </div>
           </div>
         </div>
@@ -128,10 +150,10 @@ const PdfToWordConverter = () => {
             disabled={isConverting}
             className="convert-btn"
           >
-            <span className="btn-icon">
-              {isConverting ? '⏳' : '🔄'}
+            <span className="btn-icon" aria-hidden="true">
+              {isConverting ? <span className="btn-spinner" /> : <Icon name="fileToWord" size={18} />}
             </span>
-            {isConverting ? 'Converting Magic...' : 'Convert to Word'}
+            {isConverting ? 'Converting...' : 'Convert to Word'}
           </button>
         </div>
       )}
@@ -152,6 +174,6 @@ const PdfToWordConverter = () => {
       )}
     </div>
   );
-};
+});
 
 export default PdfToWordConverter;

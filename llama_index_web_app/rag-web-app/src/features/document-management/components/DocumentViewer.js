@@ -257,7 +257,7 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
                   onClick={handleDeleteSelected}
                   disabled={isDeleting}
                 >
-                  🗑️ Delete Selected ({selectedDocuments.size})
+                  <Icon name='trash' size={16} /> Delete Selected ({selectedDocuments.size})
                 </button>
                 <button 
                   className='viewer__cancel-btn'
@@ -336,7 +336,7 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
       ) : (
         <div className='viewer__empty-state'>
           <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
+            <div className='viewer__empty-icon'><Icon name='folder' size={26} /></div>
             <p className='viewer__empty-title'>No documents yet</p>
             <p className='viewer__empty-text'>
               Upload your first document to start building your knowledge base.

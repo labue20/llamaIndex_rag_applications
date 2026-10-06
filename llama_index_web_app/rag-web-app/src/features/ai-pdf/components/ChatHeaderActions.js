@@ -11,7 +11,7 @@ const ChatHeaderActions = ({ chatRef, status }) => {
   const { hasDocument, hasMessages, isBusy } = status;
 
   return (
-    <div className='chat-actions'>
+    <div className='page-actions'>
       <FileSelector
         onFileSelect={(file) => chatRef.current?.selectFile(file)}
         onUploadSuccess={(result) => chatRef.current?.uploadSucceeded(result)}
@@ -21,11 +21,11 @@ const ChatHeaderActions = ({ chatRef, status }) => {
         variant='compact'
         autoUpload={true}
         disabled={isBusy}
-        className='chat-actions__upload'
+        className='page-actions__upload'
       />
       <button
         type='button'
-        className='chat-actions__btn'
+        className='page-actions__btn'
         onClick={() => chatRef.current?.clearChat()}
         disabled={!hasMessages || isBusy}
       >
@@ -33,7 +33,7 @@ const ChatHeaderActions = ({ chatRef, status }) => {
       </button>
       <button
         type='button'
-        className='chat-actions__btn'
+        className='page-actions__btn'
         onClick={() => chatRef.current?.closeDocument()}
         disabled={!hasDocument || isBusy}
       >

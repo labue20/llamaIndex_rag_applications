@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/webpack';
+import { Icon } from '../../../shared';
 
 // PDF.js worker is automatically configured when using the webpack import
 
@@ -297,7 +298,7 @@ const PdfViewer = ({ document, isVisible }) => {
 Type: ${doc.type || 'PDF Document'}
 Size: ${doc.size ? `${(doc.size / 1024).toFixed(2)} KB` : 'Unknown'}
 
-📄 PDF Content Preview
+PDF Content Preview
 
 This is a preview of the PDF document. The actual content would be displayed here when the document processing is complete.
 
@@ -337,7 +338,7 @@ Summary and concluding remarks from the original PDF document.`;
     return (
       <div className="pdf-viewer pdf-viewer--empty">
         <div className="pdf-viewer__empty-state">
-          <div className="pdf-viewer__empty-icon">📄</div>
+          <div className="pdf-viewer__empty-icon"><Icon name="file" size={26} /></div>
           <h3 className="pdf-viewer__empty-title">No Document Selected</h3>
           <p className="pdf-viewer__empty-text">
             Upload a PDF document and click "View & Chat" to view it here.
@@ -377,13 +378,13 @@ Summary and concluding remarks from the original PDF document.`;
 
         {error && (
           <div className="pdf-viewer__error">
-            <div className="pdf-viewer__error-icon">⚠️</div>
+            <div className="pdf-viewer__error-icon"><Icon name="alertTriangle" size={26} /></div>
             <div className="pdf-viewer__error-message">{error}</div>
             <button 
               className="pdf-viewer__retry-button"
               onClick={loadDocumentContent}
             >
-              🔄 Retry
+              <Icon name="refresh" size={16} /> Retry
             </button>
           </div>
         )}

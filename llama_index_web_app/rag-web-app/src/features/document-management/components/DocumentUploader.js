@@ -6,6 +6,7 @@
 import React from 'react';
 import { PulseLoader } from 'react-spinners';
 import { useDocumentUpload } from '../hooks/useDocuments';
+import Icon from '../../../shared/components/Icon';
 
 const DocumentUploader = ({ onUploadSuccess, compact = false }) => {
   const {
@@ -140,7 +141,7 @@ const DocumentUploader = ({ onUploadSuccess, compact = false }) => {
                   disabled={isUploading}
                 />
                 <span className='uploader__radio-label'>
-                  ⚡ Fast <small>(Sentence chunking, ~5-10s)</small>
+                  <Icon name='zap' size={14} /> Fast <small>(Sentence chunking, ~5-10s)</small>
                 </span>
               </label>
               <label className='uploader__radio-option'>
@@ -152,7 +153,7 @@ const DocumentUploader = ({ onUploadSuccess, compact = false }) => {
                   disabled={isUploading}
                 />
                 <span className='uploader__radio-label'>
-                  🧠 Enhanced <small>(Semantic + AI metadata, ~30-60s)</small>
+                  <Icon name='sparkle' size={14} /> Enhanced <small>(Semantic + AI metadata, ~30-60s)</small>
                 </span>
               </label>
             </div>
@@ -177,7 +178,7 @@ const DocumentUploader = ({ onUploadSuccess, compact = false }) => {
         <div className={`uploader__result ${uploadResult.success ? 'uploader__result--success' : 'uploader__result--error'}`}>
           {uploadResult.success ? (
             <div>
-              <div className='uploader__result-title'>✅ {uploadResult.message}</div>
+              <div className='uploader__result-title'><Icon name='checkCircle' size={16} /> {uploadResult.message}</div>
               <div className='uploader__result-details'>
                 <small>
                   • Processing time: {uploadResult.processingTime?.toFixed(2)}s
@@ -186,7 +187,7 @@ const DocumentUploader = ({ onUploadSuccess, compact = false }) => {
             </div>
           ) : (
             <div>
-              <div className='uploader__result-title'>❌ Upload Failed</div>
+              <div className='uploader__result-title'><Icon name='xCircle' size={16} /> Upload Failed</div>
               <div className='uploader__result-details'>
                 <small>{uploadResult.error}</small>
               </div>

@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
-import { Header, Footer, SidebarLayout, Icon } from './shared';
+import { Header, Footer, SidebarLayout, Icon, ConverterHeaderActions } from './shared';
 import { DocumentTools, CompactUploadButton } from './features/document-management';
 import { AiPdfTools, ChatHeaderActions } from './features/ai-pdf';
 import { useDocuments } from './features/document-management';
@@ -15,6 +15,10 @@ function App() {
   const { documents, refreshDocuments } = useDocuments();
   const chatRef = useRef(null);
   const [chatStatus, setChatStatus] = useState({ hasDocument: false, hasMessages: false, isBusy: false });
+  const pdfToWordRef = useRef(null);
+  const [pdfToWordStatus, setPdfToWordStatus] = useState({ hasFile: false, isBusy: false });
+  const wordToPdfRef = useRef(null);
+  const [wordToPdfStatus, setWordToPdfStatus] = useState({ hasFile: false, isBusy: false });
 
   const handleUploadSuccess = useCallback(async (result) => {
     console.log('Upload successful, refreshing documents...', result);
@@ -49,14 +53,20 @@ function App() {
       label: 'PDF to Word',
       icon: <Icon name='fileToWord' />,
       title: 'PDF to Word Converter',
-      content: <PdfToWordConverter />
+      content: <PdfToWordConverter ref={pdfToWordRef} onStatusChange={setPdfToWordStatus} />,
+      headerAction: (
+        <ConverterHeaderActions converterRef={pdfToWordRef} status={pdfToWordStatus} acceptedTypes='.pdf' />
+      )
     },
 
     {
       label: 'Word to PDF',
       icon: <Icon name='fileToPdf' />,
       title: 'Word to PDF Converter',
-      content: <WordToPdfConverter />
+      content: <WordToPdfConverter ref={wordToPdfRef} onStatusChange={setWordToPdfStatus} />,
+      headerAction: (
+        <ConverterHeaderActions converterRef={wordToPdfRef} status={wordToPdfStatus} acceptedTypes='.docx' />
+      )
     },
     {
       label: 'Split PDF',
@@ -65,7 +75,7 @@ function App() {
       content: <SplitPdf />
     }
 
-  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus]);
+  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus]);
 
   return (
     <div className='app'>
