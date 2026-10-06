@@ -24,6 +24,13 @@ if [ -f .env ]; then
     set +a
 fi
 
+# Secret shared by the index server and API server. Generate a fresh one per run
+# unless .env sets it.
+if [ -z "$INDEX_SERVER_AUTHKEY" ]; then
+    INDEX_SERVER_AUTHKEY=$(openssl rand -hex 32)
+fi
+export INDEX_SERVER_AUTHKEY INDEX_PORT API_PORT
+
 if [ -z "$OPENAI_API_KEY" ]; then
     echo "Warning: OPENAI_API_KEY is not set (add it to llama_index_web_app/server/.env)."
     echo "         Upload and conversion will work, but AI query/chat will fail."

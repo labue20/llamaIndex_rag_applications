@@ -14,3 +14,7 @@ node_modules/
 # App data (index and document metadata from uploads)
 llama_index_web_app/server/saved_index/
 llama_index_web_app/server/stored_documents.pkl
+
+# Backend runtime data (user accounts, session secret, uploads)
+llama_index_web_app/server/instance/
+llama_index_web_app/server/documents/

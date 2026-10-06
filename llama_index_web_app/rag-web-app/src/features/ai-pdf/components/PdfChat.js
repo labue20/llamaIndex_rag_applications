@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { FileSelector, SplitLayout, Icon } from '../../../shared';
+import { FileSelector, SplitLayout, Icon, apiFetch } from '../../../shared';
 import PdfViewer from './PdfViewer';
 import MessageMarkdown from './MessageMarkdown';
 import { usePdfChat } from '../hooks/usePdfFeatures';
@@ -166,7 +166,7 @@ const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
     if (result.processing_mode === 'ultra-fast' && result.doc_id) {
       console.log('Triggering background indexing for better chat quality...');
       // Start background indexing (non-blocking)
-      fetch(`http://localhost:5601/backgroundIndex/${result.doc_id}`, {
+      apiFetch(`/backgroundIndex/${result.doc_id}`, {
         method: 'POST'
       }).then(response => {
         if (response.ok) {

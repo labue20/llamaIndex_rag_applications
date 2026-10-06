@@ -9,20 +9,55 @@ from word_to_pdf_service import converter
 from pathlib import Path
 import tempfile
 import uuid
+from auth import init_auth, current_user_id
 
 app = Flask(__name__)
-CORS(app)
+
+# Reject request bodies over this size (uploads included) with a 413
+MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "50"))
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
+
+# Only the React app may call this API from a browser
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+    ).split(",")
+    if origin.strip()
+]
+# Credentials are needed so the browser sends the session cookie
+CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
+
+# Interface the API listens on; 127.0.0.1 keeps it off the local network
+API_HOST = os.environ.get("API_HOST", "127.0.0.1")
+API_PORT = int(os.environ.get("API_PORT", "5601"))
+
+# The index server speaks pickle, so it must stay on localhost and use a secret key
+INDEX_SERVER_ADDRESS = ("127.0.0.1", int(os.environ.get("INDEX_PORT", "5602")))
+INDEX_SERVER_AUTHKEY = os.environ.get("INDEX_SERVER_AUTHKEY")
+if not INDEX_SERVER_AUTHKEY:
+    raise SystemExit("INDEX_SERVER_AUTHKEY is not set. Start the backend with start_services.sh.")
 
 # initialize manager connection
-# NOTE: you might want to handle the password in a less hardcoded way
-manager = BaseManager(('', 5602), b'password')
+manager = BaseManager(INDEX_SERVER_ADDRESS, INDEX_SERVER_AUTHKEY.encode())
 manager.register('query_index')
 manager.register('chat_with_document')
 manager.register('insert_into_index')
 manager.register('get_documents_list')
 manager.register('get_full_document_content')
 manager.register('delete_document')
+manager.register('background_index_document')
+manager.register('claim_unowned_documents')
 manager.connect()
+
+# Login is required for every route except the auth endpoints
+app.config["ON_FIRST_USER"] = lambda user_id: manager.claim_unowned_documents(user_id)._getvalue()
+init_auth(app)
+
+
+@app.errorhandler(413)
+def file_too_large(_error):
+    return jsonify({"error": f"File is too large. The maximum size is {MAX_UPLOAD_MB} MB."}), 413
 
 
 @app.route("/queryFile", methods=["GET"])
@@ -32,7 +67,7 @@ def query_index_route():
     if query_text is None:
         return "No text found, please include a ?text=blah parameter in the URL", 400
 
-    response = manager.query_index(query_text)._getvalue()
+    response = manager.query_index(query_text, current_user_id())._getvalue()
     response_json = {
         "text": str(response)
     }
@@ -48,9 +83,11 @@ def upload_file():
     filepath = None
     try:
         uploaded_file = request.files["file"]
-        filename = secure_filename(uploaded_file.filename)
+        filename = secure_filename(uploaded_file.filename) or "document"
+        # A random ID keeps documents with the same name (or from different users) apart
+        doc_id = uuid.uuid4().hex
         os.makedirs('documents', exist_ok=True)
-        filepath = os.path.join('documents', os.path.basename(filename))
+        filepath = os.path.join('documents', f"{doc_id}_{filename}")
         uploaded_file.save(filepath)
 
         # Get processing mode from form data (default to "ultra-fast")
@@ -60,10 +97,9 @@ def upload_file():
         if processing_mode not in ["ultra-fast", "fast", "enhanced"]:
             processing_mode = "ultra-fast"
 
-        if request.form.get("filename_as_doc_id", None) is not None:
-            result = manager.insert_into_index(filepath, doc_id=filename, processing_mode=processing_mode)
-        else:
-            result = manager.insert_into_index(filepath, processing_mode=processing_mode)
+        result = manager.insert_into_index(
+            filepath, doc_id, processing_mode, current_user_id(), filename
+        )._getvalue()
         
         # Ultra-fast uploads are indexed later by /backgroundIndex, which needs
         # the file; leave it for background_index_document to clean up
@@ -124,7 +160,7 @@ def chat_with_document():
                 "error": "Document ID is required"
             })), 400
         
-        result = manager.chat_with_document(message, document_id)._getvalue()
+        result = manager.chat_with_document(message, document_id, current_user_id())._getvalue()
         
         if result.get("error"):
             return make_response(jsonify({
@@ -146,7 +182,7 @@ def chat_with_document():
 
 @app.route("/getDocuments", methods=["GET"])
 def get_documents():
-    document_list = manager.get_documents_list()._getvalue()
+    document_list = manager.get_documents_list(current_user_id())._getvalue()
 
     return make_response(jsonify(document_list)), 200
 
@@ -157,7 +193,7 @@ def get_full_document(doc_id):
     global manager
     
     try:
-        result = manager.get_full_document_content(doc_id)._getvalue()
+        result = manager.get_full_document_content(doc_id, current_user_id())._getvalue()
         
         if result.get("error"):
             return make_response(jsonify(result)), 404
@@ -176,7 +212,7 @@ def delete_document(doc_id):
     global manager
     
     try:
-        result = manager.delete_document(doc_id)._getvalue()
+        result = manager.delete_document(doc_id, current_user_id())._getvalue()
         
         if result.get("error"):
             return make_response(jsonify(result)), 400
@@ -391,9 +427,10 @@ def background_index(doc_id):
     try:
         # Run background indexing in a separate thread to avoid blocking
         import threading
+        owner_id = current_user_id()
         
         def run_background_indexing():
-            result = manager.background_index_document(doc_id)
+            result = manager.background_index_document(doc_id, owner_id)
             print(f"Background indexing result for {doc_id}: {result}")
         
         thread = threading.Thread(target=run_background_indexing)
@@ -412,5 +449,5 @@ def background_index(doc_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5601)
+    app.run(host=API_HOST, port=API_PORT)
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { downloadBlob } from '../../../shared';
+import { downloadBlob, apiFetch } from '../../../shared';
 import '../../../shared/styles/converter.scss';
 
 
@@ -46,7 +46,7 @@ const PdfToWordConverter = () => {
       setProgress(30);
       
       // Send file to backend for conversion using PyMuPDF
-      const response = await fetch('http://localhost:5601/convertPdfToWord', {
+      const response = await apiFetch('/convertPdfToWord', {
         method: 'POST',
         body: formData,
       });

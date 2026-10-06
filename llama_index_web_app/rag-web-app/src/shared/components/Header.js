@@ -1,6 +1,9 @@
 import Icon from './Icon';
+import { useAuth } from '../../features/auth';
 
 const Header = () => {
+  const { user, logout } = useAuth();
+
   return (
     <header className='app-header'>
       <div className='app-header__container'>
@@ -16,6 +19,17 @@ const Header = () => {
             <span className='status-indicator'></span>
             <span className='status-text'>Connected</span>
           </div>
+          {user && (
+            <div className='user-menu'>
+              <span className='user-menu__avatar' aria-hidden='true'>
+                {user.email.charAt(0)}
+              </span>
+              <span className='user-menu__email' title={user.email}>{user.email}</span>
+              <button type='button' className='user-menu__logout' onClick={logout}>
+                Log out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

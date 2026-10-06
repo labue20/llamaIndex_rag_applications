@@ -3,7 +3,7 @@
  * Centralized API calls for document-related operations
  */
 
-import { apiClient } from '../../../shared/services/apiClient';
+import { apiClient, apiFetch } from '../../../shared/services/apiClient';
 
 export const documentApi = {
   /**
@@ -32,19 +32,16 @@ export const documentApi = {
       
       const formData = new FormData();
       formData.append('file', file, file.name); // Explicitly set filename
-      formData.append('filename_as_doc_id', 'true');
-      formData.append('processing_mode', processingMode);
+            formData.append('processing_mode', processingMode);
       
       console.log('FormData entries:');
       for (let [key, value] of formData.entries()) {
         console.log(key, ':', value);
       }
 
-      const uploadURL = 'http://localhost:5601/uploadFile';
-      const response = await fetch(uploadURL, {
+      const response = await apiFetch('/uploadFile', {
         method: 'POST',
         body: formData,
-        mode: 'cors'
       });
 
       if (!response.ok) {

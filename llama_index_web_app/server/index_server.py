@@ -167,13 +167,49 @@ def initialize_index():
             stored_docs = {}
 
 
-def query_index(query_text):
-    """Query the global index with enhanced retrieval."""
+def _owned_doc(doc_id, owner_id):
+    """Return the stored document if it exists and belongs to owner_id, else None."""
+    doc_info = stored_docs.get(doc_id)
+    if isinstance(doc_info, dict) and owner_id and doc_info.get("owner_id") == owner_id:
+        return doc_info
+    return None
+
+
+def _doc_display_name(doc_info, doc_id):
+    return doc_info.get("file_name") or os.path.basename(doc_info.get("file_path") or doc_id)
+
+
+def claim_unowned_documents(owner_id):
+    """Give documents uploaded before accounts existed to owner_id."""
+    with lock:
+        claimed = 0
+        for doc_info in stored_docs.values():
+            if isinstance(doc_info, dict) and not doc_info.get("owner_id"):
+                doc_info["owner_id"] = owner_id
+                claimed += 1
+        if claimed:
+            with open(pkl_name, "wb") as f:
+                pickle.dump(stored_docs, f)
+    print(f"Assigned {claimed} existing documents to the first account", flush=True)
+    return claimed
+
+
+def query_index(query_text, owner_id):
+    """Query across all of owner_id's documents."""
     global index
+    from llama_index.core.vector_stores import MetadataFilters, MetadataFilter, FilterOperator
+
+    owned_ids = [doc_id for doc_id in stored_docs if _owned_doc(doc_id, owner_id)]
+    if not owned_ids:
+        return "You don't have any documents yet. Upload one to start asking questions."
+
     llm = OpenAI(model="gpt-4o-mini")
     
     # Create enhanced query engine with better retrieval
     query_engine = index.as_query_engine(
+        filters=MetadataFilters(filters=[
+            MetadataFilter(key="doc_id", value=owned_ids, operator=FilterOperator.IN)
+        ]),
         similarity_top_k=5,  # Get more candidates
         llm=llm,
         response_mode="tree_summarize",  # Better for complex documents
@@ -206,19 +242,19 @@ def extract_page_numbers(message, max_pages=20):
     return sorted(pages)[:max_pages]
 
 
-def chat_with_document(message, document_id):
+def chat_with_document(message, document_id, owner_id):
     """Chat with a specific document using enhanced retrieval and conversational context."""
     global index, stored_docs
     
-    if not document_id or document_id not in stored_docs:
+    document_info = _owned_doc(document_id, owner_id)
+    if document_info is None:
         return {
-            "error": f"Document '{document_id}' not found in the index",
+            "error": f"Document '{document_id}' not found",
             "response": None
         }
     
     try:
-        document_info = stored_docs[document_id]
-        doc_name = document_info.get('file_path', document_id).split('/')[-1]
+        doc_name = _doc_display_name(document_info, document_id)
         
         # Check if document is fully indexed or just ultra-fast processed
         is_indexed = document_info.get('indexed', True)  # Assume indexed if not specified
@@ -260,7 +296,8 @@ def chat_with_document(message, document_id):
         # query, so retrieval embeds only the user's question
         qa_template = PromptTemplate(
             "You are having a conversation about the document \"{doc_name}\".\n"
-            "Context from this document is below.\n"
+            "Context from this document is below. Each excerpt starts with its metadata; "
+            "the \"source\" value is the page number the excerpt comes from.\n"
             "---------------------\n"
             "{context_str}\n"
             "---------------------\n"
@@ -421,15 +458,14 @@ def _set_indexing_status(doc_id, status, error=None):
             pickle.dump(stored_docs, f)
 
 
-def background_index_document(doc_id):
+def background_index_document(doc_id, owner_id):
     """Background task to fully index an ultra-fast processed document."""
     global stored_docs, index
     
-    if doc_id not in stored_docs:
+    doc_info = _owned_doc(doc_id, owner_id)
+    if doc_info is None:
         print(f"Document {doc_id} not found for background indexing")
         return False
-    
-    doc_info = stored_docs[doc_id]
     
     # Skip if already indexed
     if doc_info.get('indexed', False):
@@ -448,7 +484,8 @@ def background_index_document(doc_id):
         
         # Use fast mode for background indexing (good balance of speed and quality)
         try:
-            result = insert_into_index(file_path, doc_id, processing_mode="fast")
+            result = insert_into_index(file_path, doc_id, processing_mode="fast",
+                                       owner_id=owner_id, file_name=doc_info.get("file_name"))
         finally:
             # The upload route leaves the file in place for us; remove it now
             if os.path.exists(file_path):
@@ -477,7 +514,7 @@ def background_index_document(doc_id):
         return False
 
 
-def process_ultra_fast(doc_file_path, doc_id, start_time):
+def process_ultra_fast(doc_file_path, doc_id, start_time, owner_id=None, file_name=None):
     """Ultra-fast processing that stores document info without full indexing.
     
     This mode:
@@ -512,7 +549,7 @@ def process_ultra_fast(doc_file_path, doc_id, start_time):
                     )
                     preview_text = full_text[:2000] + "..." if len(full_text) > 2000 else full_text
                     page_count = len(documents)
-                    actual_doc_id = documents[0].id_
+                    actual_doc_id = doc_id or documents[0].id_
             else:
                 # Quick text file preview
                 with open(doc_file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -545,6 +582,8 @@ def process_ultra_fast(doc_file_path, doc_id, start_time):
                 "processing_timestamp": __import__('datetime').datetime.now().isoformat(),
                 "processing_time": __import__('time').time() - start_time,
                 "processing_mode": "ultra-fast",
+                "owner_id": owner_id,
+                "file_name": file_name or os.path.basename(doc_file_path),
                 "indexed": False,  # Mark as not yet indexed
                 "status": "ready_for_chat"  # Available for basic chat
             }
@@ -646,7 +685,7 @@ def process_documents_enhanced(documents, pipeline_components, doc_id=None):
     return processed_nodes
 
 
-def insert_into_index(doc_file_path, doc_id=None, processing_mode="ultra-fast"):
+def insert_into_index(doc_file_path, doc_id=None, processing_mode="ultra-fast", owner_id=None, file_name=None):
     """Insert new document into global index with optimized chunking.
     
     Args:
@@ -662,7 +701,7 @@ def insert_into_index(doc_file_path, doc_id=None, processing_mode="ultra-fast"):
     try:
         # For ultra-fast mode, minimize PDF processing
         if processing_mode == "ultra-fast":
-            return process_ultra_fast(doc_file_path, doc_id, start_time)
+            return process_ultra_fast(doc_file_path, doc_id, start_time, owner_id, file_name)
         
         # Determine the best reader based on file type
         file_extension = os.path.splitext(doc_file_path)[1].lower()
@@ -723,7 +762,9 @@ def insert_into_index(doc_file_path, doc_id=None, processing_mode="ultra-fast"):
                     "file_path": doc_file_path,
                     "processing_timestamp": __import__('datetime').datetime.now().isoformat(),
                     "processing_time": chunk_time - start_time,
-                    "processing_mode": processing_mode
+                    "processing_mode": processing_mode,
+                    "owner_id": owner_id,
+                    "file_name": file_name or os.path.basename(doc_file_path),
                 }
 
                 with open(pkl_name, "wb") as f:
@@ -749,11 +790,11 @@ def insert_into_index(doc_file_path, doc_id=None, processing_mode="ultra-fast"):
         print(f"Error loading document {doc_file_path}: {str(e)}")
         return {"error": f"Failed to load document: {str(e)}"}
 
-def get_full_document_content(doc_id):
+def get_full_document_content(doc_id, owner_id):
     """Get the complete content and analysis of a specific document."""
     global stored_docs, index
     
-    if doc_id not in stored_docs:
+    if _owned_doc(doc_id, owner_id) is None:
         return {"error": "Document not found"}
     
     doc_info = stored_docs[doc_id]
@@ -781,12 +822,14 @@ def get_full_document_content(doc_id):
     }
 
 
-def get_documents_list():
-    """Get the list of currently stored documents with comprehensive metadata."""
+def get_documents_list(owner_id):
+    """Get owner_id's stored documents with comprehensive metadata."""
     global stored_docs
     documents_list = []
     
     for doc_id, doc_info in stored_docs.items():
+        if _owned_doc(doc_id, owner_id) is None:
+            continue
         # Handle both old format (string) and new format (dict)
         if isinstance(doc_info, dict):
             # New enhanced format
@@ -794,6 +837,7 @@ def get_documents_list():
                 summary = doc_info["document_summary"]
                 documents_list.append({
                     "id": doc_id,
+                    "filename": _doc_display_name(doc_info, doc_id),
                     "text": summary.get("content_preview", "")[:500] + "...",
                     "full_document_summary": summary,
                     "statistics": summary.get("statistics", {}),
@@ -828,56 +872,69 @@ def get_documents_list():
     return documents_list
 
 
-def delete_document(doc_id):
-    """Delete a document from the index and stored documents."""
+def _remove_document_nodes(doc_ids):
+    """Delete every chunk belonging to the given document IDs from the index.
+
+    Returns the number of chunks removed. Caller must hold the lock and persist.
+    """
+    doc_ids = set(doc_ids)
+    nodes = [
+        node for node in index.docstore.docs.values()
+        if node.metadata.get("doc_id") in doc_ids
+    ]
+    if not nodes:
+        return 0
+
+    index.delete_nodes([node.node_id for node in nodes], delete_from_docstore=True)
+    for ref_doc_id in {node.ref_doc_id for node in nodes if node.ref_doc_id}:
+        index.docstore.delete_ref_doc(ref_doc_id, raise_error=False)
+    return len(nodes)
+
+
+def purge_orphaned_nodes():
+    """Remove chunks whose document is no longer in stored_docs (e.g. deleted
+    before deletion cleaned up the index), including legacy chunks with no doc_id."""
+    with lock:
+        orphaned_ids = {
+            node.metadata.get("doc_id") for node in index.docstore.docs.values()
+        } - set(stored_docs)
+        if not orphaned_ids:
+            return 0
+        removed = _remove_document_nodes(orphaned_ids)
+        index.storage_context.persist(persist_dir=index_name)
+    print(f"Removed {removed} orphaned chunks (from deleted or pre-account documents)", flush=True)
+    return removed
+
+
+def delete_document(doc_id, owner_id):
+    """Delete a document from stored documents and remove all its chunks from the index."""
     global index, stored_docs, lock
     
     with lock:
         try:
-            # Check if document exists
-            if doc_id not in stored_docs:
+            if _owned_doc(doc_id, owner_id) is None:
                 return {
                     "error": f"Document with ID '{doc_id}' not found",
                     "success": False
                 }
             
-            # Remove from stored documents
+            removed_chunks = _remove_document_nodes([doc_id])
+            index.storage_context.persist(persist_dir=index_name)
+
+            # Remove any file still waiting for background indexing
+            file_path = stored_docs[doc_id].get("file_path")
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+
             del stored_docs[doc_id]
-            
-            # Save updated stored_docs to pickle
-            try:
-                with open(pkl_name, 'wb') as f:
-                    pickle.dump(stored_docs, f)
-            except Exception as e:
-                print(f"Warning: Failed to save stored_docs after deletion: {e}")
-            
-            # Remove from vector index
-            # Note: LlamaIndex doesn't have direct document deletion from vector store
-            # We would need to rebuild the index without this document
-            # For now, we'll mark this as a limitation and suggest rebuilding the index
-            
-            # Try to delete from docstore if it exists
-            try:
-                if hasattr(index, 'docstore') and index.docstore:
-                    # Try to delete document from docstore
-                    if hasattr(index.docstore, 'delete_document'):
-                        index.docstore.delete_document(doc_id)
-                    elif hasattr(index.docstore, 'delete'):
-                        index.docstore.delete(doc_id)
-                
-                # Save the updated index
-                if index_name:
-                    index.storage_context.persist(index_name)
-                    
-            except Exception as e:
-                print(f"Warning: Could not fully remove document from vector index: {e}")
-                # Continue anyway since we removed it from stored_docs
+            with open(pkl_name, 'wb') as f:
+                pickle.dump(stored_docs, f)
             
             return {
                 "success": True,
                 "message": f"Document '{doc_id}' successfully deleted",
                 "doc_id": doc_id,
-                "note": "Document removed from stored documents. Vector index may still contain embeddings until next rebuild."
+                "removed_chunks": removed_chunks
             }
             
         except Exception as e:
@@ -891,16 +948,22 @@ if __name__ == "__main__":
     # init the global index
     print("initializing index...")
     initialize_index()
+    purge_orphaned_nodes()
 
-    # setup server
-    # NOTE: you might want to handle the password in a less hardcoded way
-    manager = BaseManager(('', 5602), b'password')
+    # setup server. The manager protocol uses pickle, so it must only listen on
+    # localhost and must require a secret key (generated by start_services.sh)
+    authkey = os.environ.get("INDEX_SERVER_AUTHKEY")
+    if not authkey:
+        raise SystemExit("INDEX_SERVER_AUTHKEY is not set. Start the backend with start_services.sh.")
+    manager = BaseManager(("127.0.0.1", int(os.environ.get("INDEX_PORT", "5602"))), authkey.encode())
     manager.register('query_index', query_index)
     manager.register('chat_with_document', chat_with_document)
     manager.register('insert_into_index', insert_into_index)
     manager.register('get_documents_list', get_documents_list)
     manager.register('get_full_document_content', get_full_document_content)
     manager.register('delete_document', delete_document)
+    manager.register('background_index_document', background_index_document)
+    manager.register('claim_unowned_documents', claim_unowned_documents)
     server = manager.get_server()
 
     print("server started...")

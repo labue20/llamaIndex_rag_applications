@@ -4,11 +4,11 @@
  */
 
 import { useState, useCallback } from 'react';
+import { apiFetch } from '../../../shared';
 import { generateMessageId, sanitizeInput, handleApiError } from '../utils/helpers';
 
 // Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:5601',
   ENDPOINTS: {
     CHAT: '/chat'
   }
@@ -53,10 +53,9 @@ export const usePdfChat = () => {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      const apiUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CHAT}`;
-      console.log('Making API request to:', apiUrl);
+      console.log('Making API request to:', API_CONFIG.ENDPOINTS.CHAT);
       
-      const response = await fetch(apiUrl, {
+      const response = await apiFetch(API_CONFIG.ENDPOINTS.CHAT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
