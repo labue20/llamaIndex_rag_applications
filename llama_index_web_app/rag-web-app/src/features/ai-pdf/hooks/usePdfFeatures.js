@@ -83,6 +83,7 @@ export const usePdfChat = () => {
         type: 'assistant',
         content: data.response || 'I apologize, but I could not generate a response.',
         documentName: data.document_name,
+        note: data.note,
         timestamp: new Date().toISOString()
       };
       
