@@ -91,7 +91,7 @@ def test_ultra_fast_keeps_every_page_and_the_given_id(make_pdf):
     assert stored["owner_id"] == OWNER
 
 
-def test_background_indexing_indexes_and_removes_the_file(make_pdf):
+def test_background_indexing_indexes_and_keeps_the_file(make_pdf):
     path = _insert(make_pdf, pages=4, mode="ultra-fast")
     assert _chunks("doc-1") == []
 
@@ -101,7 +101,7 @@ def test_background_indexing_indexes_and_removes_the_file(make_pdf):
     assert srv.stored_docs["doc-1"]["indexed"] is True
     assert srv.stored_docs["doc-1"]["indexing_status"] == "indexed"
     assert srv.stored_docs["doc-1"]["owner_id"] == OWNER
-    assert not path.exists()
+    assert path.exists()  # kept for reuse from My Documents
 
 
 def test_background_indexing_refuses_other_users(make_pdf):
@@ -248,3 +248,77 @@ def test_purge_removes_orphaned_and_legacy_chunks(make_pdf):
     assert _chunks("doc-2") == []
     assert all(n.metadata.get("doc_id") for n in srv.index.docstore.docs.values())
     assert _chunks("doc-1")
+
+
+# --- stored originals ----------------------------------------------------------
+
+def test_get_document_file_is_per_owner(make_pdf):
+    path = _insert(make_pdf, name="Tax Return.pdf")
+    assert srv.get_document_file("doc-1", OWNER) == {"path": str(path), "file_name": "Tax Return.pdf"}
+    assert "error" in srv.get_document_file("doc-1", OTHER)
+    assert srv.get_documents_list(OWNER)[0]["has_file"] is True
+
+
+def test_get_document_file_reports_a_missing_original(make_pdf):
+    path = _insert(make_pdf)
+    path.unlink()
+    assert "isn't stored" in srv.get_document_file("doc-1", OWNER)["error"]
+    assert srv.get_documents_list(OWNER)[0]["has_file"] is False
+
+
+def test_delete_removes_the_stored_original(make_pdf):
+    path = _insert(make_pdf)
+    assert srv.delete_document("doc-1", OWNER)["success"]
+    assert not path.exists()
+
+
+def test_word_documents_can_be_uploaded(tmp_path):
+    """Needs docx2txt (SimpleDirectoryReader's Word reader)."""
+    import docx
+
+    path = tmp_path / "letter.docx"
+    document = docx.Document()
+    document.add_paragraph("Your refund of 1,250 dollars was issued on March 3.")
+    document.save(path)
+
+    result = srv.insert_into_index(str(path), "doc-w", "fast", OWNER, "letter.docx")
+
+    assert result["success"], result
+    assert any("refund of 1,250 dollars" in c.text for c in _chunks("doc-w"))
+
+
+
+# --- text preview --------------------------------------------------------------
+
+def test_preview_text_has_each_page_once_in_order(make_pdf):
+    _insert(make_pdf, pages=3)
+    text = srv.get_full_document_content("doc-1", OWNER)["preview_text"]
+
+    assert text.index("--- Page 1 ---") < text.index("--- Page 2 ---") < text.index("--- Page 3 ---")
+    for page in (1, 2, 3):
+        assert text.count(f"This is page {page}.") == 1
+
+
+def test_preview_text_removes_chunk_overlap(tmp_path):
+    """A long Word document is split into overlapping chunks; the preview shows each sentence once."""
+    import docx
+
+    sentences = [f"Sentence number {n} talks about refund timing." for n in range(1, 401)]
+    path = tmp_path / "long.docx"
+    document = docx.Document()
+    document.add_paragraph(" ".join(sentences))
+    document.save(path)
+    srv.insert_into_index(str(path), "doc-long", "fast", OWNER, "long.docx")
+    assert len(_chunks("doc-long")) > 2  # really was split with overlap
+
+    text = srv.get_full_document_content("doc-long", OWNER)["preview_text"]
+
+    assert "--- Page" not in text
+    for sentence in sentences:
+        assert text.count(sentence) == 1, sentence
+
+
+def test_preview_text_before_indexing_uses_the_extracted_text(make_pdf):
+    _insert(make_pdf, pages=2, mode="ultra-fast")
+    text = srv.get_full_document_content("doc-1", OWNER)["preview_text"]
+    assert "This is page 2." in text

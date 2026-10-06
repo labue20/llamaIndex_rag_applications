@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { downloadBlob, apiFetch, Icon } from '../../../shared';
+import { downloadBlob, apiFetch, Icon, DocumentPicker } from '../../../shared';
 import '../../../shared/styles/converter.scss';
 
 const formatSize = (bytes) => {
@@ -87,9 +87,16 @@ const WordToPdfConverter = forwardRef(({ onStatusChange }, ref) => {
             disabled={isConverting}
             id="word-file-input"
           />
-          <label htmlFor="word-file-input" className="upload-label">
-            {file ? 'Change Word Doc' : 'Choose Word Doc'}
-          </label>
+          <div className="upload-actions">
+            <label htmlFor="word-file-input" className="upload-label">
+              {file ? 'Change Word Doc' : 'Choose Word Doc'}
+            </label>
+            <DocumentPicker
+              acceptedExtensions={['.docx']}
+              onSelect={(pickedFile) => pickedFile && loadFile(pickedFile)}
+              disabled={isConverting}
+            />
+          </div>
           <p className="upload-hint">Drop your Word document (.docx) here or click to browse</p>
         </div>
       </div>
@@ -98,12 +105,12 @@ const WordToPdfConverter = forwardRef(({ onStatusChange }, ref) => {
         <div className="pdf-info">
           <h4>Document Information</h4>
           <div className="info-grid">
-            <div className="info-item">
-              <span className="info-label">File:</span>
+            <div className="info-item info-item--wide">
+              <span className="info-label">File</span>
               <span className="info-value">{file.name}</span>
             </div>
             <div className="info-item">
-              <span className="info-label">Size:</span>
+              <span className="info-label">Size</span>
               <span className="info-value">{formatSize(file.size)}</span>
             </div>
           </div>

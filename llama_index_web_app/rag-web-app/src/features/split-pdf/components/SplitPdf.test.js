@@ -125,3 +125,20 @@ test('the header toolbar loads a new document and closes it', async () => {
   await waitFor(() => expect(screen.queryByText('taxes.pdf')).toBeNull());
   expect(screen.getByRole('button', { name: 'Close document' })).toBeDisabled();
 });
+
+test('shows the page count and a readable Document Information box', async () => {
+  // jsdom's File may lack arrayBuffer(); pdf.js itself is mocked in setupTests (3 pages)
+  if (!File.prototype.arrayBuffer) {
+    File.prototype.arrayBuffer = function arrayBuffer() {
+      return Promise.resolve(new ArrayBuffer(4));
+    };
+  }
+  render(<SplitPdf />);
+  choosePdf(pdf('wilfred_2024_tax_transcript.pdf'));
+
+  expect(screen.getByText('wilfred_2024_tax_transcript.pdf')).toBeInTheDocument();
+  expect(await screen.findByText('3')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('radio', { name: /Custom ranges/ }));
+  expect(screen.getByText(/This PDF has 3 pages/)).toBeInTheDocument();
+});

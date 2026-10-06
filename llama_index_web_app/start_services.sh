@@ -10,7 +10,8 @@ cd "$(dirname "$0")/server" || exit 1
 INDEX_PORT=5602
 API_PORT=5601
 
-# Prefer the project virtualenv if it exists
+# Prefer the project virtualenv if it exists (-u below: unbuffered, so log
+# messages appear immediately)
 if [ -x .venv/bin/python ]; then
     PYTHON=.venv/bin/python
 else
@@ -78,12 +79,12 @@ wait_for_port() {
 }
 
 echo "Starting index server on port $INDEX_PORT..."
-"$PYTHON" index_server.py &
+"$PYTHON" -u index_server.py &
 INDEX_PID=$!
 wait_for_port $INDEX_PORT $INDEX_PID "index server"
 
 echo "Starting API server on port $API_PORT..."
-"$PYTHON" flask_demo.py &
+"$PYTHON" -u flask_demo.py &
 API_PID=$!
 wait_for_port $API_PORT $API_PID "API server"
 

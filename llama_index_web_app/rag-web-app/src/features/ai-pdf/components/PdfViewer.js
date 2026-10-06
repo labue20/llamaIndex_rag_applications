@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/webpack';
-import { Icon } from '../../../shared';
+import { Icon, apiFetch } from '../../../shared';
 
 // PDF.js worker is automatically configured when using the webpack import
 
@@ -23,20 +23,27 @@ const PdfViewer = ({ document, isVisible }) => {
   const renderTaskRef = useRef(null); // in-progress pdf.js render, so a new one can cancel it
   const renderIdRef = useRef(0); // only the most recent render request may draw
 
-  // Split content into pages (approximately 1000 characters per page)
+  // Split text previews into viewer pages, keeping line breaks: one per
+  // "--- Page N ---" section when present, otherwise ~2500-character chunks
+  // broken at paragraph boundaries
   const splitContentIntoPages = (content) => {
-    if (!content || content.length === 0) return [];
-    
-    const wordsPerPage = 200; // Approximately 200 words per page
-    const words = content.split(/\s+/);
+    if (!content) return [];
+
+    const sections = content.split(/\n*(?=--- Page \d+ ---)/).filter((part) => part.trim());
+    if (sections.length > 1 || /^--- Page \d+ ---/.test(content)) return sections;
+
+    const maxChars = 2500;
     const pageArray = [];
-    
-    for (let i = 0; i < words.length; i += wordsPerPage) {
-      const pageWords = words.slice(i, i + wordsPerPage);
-      pageArray.push(pageWords.join(' '));
-    }
-    
-    return pageArray.length > 0 ? pageArray : [content];
+    let current = '';
+    content.split(/\n{2,}/).forEach((paragraph) => {
+      if (current && current.length + paragraph.length > maxChars) {
+        pageArray.push(current);
+        current = '';
+      }
+      current += (current ? '\n\n' : '') + paragraph;
+    });
+    if (current) pageArray.push(current);
+    return pageArray;
   };
 
   useEffect(() => {
@@ -113,14 +120,11 @@ const PdfViewer = ({ document, isVisible }) => {
         }
       }
 
-      // Priority 4: If all else fails, provide clear error message
-      console.error('No valid PDF source found - this should not happen!');
-      console.error('Available document properties:', Object.keys(document));
-      console.error('Document.file type:', typeof document.file);
-      console.error('Document.originalFile type:', typeof document.originalFile);
-      console.error('Document.url:', document.url);
-      
-      setError('Could not load PDF for viewing. The file may have been lost during processing.');
+      // Priority 4: no PDF to show (a Word/text document, or an older upload
+      // without its original file): show the document's text instead
+      if (await loadTextPreview()) return;
+
+      setError("A preview isn't available for this document, but you can still chat with it.");
       setDocumentContent('');
       setViewMode('content');
 
@@ -131,6 +135,25 @@ const PdfViewer = ({ document, isVisible }) => {
       setViewMode('content');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Show the document's indexed text; returns whether it worked
+  const loadTextPreview = async () => {
+    const docId = document?.doc_id || document?.id;
+    if (!docId) return false;
+    try {
+      const response = await apiFetch(`/getFullDocument/${encodeURIComponent(docId)}`);
+      if (!response.ok) return false;
+      const data = await response.json();
+      if (!data.preview_text) return false;
+      setError('');
+      setDocumentContent(data.preview_text);
+      setViewMode('content');
+      return true;
+    } catch (err) {
+      console.error('Could not load text preview:', err);
+      return false;
     }
   };
 
@@ -207,7 +230,7 @@ const PdfViewer = ({ document, isVisible }) => {
     } catch (err) {
       console.error('Error loading PDF file:', err);
       setError(`Failed to load PDF file: ${err.message}`);
-      setDocumentContent(generateFallbackContent(document));
+      setDocumentContent('');
       setViewMode('content');
     } finally {
       setIsLoading(false);
@@ -291,35 +314,6 @@ const PdfViewer = ({ document, isVisible }) => {
         );
       }
     }
-  };
-
-  const generateFallbackContent = (doc) => {
-    return `Document: ${doc.name}
-Type: ${doc.type || 'PDF Document'}
-Size: ${doc.size ? `${(doc.size / 1024).toFixed(2)} KB` : 'Unknown'}
-
-PDF Content Preview
-
-This is a preview of the PDF document. The actual content would be displayed here when the document processing is complete.
-
-Key Information:
-• Document Name: ${doc.name}
-• File Type: PDF
-• Upload Status: Ready for processing
-• Available Actions: Chat
-
-Note: Full PDF content rendering is available when connected to the document processing service.
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
-
-Section 1: Introduction
-This section would contain the actual PDF content extracted from the document.
-
-Section 2: Main Content
-The main body of the PDF document would be displayed here with proper formatting and structure.
-
-Section 3: Conclusion
-Summary and concluding remarks from the original PDF document.`;
   };
 
   const goToNextPage = () => {

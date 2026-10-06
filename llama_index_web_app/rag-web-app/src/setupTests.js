@@ -6,7 +6,8 @@ configure({ testIdAttribute: 'data-testid' });
 // pdfjs-dist ships ESM-only builds that Jest can't load; tests don't render PDFs.
 const mockPdfjs = () => ({
   GlobalWorkerOptions: {},
-  getDocument: jest.fn(() => ({ promise: Promise.resolve({ numPages: 0, getPage: jest.fn() }) })),
+  // Plain functions (not jest.fn) so restoreAllMocks between tests doesn't wipe them
+  getDocument: () => ({ promise: Promise.resolve({ numPages: 3, getPage: () => {}, destroy: () => {} }) }),
 });
 jest.mock('pdfjs-dist', () => mockPdfjs());
 jest.mock('pdfjs-dist/webpack', () => mockPdfjs(), { virtual: true });
@@ -18,3 +19,8 @@ beforeEach(() => {
 afterEach(() => {
   jest.restoreAllMocks();
 });
+
+// jsdom doesn't implement scrolling; components call it to keep chats scrolled
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}

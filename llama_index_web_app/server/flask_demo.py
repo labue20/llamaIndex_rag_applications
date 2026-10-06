@@ -54,6 +54,7 @@ INDEX_SERVER_FUNCTIONS = [
     'delete_document',
     'background_index_document',
     'claim_unowned_documents',
+    'get_document_file',
 ]
 
 
@@ -150,9 +151,9 @@ def upload_file():
             filepath, doc_id, processing_mode, current_user_id(), filename
         )._getvalue()
         
-        # Ultra-fast uploads are indexed later by /backgroundIndex, which needs
-        # the file; leave it for background_index_document to clean up
-        if result and result.get("success") and result.get("processing_mode") == "ultra-fast":
+        # Keep the original so it can be reused from My Documents (and indexed
+        # later by /backgroundIndex); it's deleted with the document
+        if result and result.get("success"):
             filepath = None
 
         # Return detailed result
@@ -171,15 +172,12 @@ def upload_file():
             }), 500
             
     except Exception as e:
-        # cleanup temp file
-        if filepath is not None and os.path.exists(filepath):
-            os.remove(filepath)
         return jsonify({
             "error": f"Processing failed: {str(e)}"
         }), 500
 
     finally:
-        # cleanup temp file
+        # Remove the saved file if the upload didn't succeed
         if filepath is not None and os.path.exists(filepath):
             os.remove(filepath)
 
@@ -260,6 +258,22 @@ def get_full_document(doc_id):
         return make_response(jsonify({
             "error": f"Failed to retrieve document: {str(e)}"
         })), 500
+
+
+@app.route("/documents/<doc_id>/file", methods=["GET"])
+def get_document_file(doc_id):
+    """Download the original file of one of the user's documents."""
+    result = manager.get_document_file(doc_id, current_user_id())._getvalue()
+    if result.get("error"):
+        return jsonify({"error": result["error"]}), 404
+
+    # Only ever serve files from the uploads folder
+    documents_dir = os.path.realpath("documents")
+    path = os.path.realpath(result["path"])
+    if os.path.commonpath([documents_dir, path]) != documents_dir:
+        return jsonify({"error": "File not found"}), 404
+
+    return send_file(path, as_attachment=True, download_name=result["file_name"])
 
 
 @app.route("/documents/<doc_id>", methods=["DELETE"])

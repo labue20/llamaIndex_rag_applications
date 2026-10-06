@@ -75,6 +75,33 @@
         }
       }
 
+      // Sits above the full-size invisible file input so it stays clickable
+      .upload-actions {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        pointer-events: none;
+
+        > * { pointer-events: auto; }
+
+        @media (max-width: 480px) { flex-wrap: wrap; }
+
+        .upload-label {
+          margin-bottom: 0;
+          white-space: nowrap;
+        }
+
+        // Same hover as the Choose File button beside it
+        .doc-picker-trigger:hover:not(:disabled) {
+          background: theme-color(accent);
+          transform: translateY(-2px);
+          box-shadow: 0 5px 15px rgba(theme-color(accent), 0.4);
+        }
+      }
+
       .upload-hint {
         margin: 1rem 0 0 0;
         color: theme-color(text-muted);
@@ -100,25 +127,38 @@
 
     .info-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem 1.5rem;
     }
 
+    // Label above value, so long values (file names) wrap instead of
+    // running into the next column
     .info-item {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid theme-color(border);
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 0;
+      padding: 0.625rem 0.875rem;
+      border-radius: 10px;
+      background: theme-color(secondary);
+
+      &--wide {
+        grid-column: 1 / -1;
+      }
 
       .info-label {
+        font-size: 0.75rem;
         font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
         color: theme-color(text-secondary);
       }
 
       .info-value {
+        font-size: 0.9375rem;
         font-weight: 500;
         color: theme-color(text-primary);
+        overflow-wrap: anywhere;
       }
     }
   }

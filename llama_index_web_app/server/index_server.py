@@ -482,14 +482,10 @@ def background_index_document(doc_id, owner_id):
             _set_indexing_status(doc_id, "failed", f"File not found: {file_path}")
             return False
         
-        # Use fast mode for background indexing (good balance of speed and quality)
-        try:
-            result = insert_into_index(file_path, doc_id, processing_mode="fast",
-                                       owner_id=owner_id, file_name=doc_info.get("file_name"))
-        finally:
-            # The upload route leaves the file in place for us; remove it now
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        # Use fast mode for background indexing (good balance of speed and quality).
+        # The original file is kept so it can be reused from My Documents.
+        result = insert_into_index(file_path, doc_id, processing_mode="fast",
+                                   owner_id=owner_id, file_name=doc_info.get("file_name"))
         
         if result and result.get("success"):
             # Update the stored document to mark as indexed
@@ -790,6 +786,40 @@ def insert_into_index(doc_file_path, doc_id=None, processing_mode="ultra-fast", 
         print(f"Error loading document {doc_file_path}: {str(e)}")
         return {"error": f"Failed to load document: {str(e)}"}
 
+def _document_text(doc_id):
+    """Rebuild a document's text from its indexed chunks for previewing.
+
+    Chunks overlap slightly, so each one is placed by its position in the
+    original (start_char_idx) and only the new part is appended. PDF pages are
+    kept in order under "--- Page N ---" headings.
+    """
+    pages = {}
+    for node in index.docstore.docs.values():
+        if node.metadata.get("doc_id") == doc_id:
+            pages.setdefault(str(node.metadata.get("source", "")), []).append(node)
+
+    def page_order(key):
+        return (0, int(key)) if key.isdigit() else (1, key)
+
+    sections = []
+    for key in sorted(pages, key=page_order):
+        nodes = sorted(pages[key], key=lambda n: n.start_char_idx if n.start_char_idx is not None else 0)
+        text, last_end = "", None
+        for node in nodes:
+            start, end = node.start_char_idx, node.end_char_idx
+            if start is not None and last_end is not None and start < last_end:
+                text += node.text[last_end - start:]
+            else:
+                text += ("\n" if text else "") + node.text
+            if end is not None:
+                last_end = max(last_end or 0, end)
+        sections.append((key, text.strip()))
+
+    if len(sections) > 1 or (sections and sections[0][0].isdigit()):
+        return "\n\n".join(f"--- Page {key} ---\n{text}" for key, text in sections)
+    return sections[0][1] if sections else ""
+
+
 def get_full_document_content(doc_id, owner_id):
     """Get the complete content and analysis of a specific document."""
     global stored_docs, index
@@ -813,13 +843,28 @@ def get_full_document_content(doc_id, owner_id):
     # Combine all node texts to reconstruct full document
     full_reconstructed_text = "\n\n".join([node["text"] for node in all_nodes])
     
+    # Not indexed yet (ultra-fast upload): use the extracted text directly
+    preview_text = _document_text(doc_id) or doc_info.get("full_text", "")
+
     return {
         "doc_id": doc_id,
         "document_info": doc_info,
+        "preview_text": preview_text,
         "full_reconstructed_text": full_reconstructed_text,
         "all_nodes": all_nodes,
         "success": True
     }
+
+
+def get_document_file(doc_id, owner_id):
+    """Where owner_id's stored original of a document is, for downloading."""
+    doc_info = _owned_doc(doc_id, owner_id)
+    if doc_info is None:
+        return {"error": "Document not found"}
+    file_path = doc_info.get("file_path")
+    if not file_path or not os.path.exists(file_path):
+        return {"error": "The original file for this document isn't stored. Upload it again to use it here."}
+    return {"path": file_path, "file_name": _doc_display_name(doc_info, doc_id)}
 
 
 def get_documents_list(owner_id):
@@ -835,9 +880,12 @@ def get_documents_list(owner_id):
             # New enhanced format
             if "document_summary" in doc_info:
                 summary = doc_info["document_summary"]
+                file_path = doc_info.get("file_path") or ""
                 documents_list.append({
                     "id": doc_id,
                     "filename": _doc_display_name(doc_info, doc_id),
+                    # Whether the original file is stored (older uploads only kept the text)
+                    "has_file": bool(file_path) and os.path.exists(file_path),
                     "text": summary.get("content_preview", "")[:500] + "...",
                     "full_document_summary": summary,
                     "statistics": summary.get("statistics", {}),
@@ -964,6 +1012,7 @@ if __name__ == "__main__":
     manager.register('delete_document', delete_document)
     manager.register('background_index_document', background_index_document)
     manager.register('claim_unowned_documents', claim_unowned_documents)
+    manager.register('get_document_file', get_document_file)
     server = manager.get_server()
 
     print("server started...")

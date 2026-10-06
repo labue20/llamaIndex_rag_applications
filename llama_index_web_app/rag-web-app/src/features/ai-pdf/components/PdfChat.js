@@ -4,10 +4,18 @@
  */
 
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { FileSelector, SplitLayout, Icon, apiFetch } from '../../../shared';
+import { FileSelector, SplitLayout, Icon, apiFetch, DocumentPicker } from '../../../shared';
 import PdfViewer from './PdfViewer';
 import MessageMarkdown from './MessageMarkdown';
 import { usePdfChat } from '../hooks/usePdfFeatures';
+
+const DOCUMENT_TYPE_LABELS = {
+  '.pdf': 'PDF Document',
+  '.docx': 'Word document',
+  '.txt': 'Text file',
+  '.md': 'Markdown file',
+  '.json': 'JSON file',
+};
 
 const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
   const [inputMessage, setInputMessage] = useState('');
@@ -206,6 +214,33 @@ const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
     }
   };
 
+  // Open a document from the Document Manager. It's already indexed, so chat can start
+  // straight away; the stored original (if any) is used for the preview.
+  const handlePickDocument = (pickedFile, doc) => {
+    // Only PDFs can be shown as pages; other documents get a text preview
+    const isPdfFile = /\.pdf$/i.test(doc.filename);
+    const file = isPdfFile ? pickedFile : null;
+    if (uploadedDocument?.url) {
+      URL.revokeObjectURL(uploadedDocument.url);
+    }
+    clearChat();
+    setInputMessage('');
+    fileRef.current = file;
+    setSelectedFile(file);
+    setIsProcessingForAI(false);
+    setUploadedDocument({
+      doc_id: doc.id,
+      id: doc.id,
+      name: doc.filename,
+      size: doc.file_size,
+      type: DOCUMENT_TYPE_LABELS[(doc.filename.match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase()] || 'Document',
+      file,
+      originalFile: file,
+      url: file ? URL.createObjectURL(file) : undefined,
+      isTemporary: false,
+    });
+  };
+
   // Clear the conversation but keep the current document open
   const handleClearChat = () => {
     clearChat();
@@ -272,6 +307,14 @@ const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
             hint='Drop your PDF here or click to browse'
             autoUpload={true}
             className='pdf-chat__file-selector'
+            extraActions={
+              <DocumentPicker
+                acceptedExtensions={['.pdf', '.docx', '.txt', '.md', '.json']}
+                allowWithoutFile
+                needsFile={(doc) => /\.pdf$/i.test(doc.filename)}
+                onSelect={handlePickDocument}
+              />
+            }
           />
         </div>
       </div>
