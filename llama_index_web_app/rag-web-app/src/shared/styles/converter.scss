@@ -1,0 +1,213 @@
+/**
+ * File Converter Styles
+ * Shared layout for the PDF to Word and Word to PDF pages
+ */
+
+@import './variables';
+
+.file-converter {
+  max-width: 760px;
+  min-height: 100%; // fill the page so the upload area can sit in the middle
+  margin: 0 auto;
+  background: theme-color(primary);
+  padding: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+
+  // Equal flexible spacers above and below center the content vertically;
+  // they shrink to nothing when the content is taller than the page
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+  }
+
+  .file-input-section {
+    margin-bottom: 2rem;
+
+    .upload-area {
+      position: relative;
+      padding: 1.5rem 1rem;
+      border: 2px dashed theme-color(border);
+      border-radius: 10px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      cursor: pointer;
+
+      &:hover {
+        border-color: theme-color(accent);
+        background: rgba(255, 255, 255, 0.95);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(theme-color(accent), 0.15);
+      }
+
+      .upload-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.7;
+      }
+
+      input[type="file"] {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+
+      .upload-label {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        background: theme-color(accent);
+        color: white;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 0.5rem;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 5px 15px rgba(theme-color(accent), 0.4);
+        }
+      }
+
+      .upload-hint {
+        margin: 1rem 0 0 0;
+        color: theme-color(text-muted);
+        font-size: 0.875rem;
+      }
+    }
+  }
+
+  .pdf-info {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border: 1px solid rgba(theme-color(accent), 0.2);
+
+    h4 {
+      margin: 0 0 1rem 0;
+      color: theme-color(text-primary);
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid theme-color(border);
+
+      .info-label {
+        font-weight: 600;
+        color: theme-color(text-secondary);
+      }
+
+      .info-value {
+        font-weight: 500;
+        color: theme-color(text-primary);
+      }
+    }
+  }
+
+  .converter-note {
+    margin: 0;
+    text-align: center;
+    font-size: 0.875rem;
+    color: theme-color(text-secondary);
+  }
+
+  .conversion-action {
+    text-align: center;
+    margin: 2rem 0;
+  }
+
+  .convert-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: theme-color(accent);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.975rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 2px theme-color(shadow);
+
+    .btn-icon {
+      font-size: 1.2rem;
+    }
+
+    &:hover:not(:disabled) {
+      transform: none;
+      background: theme-color(accent-hover);
+    }
+
+    &:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+
+  .progress-section {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 2rem;
+    margin: 2rem 0;
+    border: 1px solid rgba(theme-color(accent), 0.2);
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+
+      h4 {
+        margin: 0;
+        color: theme-color(text-primary);
+        font-size: 1.1rem;
+      }
+
+      .progress-percentage {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: theme-color(accent);
+      }
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: theme-color(secondary);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 1rem 0;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: theme-color(accent);
+      transition: width 0.3s ease;
+      border-radius: inherit;
+    }
+  }
+}

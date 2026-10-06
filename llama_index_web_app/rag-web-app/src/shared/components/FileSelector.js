@@ -12,7 +12,9 @@ const FileSelector = ({
   onFileSelect, 
   acceptedTypes = '.pdf,.txt,.json,.md,.docx',
   label = 'Select Files',
-  variant = 'default', // 'default', 'compact', 'inline'
+  variant = 'default', // 'default', 'compact', 'inline', 'dropzone'
+  hint = '',
+  disabled = false,
   autoUpload = true,
   multiple = false,
   className = ''
@@ -75,10 +77,30 @@ const FileSelector = ({
         return 'file-selector--compact';
       case 'inline':
         return 'file-selector--inline';
+      case 'dropzone':
+        return 'file-selector--dropzone';
       default:
         return 'file-selector--default';
     }
   };
+
+  // Dashed drop area; the transparent input covers it, so clicking or dropping a file both work
+  if (variant === 'dropzone') {
+    return (
+      <div className={`file-selector file-selector--dropzone ${className}`}>
+        <input
+          className='file-selector__dropzone-input'
+          type='file'
+          accept={acceptedTypes}
+          onChange={handleFileChange}
+          disabled={isUploading || disabled}
+          multiple={multiple}
+        />
+        <span className='file-selector__dropzone-btn'>{isUploading ? 'Uploading...' : label}</span>
+        {hint && <p className='file-selector__dropzone-hint'>{hint}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className={`file-selector ${getVariantClass()} ${className}`}>
@@ -89,11 +111,11 @@ const FileSelector = ({
         id={inputId}
         accept={acceptedTypes}
         onChange={handleFileChange}
-        disabled={isUploading}
+        disabled={isUploading || disabled}
         multiple={multiple}
       />
       <label 
-        className={`file-selector__btn ${isUploading ? 'file-selector__btn--uploading' : ''}`} 
+        className={`file-selector__btn ${isUploading ? 'file-selector__btn--uploading' : ''} ${disabled ? 'file-selector__btn--disabled' : ''}`} 
         htmlFor={inputId}
       >
         {variant === 'compact' && (

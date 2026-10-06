@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import './PdfToWordConverter.scss';
+import { downloadBlob } from '../../../shared';
+import '../../../shared/styles/converter.scss';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -63,16 +64,9 @@ const PdfToWordConverter = () => {
       const blob = await response.blob();
       setProgress(95);
       
-      // Create download link and trigger download
-      const fileName = file.name.replace('.pdf', '_converted.docx');
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Trigger download of the converted Word document
+      const fileName = file.name.replace(/\.pdf$/i, '') + '_converted.docx';
+      downloadBlob(blob, fileName);
       
       setProgress(100);
       
@@ -90,7 +84,7 @@ const PdfToWordConverter = () => {
   };
 
   return (
-    <div className="pdf-to-word-converter">
+    <div className="file-converter">
       <div className="file-input-section">
         <div className="upload-area">
           <input
@@ -156,25 +150,6 @@ const PdfToWordConverter = () => {
           </div>
         </div>
       )}
-      
-      <div className="footer">
-        <div className="security-badge">
-          <span className="security-text">
-            🔒 100% secure • Files processed on server with PyMuPDF • Superior text extraction
-          </span>
-        </div>
-      </div>
-      
-      <div className="page-footer">
-        <div className="copyright">
-          <p>&copy; 2025 LlamaIndex RAG Applications. All rights reserved.</p>
-          <p className="footer-links">
-            <a href="#privacy">Privacy Policy</a> • 
-            <a href="#terms">Terms of Service</a> • 
-            <a href="#contact">Contact Us</a>
-          </p>
-        </div>
-      </div>
     </div>
   );
 };

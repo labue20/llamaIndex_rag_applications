@@ -1,5 +1,6 @@
 import os
 import pickle
+import re
 
 # NOTE: for local testing only, do NOT deploy with your key hardcoded
 # Use environment variable for production: export OPENAI_API_KEY=your_key_here
@@ -13,6 +14,7 @@ from llama_index.core import (
     StorageContext, 
     load_index_from_storage,
     Document,
+    PromptTemplate,
 )
 from llama_index.core.node_parser import (
     SentenceSplitter,
@@ -34,6 +36,10 @@ lock = Lock()
 
 index_name = "./saved_index"
 pkl_name = "stored_documents.pkl"
+
+# Max characters sent to the LLM when chatting with a not-yet-indexed document.
+# gpt-4o-mini has a 128k-token context (~4 chars/token), so this leaves headroom.
+MAX_DIRECT_CHAT_CHARS = 300_000
 
 
 # Global pipeline cache to avoid recreating expensive components
@@ -180,6 +186,26 @@ def query_index(query_text):
     return response
 
 
+# "page 7", "pages 3-5", "pages 2, 4 and 9", "pg. 10 through 12"
+_PAGE_REF_RE = re.compile(
+    r"\bp(?:ages?|g)\.?\s*(\d+(?:\s*(?:,|-|–|&|\band\b|\bto\b|\bthrough\b)\s*\d+)*)",
+    re.IGNORECASE,
+)
+_PAGE_RANGE_RE = re.compile(r"(\d+)\s*(?:-|–|\bto\b|\bthrough\b)\s*(\d+)", re.IGNORECASE)
+
+
+def extract_page_numbers(message, max_pages=20):
+    """Return the page numbers a question explicitly refers to."""
+    pages = set()
+    for match in _PAGE_REF_RE.finditer(message):
+        spec = match.group(1)
+        for start, end in _PAGE_RANGE_RE.findall(spec):
+            start, end = sorted((int(start), int(end)))
+            pages.update(range(start, min(end, start + max_pages - 1) + 1))
+        pages.update(int(n) for n in re.findall(r"\d+", _PAGE_RANGE_RE.sub("", spec)))
+    return sorted(pages)[:max_pages]
+
+
 def chat_with_document(message, document_id):
     """Chat with a specific document using enhanced retrieval and conversational context."""
     global index, stored_docs
@@ -216,10 +242,38 @@ def chat_with_document(message, document_id):
                 operator=FilterOperator.EQ
             )
         ])
+        similarity_top_k = 8
+
+        # Page numbers aren't in the chunk text, so semantic search can't find
+        # "page 7". When the question names pages, restrict retrieval to them.
+        # PDF chunks carry their page number as the "source" metadata string.
+        pages = extract_page_numbers(message)
+        if pages:
+            filters.filters.append(MetadataFilter(
+                key="source",
+                value=[str(p) for p in pages],
+                operator=FilterOperator.IN
+            ))
+            similarity_top_k = max(similarity_top_k, 4 * len(pages))
         
+        # Put the document-specific instructions in the answer prompt rather than the
+        # query, so retrieval embeds only the user's question
+        qa_template = PromptTemplate(
+            "You are having a conversation about the document \"{doc_name}\".\n"
+            "Context from this document is below.\n"
+            "---------------------\n"
+            "{context_str}\n"
+            "---------------------\n"
+            "Using only the information in this document, give a detailed and helpful answer to the question.\n"
+            "If the information isn't available in this document, say so clearly.\n"
+            "Question: {query_str}\n"
+            "Answer: "
+        ).partial_format(doc_name=doc_name)
+
         # Create query engine with document-specific filtering
         query_engine = index.as_query_engine(
-            similarity_top_k=8,  # Get more candidates from this specific document
+            text_qa_template=qa_template,
+            similarity_top_k=similarity_top_k,
             llm=llm,
             response_mode="compact",  # Good for conversational responses
             use_async=False,
@@ -228,20 +282,7 @@ def chat_with_document(message, document_id):
             node_postprocessors=[],
         )
         
-        # Create a conversational prompt that emphasizes the specific document context
-        
-        # Enhance the query with document context
-        enhanced_message = f"""
-You are having a conversation about the document "{doc_name}". 
-Based on the content from this specific document, please answer the following question:
-
-{message}
-
-Please provide a detailed and helpful response based solely on the information contained in this document.
-If the information isn't available in this document, please say so clearly.
-"""
-        
-        response = query_engine.query(enhanced_message)
+        response = query_engine.query(message)
         
         return {
             "response": str(response),
@@ -266,13 +307,16 @@ def chat_with_text_directly(message, document_info, doc_name):
         full_text = document_info.get('full_text', '')
         content_preview = document_info.get('document_summary', {}).get('content_preview', '')
         text_to_use = full_text if full_text else content_preview
+        truncated = len(text_to_use) > MAX_DIRECT_CHAT_CHARS
+        if truncated:
+            text_to_use = text_to_use[:MAX_DIRECT_CHAT_CHARS]
         
         # Create a direct prompt with the document text
         direct_prompt = f"""
 You are analyzing the document "{doc_name}". Here is the content of the document:
 
 --- DOCUMENT CONTENT START ---
-{text_to_use[:8000]}  
+{text_to_use}
 --- DOCUMENT CONTENT END ---
 
 Based on this document content, please answer the following question:
@@ -290,7 +334,11 @@ If the information isn't available in this document, please say so clearly.
             "response": str(response),
             "document_id": document_info.get('doc_id', 'unknown'),
             "document_name": doc_name,
-            "note": "Response generated using direct text analysis (document indexing in progress)"
+            "note": (
+                f"Response generated using direct text analysis (indexing failed: {document_info.get('indexing_error')})"
+                if document_info.get('indexing_status') == "failed"
+                else "Response generated using direct text analysis (document indexing in progress)"
+            ) + (" - document was too long and was truncated" if truncated else "")
         }
         
     except Exception as e:
@@ -359,6 +407,20 @@ def create_document_summary(full_text, processed_nodes):
     return document_summary
 
 
+def _set_indexing_status(doc_id, status, error=None):
+    """Record a document's background indexing status and persist it."""
+    with lock:
+        if doc_id not in stored_docs:
+            return
+        stored_docs[doc_id]['indexing_status'] = status
+        if error:
+            stored_docs[doc_id]['indexing_error'] = error
+        else:
+            stored_docs[doc_id].pop('indexing_error', None)
+        with open(pkl_name, "wb") as f:
+            pickle.dump(stored_docs, f)
+
+
 def background_index_document(doc_id):
     """Background task to fully index an ultra-fast processed document."""
     global stored_docs, index
@@ -376,19 +438,27 @@ def background_index_document(doc_id):
     
     try:
         print(f"Starting background indexing for document: {doc_id}")
+        _set_indexing_status(doc_id, "indexing")
         file_path = doc_info.get('file_path')
         
         if not file_path or not os.path.exists(file_path):
             print(f"File not found for background indexing: {file_path}")
+            _set_indexing_status(doc_id, "failed", f"File not found: {file_path}")
             return False
         
         # Use fast mode for background indexing (good balance of speed and quality)
-        result = insert_into_index(file_path, doc_id, processing_mode="fast")
+        try:
+            result = insert_into_index(file_path, doc_id, processing_mode="fast")
+        finally:
+            # The upload route leaves the file in place for us; remove it now
+            if os.path.exists(file_path):
+                os.remove(file_path)
         
         if result and result.get("success"):
             # Update the stored document to mark as indexed
             with lock:
                 stored_docs[doc_id]['indexed'] = True
+                stored_docs[doc_id]['indexing_status'] = "indexed"
                 stored_docs[doc_id]['background_indexed_timestamp'] = __import__('datetime').datetime.now().isoformat()
                 
                 with open(pkl_name, "wb") as f:
@@ -398,10 +468,12 @@ def background_index_document(doc_id):
             return True
         else:
             print(f"❌ Background indexing failed for document: {doc_id}")
+            _set_indexing_status(doc_id, "failed", (result or {}).get("error", "Unknown error"))
             return False
             
     except Exception as e:
         print(f"Error in background indexing for {doc_id}: {str(e)}")
+        _set_indexing_status(doc_id, "failed", str(e))
         return False
 
 
@@ -424,17 +496,22 @@ def process_ultra_fast(doc_file_path, doc_id, start_time):
         if doc_id is None:
             doc_id = f"doc_{int(__import__('time').time() * 1000)}"
         
-        # Read just a preview of the document (first few pages/characters)
+        # Read the full text of the document (all pages), plus a short preview
         preview_text = ""
+        page_count = None
         try:
             if file_extension == '.pdf':
-                # Quick PDF preview - just first page
+                # PyMuPDFReader returns one Document per page; join them all,
+                # tagging each with its page number so page-specific questions work
                 reader = PyMuPDFReader()
                 documents = reader.load_data(doc_file_path)
                 if documents:
-                    # Truncate to first 2000 characters for preview
-                    preview_text = documents[0].text[:2000] + "..." if len(documents[0].text) > 2000 else documents[0].text
-                    full_text = documents[0].text  # Keep full text for later processing
+                    full_text = "\n\n".join(
+                        f"[Page {d.metadata.get('source', i + 1)}]\n{d.text}"
+                        for i, d in enumerate(documents)
+                    )
+                    preview_text = full_text[:2000] + "..." if len(full_text) > 2000 else full_text
+                    page_count = len(documents)
                     actual_doc_id = documents[0].id_
             else:
                 # Quick text file preview
@@ -456,7 +533,7 @@ def process_ultra_fast(doc_file_path, doc_id, start_time):
                     "content_preview": preview_text,
                     "statistics": {
                         "total_characters": len(full_text) if 'full_text' in locals() else len(preview_text),
-                        "estimated_pages": max(1, len(full_text) // 2000) if 'full_text' in locals() else 1,
+                        "estimated_pages": page_count or (max(1, len(full_text) // 2000) if 'full_text' in locals() else 1),
                     }
                 },
                 "full_text": full_text if 'full_text' in locals() else preview_text,

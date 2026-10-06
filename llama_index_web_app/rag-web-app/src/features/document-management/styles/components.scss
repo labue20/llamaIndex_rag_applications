@@ -678,8 +678,40 @@
   }
 
   &__file-icon {
-    font-size: 1.2rem;
+    width: 32px;
+    height: 32px;
     flex-shrink: 0;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: theme-color(text-secondary);
+    background: theme-color(secondary);
+    border: 1px solid theme-color(border);
+
+    &--pdf {
+      color: #dc2626;
+      background: #fef2f2;
+      border-color: #fee2e2;
+    }
+
+    &--doc {
+      color: theme-color(accent);
+      background: theme-color(accent-light);
+      border-color: #dbeafe;
+    }
+
+    &--sheet {
+      color: #16a34a;
+      background: #f0fdf4;
+      border-color: #dcfce7;
+    }
+
+    &--slide {
+      color: #ea580c;
+      background: #fff7ed;
+      border-color: #ffedd5;
+    }
   }
 
   &__file-name {

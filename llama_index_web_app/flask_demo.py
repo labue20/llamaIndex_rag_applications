@@ -65,6 +65,11 @@ def upload_file():
         else:
             result = manager.insert_into_index(filepath, processing_mode=processing_mode)
         
+        # Ultra-fast uploads are indexed later by /backgroundIndex, which needs
+        # the file; leave it for background_index_document to clean up
+        if result and result.get("success") and result.get("processing_mode") == "ultra-fast":
+            filepath = None
+
         # Return detailed result
         if result and result.get("success"):
             return jsonify({
@@ -129,7 +134,8 @@ def chat_with_document():
         return make_response(jsonify({
             "response": result.get("response", "No response generated"),
             "document_id": result.get("document_id"),
-            "document_name": result.get("document_name")
+            "document_name": result.get("document_name"),
+            "note": result.get("note")
         })), 200
         
     except Exception as e:

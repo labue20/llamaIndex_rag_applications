@@ -19,6 +19,8 @@ const PdfViewer = ({ document, isVisible }) => {
   const [pdfPages, setPdfPages] = useState([]); // For actual PDF pages
   const [, setPdfDocument] = useState(null);
   const canvasRefs = useRef([]);
+  const renderTaskRef = useRef(null); // in-progress pdf.js render, so a new one can cancel it
+  const renderIdRef = useRef(0); // only the most recent render request may draw
 
   // Split content into pages (approximately 1000 characters per page)
   const splitContentIntoPages = (content) => {
@@ -236,6 +238,14 @@ const PdfViewer = ({ document, isVisible }) => {
       return;
     }
 
+    // pdf.js can't draw on a canvas that's still being drawn on; cancel any earlier render first
+    const renderId = ++renderIdRef.current;
+    if (renderTaskRef.current) {
+      renderTaskRef.current.cancel();
+      await renderTaskRef.current.promise.catch(() => {});
+    }
+    if (renderId !== renderIdRef.current) return; // a newer request arrived while we waited
+
     try {
       // Calculate scale to fit container width
       const containerWidth = canvas.parentElement?.clientWidth || 800;
@@ -256,8 +266,13 @@ const PdfViewer = ({ document, isVisible }) => {
         viewport: scaledViewport,
       };
 
-      await page.render(renderContext).promise;
+      const renderTask = page.render(renderContext);
+      renderTaskRef.current = renderTask;
+      await renderTask.promise;
     } catch (err) {
+      // Superseded by a newer render; not an error
+      if (err?.name === 'RenderingCancelledException') return;
+
       console.error(`Error rendering PDF page ${pageNumber}:`, err);
       
       // Show error message on canvas
