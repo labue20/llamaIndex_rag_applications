@@ -10,3 +10,11 @@ const mockPdfjs = () => ({
 });
 jest.mock('pdfjs-dist', () => mockPdfjs());
 jest.mock('pdfjs-dist/webpack', () => mockPdfjs(), { virtual: true });
+
+// The app logs a lot of debugging output with console.log; keep test output readable
+beforeEach(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+});
+afterEach(() => {
+  jest.restoreAllMocks();
+});
