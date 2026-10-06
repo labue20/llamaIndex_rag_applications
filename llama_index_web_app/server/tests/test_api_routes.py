@@ -201,3 +201,22 @@ def test_downloading_works_after_the_trial_ends(signup, fresh_db):
     with sqlite3.connect(fresh_db) as conn:
         conn.execute("UPDATE users SET trial_ends_at = '2020-01-01T00:00:00+00:00'")
     assert user_client.get(f"/documents/{doc_id}/file").status_code == 200
+
+
+
+# --- health check ------------------------------------------------------------
+
+def test_health_needs_no_login(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok", "index_server": True}
+
+
+def test_health_reports_an_unreachable_index_server(client, index_server, monkeypatch):
+    def down():
+        raise ConnectionRefusedError("index server is down")
+
+    monkeypatch.setattr(index_server, "ping", down)
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.get_json() == {"status": "degraded", "index_server": False}

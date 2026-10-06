@@ -93,6 +93,9 @@ class FakeIndexServer:
         self.calls.append(("background_index_document", doc_id, owner_id))
         return _Value(bool(self._owned(doc_id, owner_id)))
 
+    def ping(self):
+        return _Value(True)
+
     def claim_unowned_documents(self, owner_id):
         claimed = 0
         for doc in self.docs.values():

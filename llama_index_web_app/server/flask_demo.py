@@ -55,6 +55,7 @@ INDEX_SERVER_FUNCTIONS = [
     'background_index_document',
     'claim_unowned_documents',
     'get_document_file',
+    'ping',
 ]
 
 
@@ -408,6 +409,18 @@ def split_pdf_route():
 
     return send_file(io.BytesIO(zip_parts(parts, stem)), as_attachment=True,
                      download_name=f"{stem}_split.zip", mimetype="application/zip")
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """For monitoring and deploy checks: is the API up and can it reach the index server?"""
+    try:
+        index_ok = bool(manager.ping()._getvalue())
+    except Exception as e:
+        app.logger.error(f"Health check: index server unreachable: {e}")
+        index_ok = False
+    status = 200 if index_ok else 503
+    return jsonify({"status": "ok" if index_ok else "degraded", "index_server": index_ok}), status
 
 
 @app.route("/plans", methods=["GET"])

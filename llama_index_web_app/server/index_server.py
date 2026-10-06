@@ -167,6 +167,11 @@ def initialize_index():
             stored_docs = {}
 
 
+def ping():
+    """Health check: the index server is up and answering."""
+    return True
+
+
 def _owned_doc(doc_id, owner_id):
     """Return the stored document if it exists and belongs to owner_id, else None."""
     doc_info = stored_docs.get(doc_id)
@@ -1013,6 +1018,7 @@ if __name__ == "__main__":
     manager.register('background_index_document', background_index_document)
     manager.register('claim_unowned_documents', claim_unowned_documents)
     manager.register('get_document_file', get_document_file)
+    manager.register('ping', ping)
     server = manager.get_server()
 
     print("server started...")

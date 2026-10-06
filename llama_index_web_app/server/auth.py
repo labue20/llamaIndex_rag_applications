@@ -31,7 +31,7 @@ MAX_FAILED_LOGINS = 10
 FAILED_LOGIN_WINDOW_SECONDS = 15 * 60
 
 # Requests that don't need a logged-in user
-PUBLIC_PATHS = {"/", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me", "/plans"}
+PUBLIC_PATHS = {"/", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me", "/plans", "/health"}
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
