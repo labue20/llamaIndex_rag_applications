@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { downloadBlob, apiFetch } from '../../../shared';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { downloadBlob, apiFetch, Icon } from '../../../shared';
 import '../../../shared/styles/converter.scss';
 
 const formatSize = (bytes) => {
@@ -7,7 +7,7 @@ const formatSize = (bytes) => {
   return (bytes / 1024 / 1024).toFixed(2) + ' MB';
 };
 
-const WordToPdfConverter = () => {
+const WordToPdfConverter = forwardRef(({ onStatusChange }, ref) => {
   const [file, setFile] = useState(null);
   const [isConverting, setIsConverting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -15,14 +15,25 @@ const WordToPdfConverter = () => {
   const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
     event.target.value = ''; // allow choosing the same file again
-    if (!selectedFile) return;
+    if (selectedFile) loadFile(selectedFile);
+  };
 
+  const loadFile = (selectedFile) => {
     if (selectedFile.name.toLowerCase().endsWith('.docx')) {
       setFile(selectedFile);
     } else {
       alert('Please select a Word document (.docx)');
     }
   };
+
+  const reset = () => setFile(null);
+
+  // Let the page header (ConverterHeaderActions) load a new file or close this one
+  useImperativeHandle(ref, () => ({ selectFile: loadFile, reset }));
+
+  useEffect(() => {
+    onStatusChange?.({ hasFile: !!file, isBusy: isConverting });
+  }, [onStatusChange, file, isConverting]);
 
   const convertToPdf = async () => {
     if (!file) return;
@@ -106,8 +117,8 @@ const WordToPdfConverter = () => {
             disabled={isConverting}
             className="convert-btn"
           >
-            <span className="btn-icon">
-              {isConverting ? '⏳' : '🔄'}
+            <span className="btn-icon" aria-hidden="true">
+              {isConverting ? <span className="btn-spinner" /> : <Icon name="fileToPdf" size={18} />}
             </span>
             {isConverting ? 'Converting...' : 'Convert to PDF'}
           </button>
@@ -130,6 +141,6 @@ const WordToPdfConverter = () => {
       )}
     </div>
   );
-};
+});
 
 export default WordToPdfConverter;

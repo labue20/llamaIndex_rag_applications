@@ -9,6 +9,7 @@ export { default as SidebarLayout } from './components/SidebarLayout';
 export { default as FileSelector } from './components/FileSelector';
 export { default as Icon } from './components/Icon';
 export { default as Footer } from './components/Footer';
+export { default as ConverterHeaderActions } from './components/ConverterHeaderActions';
 
 // Utilities
 export { downloadBlob } from './utils/downloadBlob';

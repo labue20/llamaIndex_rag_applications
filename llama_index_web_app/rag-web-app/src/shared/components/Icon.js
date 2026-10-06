@@ -66,6 +66,33 @@ const PATHS = {
     </>
   ),
   arrowLeft: <path d='M19 12H5M11 18l-6-6 6-6' />,
+  upload: <path d='M12 15V4M7.5 8.5L12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3' />,
+  trash: (
+    <>
+      <path d='M4 7h16M10 11v6M14 11v6' />
+      <path d='M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2' />
+    </>
+  ),
+  refresh: <path d='M20 11a8 8 0 0 0-14.9-3.5M4 4v4h4M4 13a8 8 0 0 0 14.9 3.5M20 20v-4h-4' />,
+  zap: <path d='M13 3L5 13.5h6L10 21l8-10.5h-6z' />,
+  alertTriangle: (
+    <>
+      <path d='M10.3 4.2L2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z' />
+      <path d='M12 9.5v4M12 17h.01' />
+    </>
+  ),
+  checkCircle: (
+    <>
+      <circle cx='12' cy='12' r='9' />
+      <path d='M8.5 12.5l2.5 2.5 4.5-5' />
+    </>
+  ),
+  xCircle: (
+    <>
+      <circle cx='12' cy='12' r='9' />
+      <path d='M9.5 9.5l5 5M14.5 9.5l-5 5' />
+    </>
+  ),
   alert: (
     <>
       <circle cx='12' cy='12' r='9' />

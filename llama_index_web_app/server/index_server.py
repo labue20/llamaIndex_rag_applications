@@ -885,9 +885,9 @@ def _remove_document_nodes(doc_ids):
     if not nodes:
         return 0
 
+    # Deleting only these chunks (not whole ref docs) keeps other documents'
+    # chunks intact; the docstore drops a ref doc's entry once its last chunk goes
     index.delete_nodes([node.node_id for node in nodes], delete_from_docstore=True)
-    for ref_doc_id in {node.ref_doc_id for node in nodes if node.ref_doc_id}:
-        index.docstore.delete_ref_doc(ref_doc_id, raise_error=False)
     return len(nodes)
 
 

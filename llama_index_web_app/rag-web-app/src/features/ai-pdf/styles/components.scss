@@ -25,64 +25,6 @@
   }
 }
 
-/****  ChatHeaderActions.js  ****/
-.chat-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-
-  &__btn {
-    height: 36px;
-    padding: 0 0.875rem;
-    border: 1px solid theme-color(border);
-    border-radius: 8px;
-    background: theme-color(primary);
-    color: theme-color(text-primary);
-    font-family: inherit;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-
-    &:hover:not(:disabled) {
-      background: theme-color(secondary);
-      border-color: darken(theme-color(border), 8%);
-    }
-
-    &:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-  }
-
-  // FileSelector restyled as the primary toolbar button
-  &__upload.file-selector--compact .file-selector__btn {
-    height: 36px;
-    padding: 0 0.875rem;
-    border-color: theme-color(accent);
-    background: theme-color(accent);
-    color: theme-color(text-contrast);
-    font-size: 0.8125rem;
-    transform: none;
-
-    svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    svg path {
-      stroke: theme-color(text-contrast);
-    }
-
-    &:hover {
-      background: theme-color(accent-hover);
-      border-color: theme-color(accent-hover);
-      transform: none;
-    }
-  }
-}
-
 /****  PdfChat.js  ****/
 $chat-column: 760px;
 
@@ -675,9 +617,15 @@ $chat-column: 760px;
     color: theme-color(text-secondary);
 
     .pdf-viewer__empty-icon {
-      font-size: 4rem;
-      margin-bottom: 1rem;
-      opacity: 0.5;
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      background: theme-color(accent-light);
+      color: theme-color(accent);
     }
 
     .pdf-viewer__empty-title {
@@ -831,8 +779,15 @@ $chat-column: 760px;
     color: #dc2626;
 
     .pdf-viewer__error-icon {
-      font-size: 2rem;
-      margin-bottom: 1rem;
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      background: rgba(theme-color(error), 0.1);
+      color: theme-color(error);
     }
 
     .pdf-viewer__error-message {
@@ -841,6 +796,9 @@ $chat-column: 760px;
     }
 
     .pdf-viewer__retry-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
       padding: 0.5rem 1rem;
       border: 1px solid #dc2626;
       background-color: transparent;

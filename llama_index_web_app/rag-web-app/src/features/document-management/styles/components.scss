@@ -322,7 +322,13 @@
   }
 
   &__radio-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
     font-size: 0.875rem;
+
+    .icon { color: theme-color(accent); }
+
     color: theme-color(text-primary);
     
     small {
@@ -352,6 +358,9 @@
   }
 
   &__result-title {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
     font-weight: 600;
     margin-bottom: 0.25rem;
   }
@@ -493,6 +502,9 @@
   }
 
   &__delete-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
     background-color: theme-color(error);
     color: white;
     border: 1px solid theme-color(error);
@@ -726,6 +738,18 @@
     align-items: center;
     justify-content: center;
     min-height: 300px;
+  }
+
+  &__empty-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: theme-color(accent-light);
+    color: theme-color(accent);
   }
 
   &__empty-title {

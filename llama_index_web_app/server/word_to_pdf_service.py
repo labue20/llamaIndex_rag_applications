@@ -1,194 +1,132 @@
 """
-Word to PDF Conversion Service
+Word to PDF conversion using LibreOffice in headless mode.
 
-This service provides functionality to convert Word documents (.docx) to PDF format
-using the docx2pdf library.
+LibreOffice runs without windows or dialogs, so conversions work unattended,
+both on macOS and on Linux servers (where Microsoft Word isn't available).
 """
 
-import os
+import atexit
 import logging
-from pathlib import Path
-from typing import Union, Optional
-from docx2pdf import convert
+import os
+import shutil
+import subprocess
 import tempfile
-import uuid
+import threading
+from pathlib import Path
+from typing import Optional, Union
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Seconds before a stuck conversion is killed
+CONVERSION_TIMEOUT_SECONDS = int(os.environ.get("WORD_TO_PDF_TIMEOUT", "120"))
+
+_MACOS_SOFFICE = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
+
+# LibreOffice won't run two instances on one user profile, so each server
+# process gets its own profile and converts one document at a time.
+_PROFILE_PREFIX = "libreoffice-profile-"
+_PROFILE_DIR = Path(tempfile.gettempdir()) / f"{_PROFILE_PREFIX}{os.getpid()}"
+_conversion_lock = threading.Lock()
+
+
+def _process_is_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def remove_stale_profiles(temp_dir: Optional[Path] = None) -> int:
+    """Delete LibreOffice profiles left by server processes that have exited
+    (a killed process can't clean up after itself)."""
+    removed = 0
+    for profile in Path(temp_dir or tempfile.gettempdir()).glob(f"{_PROFILE_PREFIX}*"):
+        pid = profile.name[len(_PROFILE_PREFIX):]
+        if pid.isdigit() and int(pid) != os.getpid() and not _process_is_running(int(pid)):
+            shutil.rmtree(profile, ignore_errors=True)
+            removed += 1
+    return removed
+
+
+remove_stale_profiles()
+atexit.register(shutil.rmtree, _PROFILE_DIR, ignore_errors=True)
+
+
+class ConversionError(Exception):
+    """A Word document could not be converted."""
+
+
+def find_soffice() -> Optional[str]:
+    """Path to LibreOffice's soffice program, or None if it isn't installed."""
+    candidates = [
+        os.environ.get("SOFFICE_PATH"),
+        shutil.which("soffice"),
+        shutil.which("libreoffice"),
+        _MACOS_SOFFICE,
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return candidate
+    return None
+
+
 class WordToPdfConverter:
-    """
-    A class to handle Word to PDF conversion operations
-    """
-    
-    def __init__(self, output_dir: Optional[str] = None):
-        """
-        Initialize the converter
-        
-        Args:
-            output_dir (str, optional): Directory to save converted PDFs. 
-                                      If None, uses system temp directory.
-        """
-        self.output_dir = output_dir or tempfile.gettempdir()
-        self.ensure_output_directory()
-    
-    def ensure_output_directory(self):
-        """Ensure the output directory exists"""
-        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
-    
-    def convert_docx_to_pdf(self, 
-                           input_path: Union[str, Path], 
-                           output_path: Optional[Union[str, Path]] = None) -> str:
-        """
-        Convert a single Word document to PDF
-        
-        Args:
-            input_path (Union[str, Path]): Path to the input .docx file
-            output_path (Union[str, Path], optional): Path for the output PDF file.
-                                                    If None, generates automatically.
-        
-        Returns:
-            str: Path to the converted PDF file
-            
-        Raises:
-            FileNotFoundError: If input file doesn't exist
-            ValueError: If input file is not a .docx file
-            Exception: If conversion fails
-        """
-        input_path = Path(input_path)
-        
-        # Validate input file
+    """Converts .docx files to PDF with LibreOffice."""
+
+    def convert_docx_to_pdf(self, input_path: Union[str, Path], output_path: Union[str, Path]) -> str:
+        """Convert input_path (.docx) to a PDF at output_path and return its path."""
+        input_path, output_path = Path(input_path), Path(output_path)
         if not input_path.exists():
             raise FileNotFoundError(f"Input file not found: {input_path}")
-        
-        if input_path.suffix.lower() != '.docx':
+        if input_path.suffix.lower() != ".docx":
             raise ValueError(f"Input file must be a .docx file, got: {input_path.suffix}")
-        
-        # Generate output path if not provided
-        if output_path is None:
-            output_filename = input_path.stem + '.pdf'
-            output_path = Path(self.output_dir) / output_filename
-        else:
-            output_path = Path(output_path)
-        
-        try:
-            logger.info(f"Converting {input_path} to {output_path}")
-            
-            # Perform the conversion
-            convert(str(input_path), str(output_path))
-            
-            if not output_path.exists():
-                raise Exception("Conversion completed but output file not found")
-            
-            logger.info(f"Successfully converted to: {output_path}")
-            return str(output_path)
-            
-        except Exception as e:
-            logger.error(f"Conversion failed: {str(e)}")
-            raise Exception(f"Failed to convert Word document to PDF: {str(e)}")
-    
-    def convert_multiple_docx_to_pdf(self, 
-                                   input_directory: Union[str, Path],
-                                   output_directory: Optional[Union[str, Path]] = None) -> list:
-        """
-        Convert multiple Word documents in a directory to PDF
-        
-        Args:
-            input_directory (Union[str, Path]): Directory containing .docx files
-            output_directory (Union[str, Path], optional): Directory for output PDFs
-        
-        Returns:
-            list: List of dictionaries with conversion results
-        """
-        input_dir = Path(input_directory)
-        output_dir = Path(output_directory) if output_directory else Path(self.output_dir)
-        
-        if not input_dir.exists():
-            raise FileNotFoundError(f"Input directory not found: {input_dir}")
-        
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        results = []
-        docx_files = list(input_dir.glob("*.docx"))
-        
-        if not docx_files:
-            logger.warning(f"No .docx files found in {input_dir}")
-            return results
-        
-        for docx_file in docx_files:
+
+        soffice = find_soffice()
+        if soffice is None:
+            raise ConversionError(
+                "LibreOffice is not installed on the server, so Word documents can't be converted."
+            )
+
+        # LibreOffice names the output after the input; write it to its own folder
+        with tempfile.TemporaryDirectory(prefix="libreoffice-out-") as out_dir:
+            command = [
+                soffice,
+                "--headless",
+                "--norestore",
+                "--nologo",
+                "--nodefault",
+                "--nolockcheck",
+                f"-env:UserInstallation={_PROFILE_DIR.as_uri()}",
+                "--convert-to", "pdf",
+                "--outdir", out_dir,
+                str(input_path),
+            ]
+            logger.info(f"Converting {input_path.name} to PDF with LibreOffice")
             try:
-                output_file = output_dir / (docx_file.stem + '.pdf')
-                converted_path = self.convert_docx_to_pdf(docx_file, output_file)
-                
-                results.append({
-                    'input_file': str(docx_file),
-                    'output_file': converted_path,
-                    'status': 'success'
-                })
-                
-            except Exception as e:
-                logger.error(f"Failed to convert {docx_file}: {str(e)}")
-                results.append({
-                    'input_file': str(docx_file),
-                    'output_file': None,
-                    'status': 'failed',
-                    'error': str(e)
-                })
-        
-        return results
-    
-    def get_file_info(self, file_path: Union[str, Path]) -> dict:
-        """
-        Get information about a file
-        
-        Args:
-            file_path (Union[str, Path]): Path to the file
-            
-        Returns:
-            dict: File information
-        """
-        file_path = Path(file_path)
-        
-        if not file_path.exists():
-            return {'exists': False}
-        
-        stat = file_path.stat()
-        return {
-            'exists': True,
-            'name': file_path.name,
-            'size': stat.st_size,
-            'size_mb': round(stat.st_size / (1024 * 1024), 2),
-            'extension': file_path.suffix,
-            'absolute_path': str(file_path.absolute())
-        }
+                with _conversion_lock:
+                    result = subprocess.run(
+                        command, capture_output=True, text=True, timeout=CONVERSION_TIMEOUT_SECONDS
+                    )
+            except subprocess.TimeoutExpired:
+                raise ConversionError(
+                    f"Conversion took longer than {CONVERSION_TIMEOUT_SECONDS} seconds and was stopped."
+                )
+
+            produced = Path(out_dir) / f"{input_path.stem}.pdf"
+            if result.returncode != 0 or not produced.exists():
+                logger.error(
+                    f"LibreOffice failed (exit {result.returncode}): {result.stderr.strip() or result.stdout.strip()}"
+                )
+                raise ConversionError("The document could not be converted. It may be damaged or not a real .docx file.")
+
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(produced), output_path)
+
+        logger.info(f"Converted to {output_path.name}")
+        return str(output_path)
 
 
-# Global converter instance for use in Flask routes
 converter = WordToPdfConverter()
-
-
-def main():
-    """
-    Main function for standalone usage
-    """
-    import argparse
-    
-    parser = argparse.ArgumentParser(description='Word to PDF Converter')
-    parser.add_argument('--input', '-i', required=True, help='Input .docx file path')
-    parser.add_argument('--output', '-o', help='Output PDF file path (optional)')
-    
-    args = parser.parse_args()
-    
-    # Command line conversion
-    try:
-        converter = WordToPdfConverter()
-        output_path = converter.convert_docx_to_pdf(args.input, args.output)
-        print(f"Successfully converted: {args.input} -> {output_path}")
-    except Exception as e:
-        print(f"Conversion failed: {str(e)}")
-        exit(1)
-
-
-if __name__ == '__main__':
-    main()

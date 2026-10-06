@@ -78,6 +78,64 @@
   }
 }
 
+/****  Page header toolbars (ChatHeaderActions, ConverterHeaderActions)  ****/
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+
+  &__btn {
+    height: 36px;
+    padding: 0 0.875rem;
+    border: 1px solid theme-color(border);
+    border-radius: 8px;
+    background: theme-color(primary);
+    color: theme-color(text-primary);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: theme-color(secondary);
+      border-color: darken(theme-color(border), 8%);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  // FileSelector restyled as the primary toolbar button
+  &__upload.file-selector--compact .file-selector__btn {
+    height: 36px;
+    padding: 0 0.875rem;
+    border-color: theme-color(accent);
+    background: theme-color(accent);
+    color: theme-color(text-contrast);
+    font-size: 0.8125rem;
+    transform: none;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    svg path {
+      stroke: theme-color(text-contrast);
+    }
+
+    &:hover {
+      background: theme-color(accent-hover);
+      border-color: theme-color(accent-hover);
+      transform: none;
+    }
+  }
+}
+
 /****  Footer.js  ****/
 .app-footer {
   flex-shrink: 0;

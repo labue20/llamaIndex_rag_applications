@@ -1,3 +1,4 @@
+import io
 import os
 from multiprocessing.managers import BaseManager
 from flask import Flask, request, jsonify, make_response, send_file
@@ -9,6 +10,7 @@ from word_to_pdf_service import converter
 from pathlib import Path
 import tempfile
 import uuid
+import zipfile
 from auth import init_auth, current_user_id
 from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES
 from plans import (
@@ -41,21 +43,46 @@ API_PORT = int(os.environ.get("API_PORT", "5601"))
 
 # The index server speaks pickle, so it must stay on localhost and use a secret key
 INDEX_SERVER_ADDRESS = ("127.0.0.1", int(os.environ.get("INDEX_PORT", "5602")))
-INDEX_SERVER_AUTHKEY = os.environ.get("INDEX_SERVER_AUTHKEY")
-if not INDEX_SERVER_AUTHKEY:
-    raise SystemExit("INDEX_SERVER_AUTHKEY is not set. Start the backend with start_services.sh.")
+INDEX_SERVER_FUNCTIONS = [
+    'query_index',
+    'chat_with_document',
+    'insert_into_index',
+    'get_documents_list',
+    'get_full_document_content',
+    'delete_document',
+    'background_index_document',
+    'claim_unowned_documents',
+]
 
-# initialize manager connection
-manager = BaseManager(INDEX_SERVER_ADDRESS, INDEX_SERVER_AUTHKEY.encode())
-manager.register('query_index')
-manager.register('chat_with_document')
-manager.register('insert_into_index')
-manager.register('get_documents_list')
-manager.register('get_full_document_content')
-manager.register('delete_document')
-manager.register('background_index_document')
-manager.register('claim_unowned_documents')
-manager.connect()
+
+def _connect_index_server():
+    authkey = os.environ.get("INDEX_SERVER_AUTHKEY")
+    if not authkey:
+        raise SystemExit("INDEX_SERVER_AUTHKEY is not set. Start the backend with start_services.sh.")
+    index_manager = BaseManager(INDEX_SERVER_ADDRESS, authkey.encode())
+    for name in INDEX_SERVER_FUNCTIONS:
+        index_manager.register(name)
+    index_manager.connect()
+    return index_manager
+
+
+class _IndexServerConnection:
+    """Connects to the index server on first use, so importing this module
+    (e.g. in tests, which substitute a fake) doesn't need a running index server."""
+
+    def __init__(self):
+        self._manager = None
+
+    def connect(self):
+        if self._manager is None:
+            self._manager = _connect_index_server()
+
+    def __getattr__(self, name):
+        self.connect()
+        return getattr(self._manager, name)
+
+
+manager = _IndexServerConnection()
 
 # Login is required for every route except the auth endpoints
 app.config["ON_FIRST_USER"] = lambda user_id: manager.claim_unowned_documents(user_id)._getvalue()
@@ -294,156 +321,45 @@ def convert_pdf_to_word():
 @app.route("/convertWordToPdf", methods=["POST"])
 @requires_active_plan
 def convert_word_to_pdf():
-    """
-    Convert Word document to PDF
-    
-    Expects:
-        - File upload with key 'file'
-        - Optional: 'output_filename' parameter
-    
-    Returns:
-        - PDF file download on success
-        - JSON error response on failure
-    """
+    """Convert an uploaded .docx Word document to PDF and return it as a download."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    if not file.filename.lower().endswith('.docx'):
+        return jsonify({'error': 'File must be a .docx document'}), 400
+
+    # A .docx is a ZIP archive; reject anything else rather than letting
+    # LibreOffice try to interpret arbitrary file formats
+    if not zipfile.is_zipfile(file.stream):
+        return jsonify({'error': 'File must be a .docx document'}), 400
+    file.stream.seek(0)
+
+    # Never use the uploaded name in a path as-is: it could contain ../ or /
+    stem = secure_filename(Path(file.filename).stem) or "document"
+
     try:
-        # Check if file is present in request
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
-        
-        file = request.files['file']
-        
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not file.filename.lower().endswith('.docx'):
-            return jsonify({'error': 'File must be a .docx document'}), 400
-        
-        # Generate unique filename to avoid conflicts
-        unique_id = str(uuid.uuid4())
-        input_filename = f"{unique_id}_{file.filename}"
-        output_filename = f"{unique_id}_{Path(file.filename).stem}.pdf"
-        
-        # Save uploaded file temporarily
-        temp_input_path = Path(tempfile.gettempdir()) / input_filename
-        file.save(temp_input_path)
-        
-        try:
-            # Convert to PDF
-            output_path = converter.convert_docx_to_pdf(
-                temp_input_path, 
-                Path(tempfile.gettempdir()) / output_filename
-            )
-            
-            # Generate download filename
-            download_filename = file.filename.replace('.docx', '_converted.pdf')
-            
-            # Return the PDF file directly
-            return send_file(
-                output_path,
-                as_attachment=True,
-                download_name=download_filename,
-                mimetype='application/pdf'
-            )
-            
-        finally:
-            # Clean up input file
-            if temp_input_path.exists():
-                temp_input_path.unlink()
-            # Clean up output file after sending (Flask handles this automatically)
-    
+        # A private folder per conversion, removed (with both files) when done
+        with tempfile.TemporaryDirectory(prefix="word-to-pdf-") as work_dir:
+            input_path = Path(work_dir) / f"{stem}.docx"
+            output_path = Path(work_dir) / f"{stem}.pdf"
+            file.save(input_path)
+
+            converter.convert_docx_to_pdf(input_path, output_path)
+            pdf_bytes = output_path.read_bytes()
     except Exception as e:
         app.logger.error(f"Word to PDF conversion error: {str(e)}")
         return jsonify({'error': f'Conversion failed: {str(e)}'}), 500
 
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        as_attachment=True,
+        download_name=f"{stem}_converted.pdf",
+        mimetype='application/pdf'
+    )
 
-@app.route("/convertWordToPdfInfo", methods=["POST"])
-@requires_active_plan
-def convert_word_to_pdf_info():
-    """
-    Convert Word document to PDF and return conversion information
-    
-    Expects:
-        - File upload with key 'file'
-    
-    Returns:
-        - JSON response with conversion status and download URL
-    """
-    try:
-        # Check if file is present in request
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
-        
-        file = request.files['file']
-        
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not file.filename.lower().endswith('.docx'):
-            return jsonify({'error': 'File must be a .docx document'}), 400
-        
-        # Generate unique filename to avoid conflicts
-        unique_id = str(uuid.uuid4())
-        input_filename = f"{unique_id}_{file.filename}"
-        output_filename = f"{unique_id}_{Path(file.filename).stem}.pdf"
-        
-        # Save uploaded file temporarily
-        temp_input_path = Path(tempfile.gettempdir()) / input_filename
-        file.save(temp_input_path)
-        
-        try:
-            # Convert to PDF
-            output_path = converter.convert_docx_to_pdf(
-                temp_input_path, 
-                Path(tempfile.gettempdir()) / output_filename
-            )
-            
-            # Get file information
-            input_info = converter.get_file_info(temp_input_path)
-            output_info = converter.get_file_info(output_path)
-            
-            response_data = {
-                'status': 'success',
-                'message': 'Document converted successfully',
-                'input_file': input_info,
-                'output_file': output_info,
-                'download_url': f'/downloadPdf/{Path(output_path).name}'
-            }
-            
-            return jsonify(response_data), 200
-            
-        finally:
-            # Clean up input file
-            if temp_input_path.exists():
-                temp_input_path.unlink()
-    
-    except Exception as e:
-        app.logger.error(f"Word to PDF conversion error: {str(e)}")
-        return jsonify({'error': f'Conversion failed: {str(e)}'}), 500
-
-
-@app.route('/downloadPdf/<filename>')
-def download_pdf_file(filename):
-    """
-    Download converted PDF file
-    
-    Args:
-        filename (str): Name of the file to download
-        
-    Returns:
-        File download response
-    """
-    try:
-        file_path = Path(tempfile.gettempdir()) / filename
-        
-        if not file_path.exists():
-            return jsonify({'error': 'File not found'}), 404
-        
-        return send_file(file_path, as_attachment=True, download_name=filename)
-    
-    except Exception as e:
-        app.logger.error(f"Download error: {str(e)}")
-        return jsonify({'error': f'Download failed: {str(e)}'}), 500
-    
 
 @app.route("/plans", methods=["GET"])
 def plans():
@@ -486,5 +402,7 @@ def background_index(doc_id):
 
 
 if __name__ == "__main__":
+    # Fail fast if the index server isn't reachable
+    manager.connect()
     app.run(host=API_HOST, port=API_PORT)
 

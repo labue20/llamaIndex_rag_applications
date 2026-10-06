@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useDocumentUpload } from '../../features/document-management/hooks/useDocuments';
+import Icon from './Icon';
 
 const FileSelector = ({ 
   onUploadSuccess, 
@@ -26,6 +27,7 @@ const FileSelector = ({
   const handleFileChange = async (event) => {
     if (event.target && event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
+      event.target.value = ''; // so choosing the same file again still fires onChange
       setSelectedFile(file);
       selectFile(file);
       
@@ -118,27 +120,11 @@ const FileSelector = ({
         className={`file-selector__btn ${isUploading ? 'file-selector__btn--uploading' : ''} ${disabled ? 'file-selector__btn--disabled' : ''}`} 
         htmlFor={inputId}
       >
-        {variant === 'compact' && (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M12 15V3M12 3L16 7M12 3L8 7M2 17L2 19C2 20.1046 2.89543 21 4 21L20 21C21.1046 21 22 20.1046 22 19L22 17"
-              stroke="#3b82f6"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
+        {variant === 'compact' && <Icon name='upload' size={18} />}
         <span>{isUploading ? 'Uploading...' : label}</span>
       </label>
       
-      {selectedFile && !autoUpload && (
+      {selectedFile && !autoUpload && onUploadSuccess && (
         <div className='file-selector__selected'>
           <span className='file-selector__filename'>{selectedFile.name}</span>
           <button 

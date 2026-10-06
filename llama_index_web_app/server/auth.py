@@ -17,7 +17,8 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, current_app, g, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from db import DB_PATH, connect_db
+import db
+from db import connect_db
 from plans import init_plans, new_trial_end, plan_status
 
 SECRET_KEY_PATH = "instance/secret_key"
@@ -54,7 +55,6 @@ def _load_secret_key():
 def init_auth(app):
     """Configure sessions, create the users table and require login on the API."""
     os.makedirs("instance", exist_ok=True)
-    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
 
     app.config.update(
         SECRET_KEY=_load_secret_key(),
@@ -65,6 +65,14 @@ def init_auth(app):
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),
     )
 
+    init_db()
+    app.register_blueprint(auth_bp)
+    app.before_request(_require_login)
+
+
+def init_db():
+    """Create the users table (and plan/usage tables) if they don't exist."""
+    os.makedirs(os.path.dirname(db.DB_PATH) or ".", exist_ok=True)
     with connect_db() as conn:
         conn.execute(
             """CREATE TABLE IF NOT EXISTS users (
@@ -75,11 +83,8 @@ def init_auth(app):
             )"""
         )
     # The database holds password hashes: keep it readable by this user only
-    os.chmod(DB_PATH, 0o600)
+    os.chmod(db.DB_PATH, 0o600)
     init_plans()
-
-    app.register_blueprint(auth_bp)
-    app.before_request(_require_login)
 
 
 def _require_login():
