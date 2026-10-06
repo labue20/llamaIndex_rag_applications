@@ -19,3 +19,21 @@ export const downloadBlob = (blob, fileName) => {
   document.body.removeChild(link);
   setTimeout(() => window.URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 };
+
+/**
+ * File name from a Content-Disposition header, or the fallback if absent.
+ * Handles both filename="x" and RFC 5987 filename*=UTF-8''x forms.
+ */
+export const filenameFromDisposition = (header, fallback) => {
+  if (!header) return fallback;
+  const encoded = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1]);
+    } catch {
+      // fall through to the plain form
+    }
+  }
+  const plain = header.match(/filename="?([^";]+)"?/i);
+  return plain ? plain[1].trim() : fallback;
+};

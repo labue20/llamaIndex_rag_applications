@@ -19,6 +19,8 @@ function App() {
   const [pdfToWordStatus, setPdfToWordStatus] = useState({ hasFile: false, isBusy: false });
   const wordToPdfRef = useRef(null);
   const [wordToPdfStatus, setWordToPdfStatus] = useState({ hasFile: false, isBusy: false });
+  const splitPdfRef = useRef(null);
+  const [splitPdfStatus, setSplitPdfStatus] = useState({ hasFile: false, isBusy: false });
 
   const handleUploadSuccess = useCallback(async (result) => {
     console.log('Upload successful, refreshing documents...', result);
@@ -72,10 +74,13 @@ function App() {
       label: 'Split PDF',
       icon: <Icon name='scissors' />,
       title: 'Split PDF Converter',
-      content: <SplitPdf />
+      content: <SplitPdf ref={splitPdfRef} onStatusChange={setSplitPdfStatus} />,
+      headerAction: (
+        <ConverterHeaderActions converterRef={splitPdfRef} status={splitPdfStatus} acceptedTypes='.pdf' />
+      )
     }
 
-  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus]);
+  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus]);
 
   return (
     <div className='app'>

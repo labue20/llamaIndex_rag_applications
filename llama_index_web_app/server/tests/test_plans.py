@@ -120,6 +120,7 @@ def test_query_route_shares_the_question_cap(signup, monkeypatch):
     ("post", "/backgroundIndex/d", {}),
     ("post", "/convertPdfToWord", {"data": {"file": (io.BytesIO(b"x"), "a.pdf")}, "content_type": "multipart/form-data"}),
     ("post", "/convertWordToPdf", {"data": {"file": (io.BytesIO(b"x"), "a.docx")}, "content_type": "multipart/form-data"}),
+    ("post", "/splitPdf", {"data": {"file": (io.BytesIO(b"x"), "a.pdf")}, "content_type": "multipart/form-data"}),
 ])
 def test_expired_trial_blocks_product_features(signup, fresh_db, method, path, kwargs):
     user_client = signup()

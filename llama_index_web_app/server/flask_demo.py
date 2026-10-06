@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 import fitz  # PyMuPDF for PDF to Word conversion
 from pdf_to_word_service import convert_pdf_to_word_document, validate_pdf_file
 from word_to_pdf_service import converter
+from split_pdf_service import SPLIT_MODES, SplitError, split_pdf, zip_parts
 from pathlib import Path
 import tempfile
 import uuid
@@ -34,8 +35,9 @@ ALLOWED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
-# Credentials are needed so the browser sends the session cookie
-CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
+# Credentials are needed so the browser sends the session cookie; the frontend
+# reads download file names from Content-Disposition
+CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True, expose_headers=["Content-Disposition"])
 
 # Interface the API listens on; 127.0.0.1 keeps it off the local network
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
@@ -359,6 +361,39 @@ def convert_word_to_pdf():
         download_name=f"{stem}_converted.pdf",
         mimetype='application/pdf'
     )
+
+
+@app.route("/splitPdf", methods=["POST"])
+@requires_active_plan
+def split_pdf_route():
+    """Split an uploaded PDF. Form fields: file, mode (every | ranges | extract),
+    ranges (e.g. "1-3, 5"; not used for mode=every). Returns one PDF, or a ZIP
+    when the split produces several files."""
+    uploaded_file = request.files.get("file")
+    is_valid, error_message = validate_pdf_file(uploaded_file)
+    if not is_valid:
+        return jsonify({"error": error_message}), 400
+
+    mode = request.form.get("mode", "every")
+    if mode not in SPLIT_MODES:
+        return jsonify({"error": "Choose how to split the PDF."}), 400
+
+    stem = secure_filename(Path(uploaded_file.filename).stem) or "document"
+    try:
+        parts = split_pdf(uploaded_file.read(), mode, request.form.get("ranges", ""))
+    except SplitError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"Split PDF error: {str(e)}")
+        return jsonify({"error": "The PDF could not be split."}), 500
+
+    if len(parts) == 1:
+        label, data = parts[0]
+        return send_file(io.BytesIO(data), as_attachment=True,
+                         download_name=f"{stem}_{label}.pdf", mimetype="application/pdf")
+
+    return send_file(io.BytesIO(zip_parts(parts, stem)), as_attachment=True,
+                     download_name=f"{stem}_split.zip", mimetype="application/zip")
 
 
 @app.route("/plans", methods=["GET"])

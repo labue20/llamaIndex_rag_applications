@@ -16,6 +16,7 @@ PROTECTED_ROUTES = [
     ("post", "/backgroundIndex/some-id"),
     ("post", "/convertPdfToWord"),
     ("post", "/convertWordToPdf"),
+    ("post", "/splitPdf"),
 ]
 
 

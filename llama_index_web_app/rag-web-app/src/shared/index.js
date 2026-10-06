@@ -12,7 +12,7 @@ export { default as Footer } from './components/Footer';
 export { default as ConverterHeaderActions } from './components/ConverterHeaderActions';
 
 // Utilities
-export { downloadBlob } from './utils/downloadBlob';
+export { downloadBlob, filenameFromDisposition } from './utils/downloadBlob';
 
 // Services
 export {
