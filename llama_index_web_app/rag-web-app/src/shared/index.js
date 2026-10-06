@@ -10,5 +10,8 @@ export { default as FileSelector } from './components/FileSelector';
 export { default as Icon } from './components/Icon';
 export { default as Footer } from './components/Footer';
 
+// Utilities
+export { downloadBlob } from './utils/downloadBlob';
+
 // Services
 export { apiClient, ApiClient } from './services/apiClient';

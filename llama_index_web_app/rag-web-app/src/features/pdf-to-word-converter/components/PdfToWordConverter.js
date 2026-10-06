@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
+import { downloadBlob } from '../../../shared';
 import '../../../shared/styles/converter.scss';
 
 
@@ -63,16 +64,9 @@ const PdfToWordConverter = () => {
       const blob = await response.blob();
       setProgress(95);
       
-      // Create download link and trigger download
-      const fileName = file.name.replace('.pdf', '_converted.docx');
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Trigger download of the converted Word document
+      const fileName = file.name.replace(/\.pdf$/i, '') + '_converted.docx';
+      downloadBlob(blob, fileName);
       
       setProgress(100);
       

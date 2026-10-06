@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { downloadBlob } from '../../../shared';
 import '../../../shared/styles/converter.scss';
 
 const formatSize = (bytes) => {
@@ -51,15 +52,8 @@ const WordToPdfConverter = () => {
       setProgress(95);
 
       // Trigger download of the converted PDF
-      const fileName = file.name.replace(/\.docx$/i, '_converted.pdf');
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const fileName = file.name.replace(/\.docx?$/i, '') + '_converted.pdf';
+      downloadBlob(blob, fileName);
 
       setProgress(100);
     } catch (error) {
