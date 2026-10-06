@@ -42,7 +42,7 @@ function App() {
       label: 'AI PDF',
       icon: <Icon name='chat' />,
       title: 'Chat with PDF',
-      content: <AiPdfTools ref={chatRef} onStatusChange={setChatStatus} />,
+      content: <AiPdfTools ref={chatRef} onStatusChange={setChatStatus} onDocumentUploaded={handleUploadSuccess} />,
       headerAction: <ChatHeaderActions chatRef={chatRef} status={chatStatus} />
     },
     {

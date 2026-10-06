@@ -6,23 +6,34 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { FileSelector, SplitLayout, Icon } from '../../../shared';
 import PdfViewer from './PdfViewer';
+import MessageMarkdown from './MessageMarkdown';
 import { usePdfChat } from '../hooks/usePdfFeatures';
 
-const PdfChat = forwardRef(({ onStatusChange }, ref) => {
+const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
   const [inputMessage, setInputMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadedDocument, setUploadedDocument] = useState(null);
   const [isProcessingForAI, setIsProcessingForAI] = useState(false);
   const { messages, isLoading, error, sendMessage, clearChat } = usePdfChat();
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
   
   // Use a ref to permanently store the file to prevent loss during state updates
   const fileRef = useRef(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive or the assistant starts typing
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
+
+  // Grow the composer with its content, up to the max-height set in CSS
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [inputMessage]);
 
   // Cleanup temporary URLs on unmount or when uploadedDocument changes
   useEffect(() => {
@@ -39,9 +50,8 @@ const PdfChat = forwardRef(({ onStatusChange }, ref) => {
 
 
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || isLoading || isProcessingForAI || !uploadedDocument) return;
+  const askQuestion = async (question) => {
+    if (!question.trim() || isLoading || isProcessingForAI || !uploadedDocument) return;
 
     try {
       // Use the document ID returned from the upload response
@@ -51,10 +61,25 @@ const PdfChat = forwardRef(({ onStatusChange }, ref) => {
         throw new Error('Document ID not available. Please wait for upload to complete.');
       }
       
-      await sendMessage(inputMessage.trim(), documentId);
       setInputMessage('');
+      await sendMessage(question.trim(), documentId);
     } catch (err) {
       console.error('Failed to send message:', err);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    askQuestion(inputMessage);
+  };
+
+  const handleCopy = async (message) => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.id);
+      setTimeout(() => setCopiedMessageId((id) => (id === message.id ? null : id)), 1500);
+    } catch (err) {
+      console.error('Failed to copy message:', err);
     }
   };
 
@@ -133,6 +158,9 @@ const PdfChat = forwardRef(({ onStatusChange }, ref) => {
     console.log('=====================================');
     
     setUploadedDocument(newUploadedDocument);
+
+    // Let the rest of the app (e.g. the Document Manager list) know about the new document
+    onDocumentUploaded?.(result);
 
     // If using ultra-fast processing, optionally trigger background indexing for better quality
     if (result.processing_mode === 'ultra-fast' && result.doc_id) {
@@ -250,48 +278,91 @@ const PdfChat = forwardRef(({ onStatusChange }, ref) => {
     );
   }
 
+  const isReady = !!uploadedDocument?.doc_id && !isProcessingForAI;
+  const status = uploadedDocument.uploadError
+    ? { tone: 'error', label: 'Upload failed' }
+    : isProcessingForAI || !uploadedDocument?.doc_id
+    ? { tone: 'pending', label: 'Preparing' }
+    : { tone: 'ready', label: 'Ready' };
+
+  const suggestions = [
+    'Summarize this document',
+    'What are the key points?',
+    "What's on page 1?",
+    'List any important dates or amounts',
+  ];
+
+  const renderAvatar = () => (
+    <span className='pdf-chat__avatar' aria-hidden='true'>
+      <Icon name='sparkle' size={16} />
+    </span>
+  );
+
   // Show split-screen when document is selected/uploaded
   const chatContent = (
     <div className='pdf-chat'>
       <div className='pdf-chat__header'>
-        <p className='pdf-chat__selected'>
-          Chatting with: <strong>{uploadedDocument.name || 'PDF Document'}</strong>
-        </p>
-        {isProcessingForAI && (
-          <div className='pdf-chat__processing'>
-            <span className='pdf-chat__processing-icon'>⏳</span>
-            <span className='pdf-chat__processing-text'>Processing document for AI chat...</span>
-          </div>
-        )}
+        <span className='pdf-chat__doc-icon' aria-hidden='true'>
+          <Icon name='file' size={18} />
+        </span>
+        <div className='pdf-chat__doc-info'>
+          <span className='pdf-chat__doc-label'>Chatting with</span>
+          <span className='pdf-chat__doc-name' title={uploadedDocument.name}>
+            {uploadedDocument.name || 'PDF Document'}
+          </span>
+        </div>
+        <span className={`pdf-chat__status pdf-chat__status--${status.tone}`}>
+          <span className='pdf-chat__status-dot' />
+          {status.label}
+        </span>
       </div>
 
-      <div className='pdf-chat__messages'>
-        {isProcessingForAI ? (
-          <div className='pdf-chat__empty'>
-            <div className='pdf-chat__processing-state'>
-              <h3>Preparing AI Chat</h3>
-              <p>Your document is being processed for AI-powered conversations. This should only take a few seconds!</p>
-              <div className='pdf-chat__processing-steps'>
-                <div className='pdf-chat__step'>Document uploaded ✓</div>
-                <div className='pdf-chat__step pdf-chat__step--active'>Quick analysis in progress...</div>
-                <div className='pdf-chat__step'>Ready for chat</div>
-              </div>
-              <p className='pdf-chat__processing-note'>
-                You can view the document on the right while processing continues. Chat will be available in seconds!
-              </p>
-            </div>
+      <div className='pdf-chat__messages' aria-live='polite'>
+        {uploadedDocument.uploadError ? (
+          <div className='pdf-chat__state'>
+            <span className='pdf-chat__state-icon pdf-chat__state-icon--error'>
+              <Icon name='alert' size={22} />
+            </span>
+            <h3>We couldn't prepare this document</h3>
+            <p className='pdf-chat__state-detail'>{uploadedDocument.uploadError}</p>
+            <p>You can still read it on the right, or upload it again from the header.</p>
+          </div>
+        ) : isProcessingForAI ? (
+          <div className='pdf-chat__state'>
+            <span className='pdf-chat__spinner' aria-hidden='true' />
+            <h3>Preparing your document</h3>
+            <p>This usually takes a few seconds. You can start reading on the right in the meantime.</p>
+            <ol className='pdf-chat__steps'>
+              <li className='pdf-chat__step pdf-chat__step--done'>
+                <Icon name='check' size={14} /> Uploaded
+              </li>
+              <li className='pdf-chat__step pdf-chat__step--active'>
+                <span className='pdf-chat__step-dot' /> Reading pages
+              </li>
+              <li className='pdf-chat__step'>
+                <span className='pdf-chat__step-dot' /> Ready to chat
+              </li>
+            </ol>
           </div>
         ) : messages.length === 0 ? (
-          <div className='pdf-chat__empty'>
-            <p>Start a conversation by asking questions about your PDF!</p>
-            <div className='pdf-chat__suggestions'>
-              <h4>Try asking:</h4>
-              <ul>
-                <li>"What is this document about?"</li>
-                <li>"Summarize the main points"</li>
-                <li>"What are the key findings?"</li>
-                <li>"Explain the methodology used"</li>
-              </ul>
+          <div className='pdf-chat__state'>
+            <span className='pdf-chat__state-icon'>
+              <Icon name='sparkle' size={22} />
+            </span>
+            <h3>Ask anything about this document</h3>
+            <p>Answers come from the document's content. You can ask about specific pages too.</p>
+            <div className='pdf-chat__chips'>
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type='button'
+                  className='pdf-chat__chip'
+                  onClick={() => askQuestion(suggestion)}
+                  disabled={!isReady || isLoading}
+                >
+                  {suggestion}
+                </button>
+              ))}
             </div>
           </div>
         ) : (
@@ -300,25 +371,49 @@ const PdfChat = forwardRef(({ onStatusChange }, ref) => {
               key={message.id} 
               className={`pdf-chat__message pdf-chat__message--${message.type}`}
             >
-              <div className='pdf-chat__message-content'>
-                {message.content}
-              </div>
-              <div className='pdf-chat__message-time'>
-                {formatTime(message.timestamp)}
+              {message.type === 'assistant' && renderAvatar()}
+              <div className='pdf-chat__message-body'>
+                <div className='pdf-chat__bubble'>
+                  {message.type === 'assistant'
+                    ? <MessageMarkdown text={message.content} />
+                    : message.content}
+                </div>
+                {message.note && (
+                  <div className='pdf-chat__message-note' role='note'>
+                    <Icon name='alert' size={14} />
+                    <span>{message.note}</span>
+                  </div>
+                )}
+                <div className='pdf-chat__message-meta'>
+                  <span>{formatTime(message.timestamp)}</span>
+                  {message.type === 'assistant' && (
+                    <button
+                      type='button'
+                      className='pdf-chat__copy'
+                      onClick={() => handleCopy(message)}
+                      aria-label='Copy answer'
+                    >
+                      <Icon name={copiedMessageId === message.id ? 'check' : 'copy'} size={14} />
+                      {copiedMessageId === message.id ? 'Copied' : 'Copy'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
         )}
         
         {isLoading && !isProcessingForAI && (
-          <div className='pdf-chat__message pdf-chat__message--assistant pdf-chat__message--loading'>
-            <div className='pdf-chat__message-content'>
-              <div className='pdf-chat__typing'>
-                <span></span>
-                <span></span>
-                <span></span>
+          <div className='pdf-chat__message pdf-chat__message--assistant'>
+            {renderAvatar()}
+            <div className='pdf-chat__message-body'>
+              <div className='pdf-chat__bubble pdf-chat__bubble--typing' aria-label='Assistant is typing'>
+                <span className='pdf-chat__typing'>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </span>
               </div>
-              Analyzing PDF...
             </div>
           </div>
         )}
@@ -327,28 +422,27 @@ const PdfChat = forwardRef(({ onStatusChange }, ref) => {
       </div>
 
       {error && (
-        <div className='pdf-chat__error'>
-          <p>❌ {error}</p>
+        <div className='pdf-chat__error' role='alert'>
+          <Icon name='alert' size={16} />
+          <span>{error}</span>
         </div>
       )}
 
-      <div className='pdf-chat__input-container'>
+      <div className='pdf-chat__composer'>
         <form className='pdf-chat__input-form' onSubmit={handleSubmit}>
           <textarea
+            ref={inputRef}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder={
-              isProcessingForAI 
-                ? 'Please wait while document is being processed...' 
-                : !uploadedDocument?.doc_id
-                ? 'Document processing, please wait...'
-                : 'Ask a question about your PDF...'
+              isReady ? 'Ask a question about your PDF…' : 'Preparing document, please wait…'
             }
-            disabled={isLoading || isProcessingForAI || !uploadedDocument?.doc_id}
+            disabled={isLoading || !isReady}
             className='pdf-chat__input-field'
-            rows={3}
+            rows={1}
+            aria-label='Ask a question about your PDF'
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 handleSubmit(e);
               }
@@ -356,10 +450,11 @@ const PdfChat = forwardRef(({ onStatusChange }, ref) => {
           />
           <button
             type='submit'
-            disabled={!inputMessage.trim() || isLoading || isProcessingForAI || !uploadedDocument?.doc_id}
+            disabled={!inputMessage.trim() || isLoading || !isReady}
             className='pdf-chat__send-btn'
+            aria-label='Send message'
           >
-            {isLoading ? '⏳' : isProcessingForAI ? '⏳' : '📤'}
+            {isLoading ? <span className='pdf-chat__send-spinner' /> : <Icon name='arrowUp' size={18} />}
           </button>
         </form>
       </div>
