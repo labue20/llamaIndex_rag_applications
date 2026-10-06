@@ -47,7 +47,7 @@ const UpgradeDialog = () => {
     : null;
 
   return (
-    <div className='upgrade-overlay' onClick={closeUpgrade}>
+    <div className='upgrade-overlay' onClick={closeUpgrade} data-testid='upgrade-overlay'>
       <div
         className='upgrade-dialog'
         role='dialog'

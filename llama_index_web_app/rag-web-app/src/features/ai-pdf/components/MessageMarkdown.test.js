@@ -1,38 +1,44 @@
-import { render } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import MessageMarkdown from './MessageMarkdown';
 
-const renderMarkdown = (text) => render(<MessageMarkdown text={text} />).container;
-
 test('renders headings, paragraphs and inline formatting', () => {
-  const container = renderMarkdown('## Summary\nPage 7 covers **income** and *credits*.\nSee `line 9`.');
+  render(<MessageMarkdown text={'## Summary\nPage 7 covers **income** and *credits*.\nSee `line 9`.'} />);
 
-  expect(container.querySelector('h4')).toHaveTextContent('Summary');
-  expect(container.querySelector('strong')).toHaveTextContent('income');
-  expect(container.querySelector('em')).toHaveTextContent('credits');
-  expect(container.querySelector('code')).toHaveTextContent('line 9');
-  // Single line breaks are kept within a paragraph
-  expect(container.querySelector('p br')).not.toBeNull();
+  expect(screen.getByRole('heading', { name: 'Summary' })).toBeInTheDocument();
+  expect(screen.getByText('income').tagName).toBe('STRONG');
+  expect(screen.getByText('credits').tagName).toBe('EM');
+  expect(screen.getByText('line 9').tagName).toBe('CODE');
+  // Single line breaks are kept within one paragraph
+  const paragraph = screen.getByText((_, element) => element.tagName === 'P');
+  expect(paragraph).toHaveTextContent(/^Page 7 covers income and credits\.\s*See line 9\.$/);
+  expect(paragraph).toContainHTML('<br>');
 });
 
 test('renders bulleted and numbered lists', () => {
-  const container = renderMarkdown('- first\n* second\n• third\n\n1. one\n2) two');
-  expect([...container.querySelectorAll('ul li')].map((li) => li.textContent)).toEqual(['first', 'second', 'third']);
-  expect([...container.querySelectorAll('ol li')].map((li) => li.textContent)).toEqual(['one', 'two']);
+  render(<MessageMarkdown text={'- first\n* second\n• third\n\n1. one\n2) two'} />);
+  const [bullets, numbered] = screen.getAllByRole('list');
+
+  expect(bullets.tagName).toBe('UL');
+  expect(within(bullets).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['first', 'second', 'third']);
+  expect(numbered.tagName).toBe('OL');
+  expect(within(numbered).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['one', 'two']);
 });
 
 test('joins indented continuation lines onto the list item', () => {
-  const container = renderMarkdown('- a long item\n  that continues here');
-  expect(container.querySelector('li')).toHaveTextContent('a long item that continues here');
+  render(<MessageMarkdown text={'- a long item\n  that continues here'} />);
+  expect(screen.getByRole('listitem')).toHaveTextContent('a long item that continues here');
 });
 
 test('shows HTML as text instead of running it', () => {
-  const container = renderMarkdown('<script>alert(1)</script> <img src=x onerror=alert(1)>');
-  expect(container.querySelector('script')).toBeNull();
-  expect(container.querySelector('img')).toBeNull();
-  expect(container).toHaveTextContent('<script>alert(1)</script>');
+  render(<MessageMarkdown text='<script>alert(1)</script> <img src=x onerror=alert(1)>' />);
+  const paragraph = screen.getByText(/<script>alert\(1\)<\/script>/);
+
+  expect(paragraph).not.toContainHTML('<script>');
+  expect(screen.queryByRole('img')).toBeNull();
 });
 
 test('handles empty text', () => {
-  expect(renderMarkdown('').textContent).toBe('');
-  expect(renderMarkdown(undefined).textContent).toBe('');
+  render(<MessageMarkdown text='' />);
+  render(<MessageMarkdown text={undefined} />);
+  expect(screen.queryByText(/./)).toBeNull();
 });

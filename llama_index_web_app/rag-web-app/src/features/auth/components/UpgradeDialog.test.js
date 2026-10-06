@@ -60,7 +60,7 @@ test('a 402 response refreshes the plan and opens the dialog', async () => {
 test('clicking outside closes the dialog', async () => {
   renderWithUser(() => makeUser());
   fireEvent.click(await screen.findByRole('button', { name: 'Upgrade' }));
-  fireEvent.click(document.querySelector('.upgrade-overlay'));
+  fireEvent.click(screen.getByTestId('upgrade-overlay'));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 

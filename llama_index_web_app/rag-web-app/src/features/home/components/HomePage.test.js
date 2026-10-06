@@ -9,11 +9,16 @@ const renderHome = () => {
   return { onLogin, onSignup };
 };
 
+const toolCards = () => within(screen.getByRole('region', { name: 'Our tools' })).getAllByRole('button');
+
 test('lists every tool', () => {
   mockFetch({});
   renderHome();
-  const titles = [...document.querySelectorAll('.home-tool__title')].map((el) => el.textContent);
-  expect(titles).toEqual(['Chat with PDFAI', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Document Manager']);
+  const cards = toolCards();
+  expect(cards).toHaveLength(5);
+  ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Document Manager'].forEach((title, i) => {
+    expect(cards[i]).toHaveTextContent(title);
+  });
 });
 
 test('shows the trial terms from the server', async () => {
@@ -34,7 +39,7 @@ test('log in and trial buttons call the right handlers', () => {
   expect(onLogin).toHaveBeenCalledTimes(1);
 
   fireEvent.click(within(nav).getByRole('button', { name: 'Start free trial' }));
-  fireEvent.click(document.querySelector('.home-tool--chat'));
+  fireEvent.click(toolCards()[0]);
   expect(onSignup).toHaveBeenCalledTimes(2);
 });
 
@@ -42,7 +47,7 @@ test('explore the tools scrolls to the tool grid', () => {
   mockFetch({});
   renderHome();
   const scrollIntoView = jest.fn();
-  document.getElementById('tools').scrollIntoView = scrollIntoView;
+  Element.prototype.scrollIntoView = scrollIntoView;
 
   fireEvent.click(screen.getByRole('button', { name: 'Explore the tools' }));
   expect(scrollIntoView).toHaveBeenCalled();

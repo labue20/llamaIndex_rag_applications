@@ -217,8 +217,8 @@ const HomePage = ({ onLogin, onSignup }) => {
           </div>
         </section>
 
-        <section className='home-tools' id='tools'>
-          <h2 className='home-section-title'>Our tools</h2>
+        <section className='home-tools' id='tools' aria-labelledby='home-tools-title'>
+          <h2 className='home-section-title' id='home-tools-title'>Our tools</h2>
           <div className='home-tools__grid'>
             {TOOLS.map((tool) => (
               <button

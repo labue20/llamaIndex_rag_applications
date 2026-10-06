@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import AuthGate from './AuthGate';
 import { apiFetch } from '../../../shared/services/apiClient';
@@ -46,10 +46,8 @@ test('a logged-in user sees the app; logging out returns to the homepage', async
 
   expect(await screen.findByText('The app')).toBeInTheDocument();
 
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
-  });
-  expect(screen.queryByText('The app')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+  await waitFor(() => expect(screen.queryByText('The app')).toBeNull());
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Do more with your PDFs');
 });
 
