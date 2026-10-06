@@ -13,9 +13,9 @@ import fitz  # PyMuPDF
 from docx import Document
 from docx.shared import Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES
 
 # Configuration
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 ALLOWED_EXTENSIONS = {'pdf'}
 
 def allowed_file(filename):
@@ -155,8 +155,8 @@ def validate_pdf_file(uploaded_file):
     file_size = uploaded_file.tell()
     uploaded_file.seek(0)  # Reset to beginning
     
-    if file_size > MAX_FILE_SIZE:
-        return False, f"File size too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB"
+    if file_size > MAX_UPLOAD_BYTES:
+        return False, f"File is too large. The maximum size is {MAX_UPLOAD_MB} MB."
     
     if file_size == 0:
         return False, "Empty file provided"

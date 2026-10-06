@@ -13,6 +13,29 @@ export const setUnauthorizedHandler = (handler) => {
   unauthorizedHandler = handler;
 };
 
+// Called whenever the API answers 402 (free trial ended, upgrade needed)
+let planRequiredHandler = null;
+export const setPlanRequiredHandler = (handler) => {
+  planRequiredHandler = handler;
+};
+
+const notifyAuthStatus = (status) => {
+  if (status === 401 && unauthorizedHandler) unauthorizedHandler();
+  if (status === 402 && planRequiredHandler) planRequiredHandler();
+};
+
+/**
+ * Read the error message from a failed API response ({"error": "..."}),
+ * falling back to the given text.
+ * @param {Response} response
+ * @param {string} fallback
+ * @returns {Promise<string>}
+ */
+export const readApiError = async (response, fallback) => {
+  const data = await response.json().catch(() => ({}));
+  return data.error || fallback;
+};
+
 /**
  * fetch() against the backend: prefixes API_BASE_URL, sends the session cookie,
  * and reports 401 responses to the unauthorized handler.
@@ -25,9 +48,7 @@ export const apiFetch = async (path, options = {}) => {
     credentials: 'include',
     ...options,
   });
-  if (response.status === 401 && unauthorizedHandler) {
-    unauthorizedHandler();
-  }
+  notifyAuthStatus(response.status);
   return response;
 };
 
@@ -130,9 +151,7 @@ class ApiClient {
       
       const response = await fetch(url, config);
 
-      if (response.status === 401 && unauthorizedHandler) {
-        unauthorizedHandler();
-      }
+      notifyAuthStatus(response.status);
       
       if (!response.ok) {
         const errorText = await response.text();

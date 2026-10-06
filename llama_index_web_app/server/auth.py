@@ -17,7 +17,9 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, current_app, g, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
-DB_PATH = os.environ.get("USERS_DB_PATH", "instance/users.db")
+from db import DB_PATH, connect_db
+from plans import init_plans, new_trial_end, plan_status
+
 SECRET_KEY_PATH = "instance/secret_key"
 
 MIN_PASSWORD_LENGTH = 8
@@ -28,18 +30,12 @@ MAX_FAILED_LOGINS = 10
 FAILED_LOGIN_WINDOW_SECONDS = 15 * 60
 
 # Requests that don't need a logged-in user
-PUBLIC_PATHS = {"/", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me"}
+PUBLIC_PATHS = {"/", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me", "/plans"}
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 _failed_logins = {}
 _failed_logins_lock = threading.Lock()
-
-
-def _connect():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def _load_secret_key():
@@ -69,7 +65,7 @@ def init_auth(app):
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),
     )
 
-    with _connect() as conn:
+    with connect_db() as conn:
         conn.execute(
             """CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
@@ -80,6 +76,7 @@ def init_auth(app):
         )
     # The database holds password hashes: keep it readable by this user only
     os.chmod(DB_PATH, 0o600)
+    init_plans()
 
     app.register_blueprint(auth_bp)
     app.before_request(_require_login)
@@ -99,7 +96,7 @@ def _session_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
-    with _connect() as conn:
+    with connect_db() as conn:
         row = conn.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         session.clear()
@@ -110,6 +107,11 @@ def _session_user():
 def current_user_id():
     """ID of the logged-in user for the current request."""
     return g.user["id"]
+
+
+def _user_payload(user):
+    """User fields sent to the browser, including trial/plan status."""
+    return {**user, "plan": plan_status(user["id"])}
 
 
 def _start_session(user):
@@ -153,12 +155,13 @@ def signup():
 
     user = {"id": uuid.uuid4().hex, "email": email}
     try:
-        with _connect() as conn:
+        with connect_db() as conn:
             is_first_user = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
             conn.execute(
-                "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO users (id, email, password_hash, created_at, plan, trial_ends_at)"
+                " VALUES (?, ?, ?, ?, 'trial', ?)",
                 (user["id"], email, generate_password_hash(password),
-                 datetime.now(timezone.utc).isoformat()),
+                 datetime.now(timezone.utc).isoformat(), new_trial_end()),
             )
     except sqlite3.IntegrityError:
         return jsonify({"error": "An account with this email already exists."}), 409
@@ -170,7 +173,7 @@ def signup():
             on_first_user(user["id"])
 
     _start_session(user)
-    return jsonify({"user": user}), 201
+    return jsonify({"user": _user_payload(user)}), 201
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -181,7 +184,7 @@ def login():
     if _is_throttled(key):
         return jsonify({"error": "Too many failed attempts. Try again in a few minutes."}), 429
 
-    with _connect() as conn:
+    with connect_db() as conn:
         row = conn.execute(
             "SELECT id, email, password_hash FROM users WHERE email = ?", (email,)
         ).fetchone()
@@ -195,7 +198,7 @@ def login():
 
     user = {"id": row["id"], "email": row["email"]}
     _start_session(user)
-    return jsonify({"user": user}), 200
+    return jsonify({"user": _user_payload(user)}), 200
 
 
 @auth_bp.route("/logout", methods=["POST"])
@@ -209,4 +212,4 @@ def me():
     user = _session_user()
     if user is None:
         return jsonify({"error": "Not logged in"}), 401
-    return jsonify({"user": user}), 200
+    return jsonify({"user": _user_payload(user)}), 200

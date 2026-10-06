@@ -6,13 +6,15 @@
 import React, { useState } from 'react';
 import Icon from '../../../shared/components/Icon';
 import { useAuth } from '../context/AuthContext';
+import { usePlanInfo } from '../hooks/usePlanInfo';
 import '../styles/auth.scss';
 
 const MIN_PASSWORD_LENGTH = 8;
 
-const AuthPage = () => {
+const AuthPage = ({ initialMode = 'login', onBack }) => {
   const { login, signup } = useAuth();
-  const [mode, setMode] = useState('login');
+  const { trial_days: trialDays } = usePlanInfo();
+  const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -47,6 +49,12 @@ const AuthPage = () => {
   return (
     <div className='auth-page'>
       <div className='auth-card'>
+        {onBack && (
+          <button type='button' className='auth-card__back' onClick={onBack}>
+            <Icon name='arrowLeft' size={16} />
+            Back to home
+          </button>
+        )}
         <div className='auth-card__brand'>
           <span className='auth-card__logo'>
             <Icon name='layers' size={20} />
@@ -55,11 +63,11 @@ const AuthPage = () => {
         </div>
 
         <h1 className='auth-card__title'>
-          {isSignup ? 'Create your account' : 'Welcome back'}
+          {isSignup ? 'Start your free trial' : 'Welcome back'}
         </h1>
         <p className='auth-card__subtitle'>
           {isSignup
-            ? 'Your documents and chats are private to your account.'
+            ? `Full access for ${trialDays} days. No credit card needed.`
             : 'Sign in to chat with your documents.'}
         </p>
 
@@ -135,7 +143,7 @@ const AuthPage = () => {
             disabled={isSubmitting || !email.trim() || !password}
           >
             {isSubmitting && <span className='auth-form__spinner' aria-hidden='true' />}
-            {isSignup ? 'Create account' : 'Sign in'}
+            {isSignup ? 'Start free trial' : 'Sign in'}
           </button>
         </form>
 

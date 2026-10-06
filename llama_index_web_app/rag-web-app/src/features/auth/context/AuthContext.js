@@ -4,7 +4,11 @@
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { apiFetch, setUnauthorizedHandler } from '../../../shared/services/apiClient';
+import {
+  apiFetch,
+  setPlanRequiredHandler,
+  setUnauthorizedHandler,
+} from '../../../shared/services/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -30,19 +34,35 @@ const postCredentials = async (path, email, password) => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+
+  // Re-read the user (including plan status and usage) from the server
+  const refreshUser = useCallback(async () => {
+    try {
+      const response = await apiFetch('/auth/me');
+      const data = response.ok ? await response.json() : null;
+      setUser(data?.user ?? null);
+    } catch {
+      setUser(null);
+    }
+  }, []);
 
   useEffect(() => {
     // Any 401 from the API means the session is gone: show the login page
     setUnauthorizedHandler(() => setUser(null));
+    // A 402 means the free trial has ended: refresh the plan and offer an upgrade
+    setPlanRequiredHandler(() => {
+      refreshUser();
+      setIsUpgradeOpen(true);
+    });
 
-    apiFetch('/auth/me')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => setUser(data?.user ?? null))
-      .catch(() => setUser(null))
-      .finally(() => setIsCheckingSession(false));
+    refreshUser().finally(() => setIsCheckingSession(false));
 
-    return () => setUnauthorizedHandler(null);
-  }, []);
+    return () => {
+      setUnauthorizedHandler(null);
+      setPlanRequiredHandler(null);
+    };
+  }, [refreshUser]);
 
   const login = useCallback(async (email, password) => {
     setUser(await postCredentials('/auth/login', email, password));
@@ -57,12 +77,26 @@ export const AuthProvider = ({ children }) => {
       await apiFetch('/auth/logout', { method: 'POST' });
     } finally {
       setUser(null);
+      setIsUpgradeOpen(false);
     }
   }, []);
 
+  const openUpgrade = useCallback(() => setIsUpgradeOpen(true), []);
+  const closeUpgrade = useCallback(() => setIsUpgradeOpen(false), []);
+
   const value = useMemo(
-    () => ({ user, isCheckingSession, login, signup, logout }),
-    [user, isCheckingSession, login, signup, logout]
+    () => ({
+      user,
+      isCheckingSession,
+      login,
+      signup,
+      logout,
+      refreshUser,
+      isUpgradeOpen,
+      openUpgrade,
+      closeUpgrade,
+    }),
+    [user, isCheckingSession, login, signup, logout, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

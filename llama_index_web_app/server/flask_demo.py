@@ -10,12 +10,19 @@ from pathlib import Path
 import tempfile
 import uuid
 from auth import init_auth, current_user_id
+from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES
+from plans import (
+    document_limit_error,
+    public_plan_info,
+    question_limit_error,
+    record_question,
+    requires_active_plan,
+)
 
 app = Flask(__name__)
 
 # Reject request bodies over this size (uploads included) with a 413
-MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "50"))
-app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
 # Only the React app may call this API from a browser
 ALLOWED_ORIGINS = [
@@ -61,13 +68,19 @@ def file_too_large(_error):
 
 
 @app.route("/queryFile", methods=["GET"])
+@requires_active_plan
 def query_index_route():
     global manager
     query_text = request.args.get("text", None)
     if query_text is None:
         return "No text found, please include a ?text=blah parameter in the URL", 400
 
+    limit_error = question_limit_error(current_user_id())
+    if limit_error:
+        return limit_error
+
     response = manager.query_index(query_text, current_user_id())._getvalue()
+    record_question(current_user_id())
     response_json = {
         "text": str(response)
     }
@@ -75,11 +88,18 @@ def query_index_route():
 
 
 @app.route("/uploadFile", methods=["POST"])
+@requires_active_plan
 def upload_file():
     global manager
     if 'file' not in request.files:
         return "Please send a POST request with a file", 400
     
+    limit_error = document_limit_error(
+        current_user_id(), len(manager.get_documents_list(current_user_id())._getvalue())
+    )
+    if limit_error:
+        return limit_error
+
     filepath = None
     try:
         uploaded_file = request.files["file"]
@@ -136,6 +156,7 @@ def upload_file():
 
 
 @app.route("/chat", methods=["POST"])
+@requires_active_plan
 def chat_with_document():
     """Chat with a specific document."""
     global manager
@@ -160,12 +181,18 @@ def chat_with_document():
                 "error": "Document ID is required"
             })), 400
         
+        limit_error = question_limit_error(current_user_id())
+        if limit_error:
+            return limit_error
+
         result = manager.chat_with_document(message, document_id, current_user_id())._getvalue()
         
         if result.get("error"):
             return make_response(jsonify({
                 "error": result["error"]
             })), 400
+
+        record_question(current_user_id())
             
         return make_response(jsonify({
             "response": result.get("response", "No response generated"),
@@ -226,6 +253,7 @@ def delete_document(doc_id):
 
 
 @app.route("/convertPdfToWord", methods=["POST"])
+@requires_active_plan
 def convert_pdf_to_word():
     """Convert PDF to Word document using PyMuPDF."""
     try:
@@ -264,6 +292,7 @@ def convert_pdf_to_word():
 
 
 @app.route("/convertWordToPdf", methods=["POST"])
+@requires_active_plan
 def convert_word_to_pdf():
     """
     Convert Word document to PDF
@@ -328,6 +357,7 @@ def convert_word_to_pdf():
 
 
 @app.route("/convertWordToPdfInfo", methods=["POST"])
+@requires_active_plan
 def convert_word_to_pdf_info():
     """
     Convert Word document to PDF and return conversion information
@@ -415,12 +445,19 @@ def download_pdf_file(filename):
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
     
 
+@app.route("/plans", methods=["GET"])
+def plans():
+    """Free-trial terms (public, shown on the homepage)."""
+    return jsonify(public_plan_info()), 200
+
+
 @app.route("/")
 def home():
     return "Hello, World! Welcome to the llama_index docker image!"
 
 
 @app.route("/backgroundIndex/<doc_id>", methods=["POST"])
+@requires_active_plan
 def background_index(doc_id):
     """Trigger background indexing for a document."""
     global manager

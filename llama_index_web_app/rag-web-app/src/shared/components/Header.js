@@ -1,5 +1,5 @@
 import Icon from './Icon';
-import { useAuth } from '../../features/auth';
+import { useAuth, TrialBadge } from '../../features/auth';
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -15,10 +15,7 @@ const Header = () => {
           <span className='app-header__subtitle'>LlamaIndex</span>
         </div>
         <div className='app-header__actions'>
-          <div className='app-header__status'>
-            <span className='status-indicator'></span>
-            <span className='status-text'>Connected</span>
-          </div>
+          <TrialBadge />
           {user && (
             <div className='user-menu'>
               <span className='user-menu__avatar' aria-hidden='true'>

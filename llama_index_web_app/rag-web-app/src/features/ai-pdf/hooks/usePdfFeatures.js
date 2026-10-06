@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { apiFetch } from '../../../shared';
+import { apiFetch, readApiError } from '../../../shared';
 import { generateMessageId, sanitizeInput, handleApiError } from '../utils/helpers';
 
 // Configuration
@@ -69,9 +69,7 @@ export const usePdfChat = () => {
       console.log('API response status:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API error response:', errorText);
-        throw new Error(`Chat request failed: ${response.status} ${response.statusText}. ${errorText}`);
+        throw new Error(await readApiError(response, `Chat request failed (${response.status}).`));
       }
 
       const data = await response.json();

@@ -3,7 +3,7 @@
  * Centralized API calls for document-related operations
  */
 
-import { apiClient, apiFetch } from '../../../shared/services/apiClient';
+import { apiClient, apiFetch, readApiError } from '../../../shared/services/apiClient';
 
 export const documentApi = {
   /**
@@ -45,8 +45,7 @@ export const documentApi = {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Upload failed: ${errorText}`);
+        throw new Error(await readApiError(response, `Upload failed (${response.status}).`));
       }
 
       const result = await response.json();
