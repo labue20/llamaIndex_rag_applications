@@ -16,3 +16,7 @@ Tests never call OpenAI or touch your real accounts, index or uploads. They also
 ```bash
 CI=true npm test -- --watchAll=false
 ```
+
+## Deployment
+
+See [docs/DEPLOY_AWS_LIGHTSAIL.md](docs/DEPLOY_AWS_LIGHTSAIL.md) for running the app on an AWS Lightsail server with HTTPS. The scripts and configs are in `llama_index_web_app/deploy/`.

@@ -1,0 +1,257 @@
+/**
+ * Phone and tablet layouts for the logged-in app.
+ * Imported last in App.js so these rules override the desktop styles.
+ *
+ *   <= 768px  tablets and phones: Chat | Preview tabs instead of side-by-side panes
+ *   <= 640px  phones: bottom tab bar, compact header, stacked upload buttons
+ */
+
+@import './variables';
+
+$tablet: 768px;
+$phone: 640px;
+$tab-bar-height: 58px;
+
+// Hidden on desktop, shown on small screens
+.split-layout__tabs,
+.sidebar-layout__nav-short,
+.viewer__file-meta {
+  display: none;
+}
+
+.viewer__file-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+// Mobile browsers' toolbars make 100vh taller than the visible screen
+.app {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ---------- Tablets and phones ---------- */
+@media (max-width: $tablet) {
+  // Chat and preview become tabs, one pane at a time at full width
+  .split-layout {
+    flex-direction: column;
+  }
+
+  .split-layout__tabs {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.25rem;
+    margin: 0.5rem 0.75rem;
+    padding: 0.25rem;
+    border-radius: 10px;
+    border: 1px solid theme-color(border);
+    background: theme-color(secondary);
+  }
+
+  .split-layout__tab {
+    flex: 1;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: theme-color(text-secondary);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &--active {
+      background: theme-color(primary);
+      color: theme-color(text-primary);
+      box-shadow: 0 1px 2px theme-color(shadow), 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    &:focus-visible {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 1px;
+    }
+  }
+
+  .split-layout__left,
+  .split-layout__right {
+    flex: 1;
+    min-height: 0;
+    width: 100% !important; // overrides the inline desktop width
+    min-width: 0;
+    border-right: none;
+  }
+
+  .split-layout--show-left .split-layout__right,
+  .split-layout--show-right .split-layout__left {
+    display: none;
+  }
+}
+
+/* ---------- Phones ---------- */
+@media (max-width: $phone) {
+  // Header: logo only, buttons that don't wrap
+  .app-header__container {
+    padding: 0 0.75rem;
+  }
+
+  .app-header__title,
+  .app-header__subtitle {
+    display: none;
+  }
+
+  .user-menu {
+    gap: 0.5rem;
+  }
+
+  .user-menu__logout,
+  .trial-badge__upgrade {
+    padding: 0.375rem 0.625rem;
+    white-space: nowrap;
+  }
+
+  // Sidebar becomes a bottom tab bar
+  .sidebar-layout {
+    flex-direction: column;
+  }
+
+  .sidebar-layout__content {
+    order: 1;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .sidebar-layout__sidebar {
+    order: 2;
+    width: 100%;
+    height: auto;
+    flex-shrink: 0;
+    overflow: visible;
+    border-right: none;
+    border-top: 1px solid theme-color(border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .sidebar-layout__nav {
+    flex-direction: row;
+    gap: 0;
+    padding: 0.25rem;
+    min-height: $tab-bar-height;
+  }
+
+  .sidebar-layout__nav-container {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sidebar-layout__nav-item {
+    height: 100%;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.125rem;
+    padding: 0.375rem 0.125rem;
+  }
+
+  .sidebar-layout__nav-short {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+  }
+
+  .sidebar-layout__submenu {
+    display: none;
+  }
+
+  // More room for content: no footer inside the app on phones
+  .sidebar-layout__content .app-footer {
+    display: none;
+  }
+
+  // Page title with its toolbar underneath
+  .sidebar-layout__header {
+    min-height: 0;
+    padding: 0.625rem 1rem;
+  }
+
+  .sidebar-layout__header-actions {
+    width: 100%;
+  }
+
+  .sidebar-layout__body {
+    padding: 1rem;
+  }
+
+  .page-actions {
+    gap: 0.375rem;
+  }
+
+  .page-actions__btn,
+  .page-actions__upload.file-selector--compact .file-selector__btn {
+    height: 34px;
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  // Upload buttons stacked at full width inside the upload box
+  .file-selector__dropzone-actions,
+  .file-converter .file-input-section .upload-area .upload-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  .file-selector__dropzone-btn,
+  .file-converter .upload-area .upload-label,
+  .doc-picker-trigger {
+    display: block;
+    width: 100%;
+    text-align: center;
+    white-space: normal;
+  }
+
+  // Document list: name with size and date underneath; no sideways scrolling
+  .viewer__table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .viewer__table th:first-child,
+  .viewer__table-cell--select {
+    width: 44px;
+  }
+
+  // Size and date columns are hidden, so the name takes the rest
+  .viewer__table th:nth-child(2) {
+    width: auto;
+  }
+
+  .viewer__table th:nth-child(3),
+  .viewer__table th:nth-child(4),
+  .viewer__table-cell--size,
+  .viewer__table-cell--date {
+    display: none;
+  }
+
+  .viewer__file-meta {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    color: theme-color(text-secondary);
+  }
+
+  .viewer__file-name {
+    overflow-wrap: anywhere;
+  }
+
+  // Dialogs use nearly the whole screen
+  .doc-picker,
+  .upgrade-dialog {
+    max-height: 90vh;
+  }
+}

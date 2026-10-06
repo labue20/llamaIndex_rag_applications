@@ -39,9 +39,22 @@ def test_same_file_name_twice_creates_two_documents(signup):
     assert len(user_client.get("/getDocuments").get_json()) == 2
 
 
-def test_uploaded_file_is_removed_after_indexing(signup, index_server):
+def test_uploaded_file_is_kept_after_indexing(signup, index_server):
+    """Originals are kept so they can be reused from My Documents."""
     _upload(signup(), mode="fast")
-    assert not os.path.exists(index_server.calls[-1][1])
+    assert os.path.exists(index_server.calls[-1][1])
+
+
+def test_failed_upload_removes_the_saved_file(signup, index_server, monkeypatch):
+    saved = []
+
+    def failing_insert(filepath, *args):
+        saved.append(filepath)
+        return __import__("conftest")._Value({"error": "Could not read the document"})
+
+    monkeypatch.setattr(index_server, "insert_into_index", failing_insert)
+    assert _upload(signup()).status_code == 500
+    assert not os.path.exists(saved[0])
 
 
 def test_ultra_fast_upload_keeps_file_for_background_indexing(signup, index_server):
@@ -135,3 +148,75 @@ def test_cors_allows_only_the_frontend(client):
 
     other = client.get("/plans", headers={"Origin": "https://evil.example"})
     assert "Access-Control-Allow-Origin" not in other.headers
+
+
+# --- original files (My Documents) --------------------------------------------
+
+def test_owner_can_download_the_original_file(signup):
+    user_client = signup()
+    doc_id = _upload(user_client, "Tax Return.pdf", content=b"%PDF-1.4 original bytes").get_json()["doc_id"]
+
+    listed = user_client.get("/getDocuments").get_json()
+    assert listed[0]["has_file"] is True
+
+    response = user_client.get(f"/documents/{doc_id}/file")
+    assert response.status_code == 200
+    assert response.data == b"%PDF-1.4 original bytes"
+    assert "Tax_Return.pdf" in response.headers["Content-Disposition"]
+
+
+def test_other_users_cannot_download_the_file(signup):
+    alice, bob = signup("alice@example.com"), signup("bob@example.com")
+    doc_id = _upload(alice).get_json()["doc_id"]
+    assert bob.get(f"/documents/{doc_id}/file").status_code == 404
+    assert bob.get("/documents/unknown/file").status_code == 404
+
+
+def test_missing_original_is_reported(signup, index_server):
+    user_client = signup()
+    doc_id = _upload(user_client).get_json()["doc_id"]
+    os.remove(index_server.docs[doc_id]["file_path"])  # like documents uploaded before files were kept
+
+    assert user_client.get("/getDocuments").get_json()[0]["has_file"] is False
+    response = user_client.get(f"/documents/{doc_id}/file")
+    assert response.status_code == 404
+    assert "isn't stored" in response.get_json()["error"]
+
+
+def test_file_route_only_serves_the_uploads_folder(signup, index_server, tmp_path):
+    user_client = signup()
+    doc_id = _upload(user_client).get_json()["doc_id"]
+    outside = tmp_path / "secret.txt"
+    outside.write_text("not an upload")
+    index_server.docs[doc_id]["file_path"] = str(outside)
+
+    assert user_client.get(f"/documents/{doc_id}/file").status_code == 404
+
+
+def test_downloading_works_after_the_trial_ends(signup, fresh_db):
+    import sqlite3
+
+    user_client = signup()
+    doc_id = _upload(user_client).get_json()["doc_id"]
+    with sqlite3.connect(fresh_db) as conn:
+        conn.execute("UPDATE users SET trial_ends_at = '2020-01-01T00:00:00+00:00'")
+    assert user_client.get(f"/documents/{doc_id}/file").status_code == 200
+
+
+
+# --- health check ------------------------------------------------------------
+
+def test_health_needs_no_login(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok", "index_server": True}
+
+
+def test_health_reports_an_unreachable_index_server(client, index_server, monkeypatch):
+    def down():
+        raise ConnectionRefusedError("index server is down")
+
+    monkeypatch.setattr(index_server, "ping", down)
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.get_json() == {"status": "degraded", "index_server": False}

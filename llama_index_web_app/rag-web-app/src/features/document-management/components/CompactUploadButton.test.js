@@ -16,5 +16,19 @@ test('Upload files uploads the chosen file straight away', async () => {
   const [url, options] = fetchMock.mock.calls.find(([calledUrl]) => calledUrl.endsWith('/uploadFile'));
   expect(url).toMatch(/\/uploadFile$/);
   expect(options.body.get('file').name).toBe('report.pdf');
-  expect(screen.getByLabelText('Upload files')).toBeInTheDocument();
+  expect(await screen.findByRole('status')).toHaveTextContent('Uploaded report.pdf');
+});
+
+test('shows why an upload failed', async () => {
+  mockFetch({ '/uploadFile': { status: 500, body: { error: 'Failed to load document: the file is damaged' } } });
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  const onUploadSuccess = jest.fn();
+  render(<CompactUploadButton onUploadSuccess={onUploadSuccess} />);
+
+  fireEvent.change(screen.getByLabelText('Upload files'), {
+    target: { files: [new File(['x'], 'letter.docx')] },
+  });
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load document: the file is damaged');
+  expect(onUploadSuccess).not.toHaveBeenCalled();
 });

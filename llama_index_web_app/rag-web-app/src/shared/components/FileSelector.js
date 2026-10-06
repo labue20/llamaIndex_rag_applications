@@ -18,7 +18,9 @@ const FileSelector = ({
   disabled = false,
   autoUpload = true,
   multiple = false,
-  className = ''
+  className = '',
+  // Extra buttons shown beside the dropzone's main button (e.g. Document Manager)
+  extraActions = null
 }) => {
   const { selectFile, uploadDocument, isUploading } = useDocumentUpload();
   const [selectedFile, setSelectedFile] = useState(null);
@@ -98,7 +100,10 @@ const FileSelector = ({
           disabled={isUploading || disabled}
           multiple={multiple}
         />
-        <span className='file-selector__dropzone-btn'>{isUploading ? 'Uploading...' : label}</span>
+        <div className='file-selector__dropzone-actions'>
+          <span className='file-selector__dropzone-btn'>{isUploading ? 'Uploading...' : label}</span>
+          {extraActions}
+        </div>
         {hint && <p className='file-selector__dropzone-hint'>{hint}</p>}
       </div>
     );

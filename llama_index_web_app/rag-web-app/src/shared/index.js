@@ -10,9 +10,11 @@ export { default as FileSelector } from './components/FileSelector';
 export { default as Icon } from './components/Icon';
 export { default as Footer } from './components/Footer';
 export { default as ConverterHeaderActions } from './components/ConverterHeaderActions';
+export { default as DocumentPicker } from './components/DocumentPicker';
 
 // Utilities
-export { downloadBlob } from './utils/downloadBlob';
+export { downloadBlob, filenameFromDisposition } from './utils/downloadBlob';
+export { getPdfPageCount } from './utils/pdfPageCount';
 
 // Services
 export {

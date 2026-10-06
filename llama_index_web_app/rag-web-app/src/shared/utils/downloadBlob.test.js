@@ -1,4 +1,4 @@
-import { downloadBlob } from './downloadBlob';
+import { downloadBlob, filenameFromDisposition } from './downloadBlob';
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -26,4 +26,14 @@ test('downloads under the given name and only revokes the URL later', () => {
   expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:fake-url');
   // The temporary link is removed from the page
   expect(document.querySelector('a[download]')).toBeNull();
+});
+
+test.each([
+  ['attachment; filename=report_split.zip', 'report_split.zip'],
+  ['attachment; filename="My Report.pdf"', 'My Report.pdf'],
+  ["attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf", 'résumé.pdf'],
+  [null, 'fallback.pdf'],
+  ['inline', 'fallback.pdf'],
+])('filenameFromDisposition(%p) -> %p', (header, expected) => {
+  expect(filenameFromDisposition(header, 'fallback.pdf')).toBe(expected);
 });

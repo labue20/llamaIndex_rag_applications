@@ -55,9 +55,17 @@ class FakeIndexServer:
 
     def get_documents_list(self, owner_id):
         return _Value([
-            {"id": doc_id, "filename": doc["file_name"]}
+            {"id": doc_id, "filename": doc["file_name"], "has_file": os.path.exists(doc["file_path"])}
             for doc_id, doc in self.docs.items() if doc["owner_id"] == owner_id
         ])
+
+    def get_document_file(self, doc_id, owner_id):
+        doc = self._owned(doc_id, owner_id)
+        if not doc:
+            return _Value({"error": "Document not found"})
+        if not os.path.exists(doc["file_path"]):
+            return _Value({"error": "The original file for this document isn't stored."})
+        return _Value({"path": doc["file_path"], "file_name": doc["file_name"]})
 
     def chat_with_document(self, message, document_id, owner_id):
         self.calls.append(("chat_with_document", message, document_id, owner_id))
@@ -84,6 +92,9 @@ class FakeIndexServer:
     def background_index_document(self, doc_id, owner_id):
         self.calls.append(("background_index_document", doc_id, owner_id))
         return _Value(bool(self._owned(doc_id, owner_id)))
+
+    def ping(self):
+        return _Value(True)
 
     def claim_unowned_documents(self, owner_id):
         claimed = 0

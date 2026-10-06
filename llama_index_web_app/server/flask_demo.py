@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 import fitz  # PyMuPDF for PDF to Word conversion
 from pdf_to_word_service import convert_pdf_to_word_document, validate_pdf_file
 from word_to_pdf_service import converter
+from split_pdf_service import SPLIT_MODES, SplitError, split_pdf, zip_parts
 from pathlib import Path
 import tempfile
 import uuid
@@ -34,8 +35,9 @@ ALLOWED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
-# Credentials are needed so the browser sends the session cookie
-CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
+# Credentials are needed so the browser sends the session cookie; the frontend
+# reads download file names from Content-Disposition
+CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True, expose_headers=["Content-Disposition"])
 
 # Interface the API listens on; 127.0.0.1 keeps it off the local network
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
@@ -52,6 +54,8 @@ INDEX_SERVER_FUNCTIONS = [
     'delete_document',
     'background_index_document',
     'claim_unowned_documents',
+    'get_document_file',
+    'ping',
 ]
 
 
@@ -148,9 +152,9 @@ def upload_file():
             filepath, doc_id, processing_mode, current_user_id(), filename
         )._getvalue()
         
-        # Ultra-fast uploads are indexed later by /backgroundIndex, which needs
-        # the file; leave it for background_index_document to clean up
-        if result and result.get("success") and result.get("processing_mode") == "ultra-fast":
+        # Keep the original so it can be reused from My Documents (and indexed
+        # later by /backgroundIndex); it's deleted with the document
+        if result and result.get("success"):
             filepath = None
 
         # Return detailed result
@@ -169,15 +173,12 @@ def upload_file():
             }), 500
             
     except Exception as e:
-        # cleanup temp file
-        if filepath is not None and os.path.exists(filepath):
-            os.remove(filepath)
         return jsonify({
             "error": f"Processing failed: {str(e)}"
         }), 500
 
     finally:
-        # cleanup temp file
+        # Remove the saved file if the upload didn't succeed
         if filepath is not None and os.path.exists(filepath):
             os.remove(filepath)
 
@@ -258,6 +259,22 @@ def get_full_document(doc_id):
         return make_response(jsonify({
             "error": f"Failed to retrieve document: {str(e)}"
         })), 500
+
+
+@app.route("/documents/<doc_id>/file", methods=["GET"])
+def get_document_file(doc_id):
+    """Download the original file of one of the user's documents."""
+    result = manager.get_document_file(doc_id, current_user_id())._getvalue()
+    if result.get("error"):
+        return jsonify({"error": result["error"]}), 404
+
+    # Only ever serve files from the uploads folder
+    documents_dir = os.path.realpath("documents")
+    path = os.path.realpath(result["path"])
+    if os.path.commonpath([documents_dir, path]) != documents_dir:
+        return jsonify({"error": "File not found"}), 404
+
+    return send_file(path, as_attachment=True, download_name=result["file_name"])
 
 
 @app.route("/documents/<doc_id>", methods=["DELETE"])
@@ -359,6 +376,51 @@ def convert_word_to_pdf():
         download_name=f"{stem}_converted.pdf",
         mimetype='application/pdf'
     )
+
+
+@app.route("/splitPdf", methods=["POST"])
+@requires_active_plan
+def split_pdf_route():
+    """Split an uploaded PDF. Form fields: file, mode (every | ranges | extract),
+    ranges (e.g. "1-3, 5"; not used for mode=every). Returns one PDF, or a ZIP
+    when the split produces several files."""
+    uploaded_file = request.files.get("file")
+    is_valid, error_message = validate_pdf_file(uploaded_file)
+    if not is_valid:
+        return jsonify({"error": error_message}), 400
+
+    mode = request.form.get("mode", "every")
+    if mode not in SPLIT_MODES:
+        return jsonify({"error": "Choose how to split the PDF."}), 400
+
+    stem = secure_filename(Path(uploaded_file.filename).stem) or "document"
+    try:
+        parts = split_pdf(uploaded_file.read(), mode, request.form.get("ranges", ""))
+    except SplitError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"Split PDF error: {str(e)}")
+        return jsonify({"error": "The PDF could not be split."}), 500
+
+    if len(parts) == 1:
+        label, data = parts[0]
+        return send_file(io.BytesIO(data), as_attachment=True,
+                         download_name=f"{stem}_{label}.pdf", mimetype="application/pdf")
+
+    return send_file(io.BytesIO(zip_parts(parts, stem)), as_attachment=True,
+                     download_name=f"{stem}_split.zip", mimetype="application/zip")
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """For monitoring and deploy checks: is the API up and can it reach the index server?"""
+    try:
+        index_ok = bool(manager.ping()._getvalue())
+    except Exception as e:
+        app.logger.error(f"Health check: index server unreachable: {e}")
+        index_ok = False
+    status = 200 if index_ok else 503
+    return jsonify({"status": "ok" if index_ok else "degraded", "index_server": index_ok}), status
 
 
 @app.route("/plans", methods=["GET"])

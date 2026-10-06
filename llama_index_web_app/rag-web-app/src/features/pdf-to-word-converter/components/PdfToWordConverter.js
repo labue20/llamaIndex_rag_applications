@@ -1,10 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
-import { downloadBlob, apiFetch, Icon } from '../../../shared';
+import { downloadBlob, apiFetch, getPdfPageCount, Icon, DocumentPicker } from '../../../shared';
 import '../../../shared/styles/converter.scss';
-
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
@@ -27,11 +23,10 @@ const PdfToWordConverter = forwardRef(({ onStatusChange }, ref) => {
       setPageCount(null);
       currentFileRef.current = selectedFile;
       try {
-        const arrayBuffer = await selectedFile.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        const numPages = await getPdfPageCount(selectedFile);
         // Ignore the result if another file was chosen in the meantime
         if (currentFileRef.current === selectedFile) {
-          setPageCount(pdf.numPages);
+          setPageCount(numPages);
         }
       } catch (error) {
         console.error('Error reading PDF info:', error);
@@ -116,9 +111,16 @@ const PdfToWordConverter = forwardRef(({ onStatusChange }, ref) => {
             disabled={isConverting}
             id="pdf-file-input"
           />
-          <label htmlFor="pdf-file-input" className="upload-label">
-            {file ? 'Change PDF File' : 'Choose PDF File'}
-          </label>
+          <div className="upload-actions">
+            <label htmlFor="pdf-file-input" className="upload-label">
+              {file ? 'Change PDF File' : 'Choose PDF File'}
+            </label>
+            <DocumentPicker
+              acceptedExtensions={['.pdf']}
+              onSelect={(pickedFile) => pickedFile && loadFile(pickedFile)}
+              disabled={isConverting}
+            />
+          </div>
           <p className="upload-hint">Drop your PDF here or click to browse • Max 50MB</p>
         </div>
       </div>
@@ -127,16 +129,16 @@ const PdfToWordConverter = forwardRef(({ onStatusChange }, ref) => {
         <div className="pdf-info">
           <h4>Document Information</h4>
           <div className="info-grid">
-            <div className="info-item">
-              <span className="info-label">File:</span>
+            <div className="info-item info-item--wide">
+              <span className="info-label">File</span>
               <span className="info-value">{file.name}</span>
             </div>
             <div className="info-item">
-              <span className="info-label">Pages:</span>
+              <span className="info-label">Pages</span>
               <span className="info-value">{pageCount ?? '…'}</span>
             </div>
             <div className="info-item">
-              <span className="info-label">Size:</span>
+              <span className="info-label">Size</span>
               <span className="info-value">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
             </div>
           </div>
