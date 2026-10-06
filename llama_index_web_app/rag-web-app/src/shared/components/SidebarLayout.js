@@ -35,6 +35,10 @@ const SidebarLayout = ({ sections, defaultSection = 0, footer = null }) => {
               >
                 {section.icon && <span className='sidebar-layout__nav-icon'>{section.icon}</span>}
                 <span className='sidebar-layout__nav-label'>{section.label}</span>
+                {/* Shorter label for the phone tab bar */}
+                <span className='sidebar-layout__nav-short' aria-hidden='true'>
+                  {section.shortLabel || section.label}
+                </span>
                
               </button>
               

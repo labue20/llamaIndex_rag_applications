@@ -505,11 +505,13 @@ const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
   );
 
   const leftPanel = {
+    tabLabel: 'Chat',
     content: chatContent
   };
 
   const rightPanel = {
     title: 'Document Preview',
+    tabLabel: 'Preview',
     content: (
       <PdfViewer 
         document={uploadedDocument}

@@ -15,6 +15,10 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [hoveredDocument, setHoveredDocument] = useState(null);
+  // Touch screens have no hover, so always show the row checkboxes there
+  const [isTouchScreen] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches
+  );
   
   const truncateText = (text, maxLength) => {
     return text.length <= maxLength ? text : text.substring(0, maxLength) + '...';
@@ -304,7 +308,7 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
                     onMouseLeave={() => setHoveredDocument(null)}
                   >
                     <td className='viewer__table-cell viewer__table-cell--select'>
-                      {(hoveredDocument === document.id || isSelected || selectedDocuments.size > 0) && (
+                      {(isTouchScreen || hoveredDocument === document.id || isSelected || selectedDocuments.size > 0) && (
                         <input
                           type='checkbox'
                           checked={isSelected}
@@ -317,8 +321,14 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
                       <span className={`viewer__file-icon viewer__file-icon--${fileTone}`}>
                         <Icon name='file' size={16} />
                       </span>
-                      <span className='viewer__file-name' title={displayName}>
-                        {truncatedName}
+                      <span className='viewer__file-text'>
+                        <span className='viewer__file-name' title={displayName}>
+                          {truncatedName}
+                        </span>
+                        {/* Size and date, shown here on phones where those columns are hidden */}
+                        <span className='viewer__file-meta'>
+                          {getDocumentSize(document)} · {formatDate(document.processing_timestamp)}
+                        </span>
                       </span>
                     </td>
                     <td className='viewer__table-cell viewer__table-cell--size'>

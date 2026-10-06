@@ -10,6 +10,8 @@ import './shared/styles/base.scss';
 import './shared/styles/components.scss';
 import './features/document-management/styles/components.scss';
 import './features/ai-pdf/styles/components.scss';
+// Phone/tablet overrides: must come after the other stylesheets
+import './shared/styles/responsive.scss';
 
 function App() {
   const { documents, refreshDocuments } = useDocuments();
@@ -39,6 +41,7 @@ function App() {
   const sections = useMemo(() => [
     {
       label: 'Document Manager',
+      shortLabel: 'Documents',
       title: 'My Documents',
       icon: <Icon name='folder' />,
       content: <DocumentTools documents={documents} refreshDocuments={refreshDocuments} />,
@@ -46,6 +49,7 @@ function App() {
     },
     {
       label: 'AI PDF',
+      shortLabel: 'Chat',
       icon: <Icon name='chat' />,
       title: 'Chat with PDF',
       content: <AiPdfTools ref={chatRef} onStatusChange={setChatStatus} onDocumentUploaded={handleUploadSuccess} />,
@@ -53,6 +57,7 @@ function App() {
     },
     {
       label: 'PDF to Word',
+      shortLabel: 'To Word',
       icon: <Icon name='fileToWord' />,
       title: 'PDF to Word Converter',
       content: <PdfToWordConverter ref={pdfToWordRef} onStatusChange={setPdfToWordStatus} />,
@@ -63,6 +68,7 @@ function App() {
 
     {
       label: 'Word to PDF',
+      shortLabel: 'To PDF',
       icon: <Icon name='fileToPdf' />,
       title: 'Word to PDF Converter',
       content: <WordToPdfConverter ref={wordToPdfRef} onStatusChange={setWordToPdfStatus} />,
@@ -72,6 +78,7 @@ function App() {
     },
     {
       label: 'Split PDF',
+      shortLabel: 'Split',
       icon: <Icon name='scissors' />,
       title: 'Split PDF Converter',
       content: <SplitPdf ref={splitPdfRef} onStatusChange={setSplitPdfStatus} />,
