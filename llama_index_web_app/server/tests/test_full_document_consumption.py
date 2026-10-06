@@ -5,7 +5,7 @@ Test script for enhanced full document consumption capabilities
 import sys
 import os
 import json
-sys.path.append('/Users/wilfredlabue/Documents/GitHub/llamaIndex_rag_applications/llama_index_web_app')
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 from index_server import (
     create_document_summary, 

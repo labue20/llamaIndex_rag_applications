@@ -4,8 +4,56 @@
  * request/response interceptors, and configuration management.
  */
 
+// Backend API address; set REACT_APP_API_URL to point the app at another server
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5601';
+
+// Called whenever the API answers 401 (not logged in / session expired)
+let unauthorizedHandler = null;
+export const setUnauthorizedHandler = (handler) => {
+  unauthorizedHandler = handler;
+};
+
+// Called whenever the API answers 402 (free trial ended, upgrade needed)
+let planRequiredHandler = null;
+export const setPlanRequiredHandler = (handler) => {
+  planRequiredHandler = handler;
+};
+
+const notifyAuthStatus = (status) => {
+  if (status === 401 && unauthorizedHandler) unauthorizedHandler();
+  if (status === 402 && planRequiredHandler) planRequiredHandler();
+};
+
+/**
+ * Read the error message from a failed API response ({"error": "..."}),
+ * falling back to the given text.
+ * @param {Response} response
+ * @param {string} fallback
+ * @returns {Promise<string>}
+ */
+export const readApiError = async (response, fallback) => {
+  const data = await response.json().catch(() => ({}));
+  return data.error || fallback;
+};
+
+/**
+ * fetch() against the backend: prefixes API_BASE_URL, sends the session cookie,
+ * and reports 401 responses to the unauthorized handler.
+ * @param {string} path - API path, e.g. '/chat'
+ * @param {Object} options - fetch options
+ * @returns {Promise<Response>}
+ */
+export const apiFetch = async (path, options = {}) => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    ...options,
+  });
+  notifyAuthStatus(response.status);
+  return response;
+};
+
 class ApiClient {
-  constructor(baseURL = 'http://localhost:5601') {
+  constructor(baseURL = API_BASE_URL) {
     this.baseURL = baseURL;
     this.defaultHeaders = {
       'Content-Type': 'application/json',
@@ -84,6 +132,7 @@ class ApiClient {
         ...options.headers,
       },
       mode: 'cors',
+      credentials: 'include',
       ...options,
     };
 
@@ -101,6 +150,8 @@ class ApiClient {
       console.log(`Making ${method} request to: ${url}`);
       
       const response = await fetch(url, config);
+
+      notifyAuthStatus(response.status);
       
       if (!response.ok) {
         const errorText = await response.text();

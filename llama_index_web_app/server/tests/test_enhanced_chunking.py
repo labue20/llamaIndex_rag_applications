@@ -4,7 +4,7 @@ Test script for enhanced chunking capabilities
 """
 import sys
 import os
-sys.path.append('/Users/wilfredlabue/Documents/GitHub/llamaIndex_rag_applications/llama_index_web_app')
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 from index_server import create_enhanced_chunking_pipeline, insert_into_index, initialize_index
 

@@ -14,4 +14,12 @@ export { default as Footer } from './components/Footer';
 export { downloadBlob } from './utils/downloadBlob';
 
 // Services
-export { apiClient, ApiClient } from './services/apiClient';
+export {
+  apiClient,
+  ApiClient,
+  API_BASE_URL,
+  apiFetch,
+  readApiError,
+  setUnauthorizedHandler,
+  setPlanRequiredHandler,
+} from './services/apiClient';

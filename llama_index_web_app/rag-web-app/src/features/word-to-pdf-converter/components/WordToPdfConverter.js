@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { downloadBlob } from '../../../shared';
+import { downloadBlob, apiFetch } from '../../../shared';
 import '../../../shared/styles/converter.scss';
 
 const formatSize = (bytes) => {
@@ -36,7 +36,7 @@ const WordToPdfConverter = () => {
 
       setProgress(30);
 
-      const response = await fetch('http://localhost:5601/convertWordToPdf', {
+      const response = await apiFetch('/convertWordToPdf', {
         method: 'POST',
         body: formData,
       });

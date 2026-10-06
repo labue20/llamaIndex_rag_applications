@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Start the LlamaIndex RAG backend:
+# Start the LlamaIndex RAG backend (code and data live in server/):
 #   1. index_server.py - holds the vector index (port 5602)
 #   2. flask_demo.py   - HTTP API used by the React app (port 5601)
 # flask_demo.py connects to the index server on startup, so it must start second.
 
-cd "$(dirname "$0")" || exit 1
+cd "$(dirname "$0")/server" || exit 1
 
 INDEX_PORT=5602
 API_PORT=5601
@@ -17,15 +17,22 @@ else
     PYTHON=python3
 fi
 
-# Load OPENAI_API_KEY (and anything else) from .env if present
+# Load OPENAI_API_KEY (and anything else) from server/.env if present
 if [ -f .env ]; then
     set -a
     . ./.env
     set +a
 fi
 
+# Secret shared by the index server and API server. Generate a fresh one per run
+# unless .env sets it.
+if [ -z "$INDEX_SERVER_AUTHKEY" ]; then
+    INDEX_SERVER_AUTHKEY=$(openssl rand -hex 32)
+fi
+export INDEX_SERVER_AUTHKEY INDEX_PORT API_PORT
+
 if [ -z "$OPENAI_API_KEY" ]; then
-    echo "Warning: OPENAI_API_KEY is not set (add it to llama_index_web_app/.env)."
+    echo "Warning: OPENAI_API_KEY is not set (add it to llama_index_web_app/server/.env)."
     echo "         Upload and conversion will work, but AI query/chat will fail."
 fi
 

@@ -1,0 +1,499 @@
+/**
+ * Authentication Feature Styles
+ */
+
+@import '../../../shared/styles/variables';
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(theme-color(accent), 0.08), transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(#7c3aed, 0.06), transparent 40%),
+    theme-color(secondary);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  border: 1px solid theme-color(border);
+  border-radius: 16px;
+  background: theme-color(primary);
+  box-shadow: 0 1px 2px theme-color(shadow), 0 12px 32px theme-color(shadow);
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 1.75rem;
+  }
+
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin: -0.5rem 0 1.25rem -0.5rem;
+    padding: 0.375rem 0.5rem;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: theme-color(text-secondary);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+
+    &:hover { background: theme-color(secondary); color: theme-color(text-primary); }
+
+    &:focus-visible {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 1px;
+    }
+  }
+
+  &__logo {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: theme-color(accent);
+    color: theme-color(text-contrast);
+  }
+
+  &__product {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: theme-color(text-primary);
+  }
+
+  &__title {
+    margin: 0 0 0.375rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: theme-color(text-primary);
+  }
+
+  &__subtitle {
+    margin: 0 0 1.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: theme-color(text-secondary);
+  }
+
+  &__tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    margin-bottom: 1.5rem;
+    border-radius: 10px;
+    background: theme-color(secondary);
+    border: 1px solid theme-color(border);
+  }
+
+  &__tab {
+    padding: 0.5rem;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: theme-color(text-secondary);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover { color: theme-color(text-primary); }
+
+    &--active {
+      background: theme-color(primary);
+      color: theme-color(text-primary);
+      box-shadow: 0 1px 2px theme-color(shadow), 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    &:focus-visible {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 1px;
+    }
+  }
+
+  &__switch {
+    margin: 1.25rem 0 0;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: theme-color(text-secondary);
+
+    button {
+      padding: 0;
+      border: none;
+      background: none;
+      color: theme-color(accent);
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+
+      &:hover { text-decoration: underline; }
+    }
+  }
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  &__label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: theme-color(text-primary);
+  }
+
+  &__input {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid theme-color(border);
+    border-radius: 10px;
+    background: theme-color(primary);
+    color: theme-color(text-primary);
+    font: inherit;
+    font-size: 0.9375rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &::placeholder { color: theme-color(text-muted); }
+
+    &:focus {
+      outline: none;
+      border-color: rgba(theme-color(accent), 0.6);
+      box-shadow: 0 0 0 3px rgba(theme-color(accent), 0.12);
+    }
+  }
+
+  &__password {
+    position: relative;
+
+    .auth-form__input { padding-right: 4rem; }
+  }
+
+  &__toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.5rem;
+    transform: translateY(-50%);
+    padding: 0.25rem 0.5rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: theme-color(text-secondary);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+
+    &:hover { background: theme-color(secondary); color: theme-color(text-primary); }
+  }
+
+  &__error {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid rgba(theme-color(error), 0.25);
+    border-radius: 10px;
+    background: rgba(theme-color(error), 0.06);
+    color: darken(theme-color(error), 8%);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+
+    .icon { flex-shrink: 0; margin-top: 1px; }
+  }
+
+  &__submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    padding: 0.6875rem 1rem;
+    border: none;
+    border-radius: 10px;
+    background: theme-color(accent);
+    color: theme-color(text-contrast);
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover:not(:disabled) { background: theme-color(accent-hover); }
+
+    &:focus-visible {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &__spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: theme-color(text-contrast);
+    animation: auth-spin 0.8s linear infinite;
+
+    &--large {
+      width: 32px;
+      height: 32px;
+      border-width: 3px;
+      border-color: theme-color(accent-light);
+      border-top-color: theme-color(accent);
+    }
+  }
+}
+
+// User menu in the app header
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+
+  &__avatar {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: theme-color(accent-light);
+    color: theme-color(accent);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  &__email {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    color: theme-color(text-secondary);
+
+    @media (max-width: 640px) { display: none; }
+  }
+
+  &__logout {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid theme-color(border);
+    border-radius: 8px;
+    background: theme-color(primary);
+    color: theme-color(text-primary);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover { background: theme-color(secondary); }
+
+    &:focus-visible {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 2px;
+    }
+  }
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+// Trial status pill in the app header
+.trial-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.trial-badge {
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: theme-color(accent-light);
+  color: theme-color(accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--expired {
+    background: rgba(theme-color(error), 0.1);
+    color: darken(theme-color(error), 8%);
+  }
+
+  &--pro {
+    background: linear-gradient(135deg, theme-color(accent), #7c3aed);
+    color: theme-color(text-contrast);
+  }
+
+  @media (max-width: 640px) { display: none; }
+
+  &__upgrade {
+    padding: 0.3125rem 0.75rem;
+    border: none;
+    border-radius: 8px;
+    background: theme-color(accent);
+    color: theme-color(text-contrast);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover { background: theme-color(accent-hover); }
+
+    &:focus-visible {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 2px;
+    }
+  }
+}
+
+// Upgrade dialog
+.upgrade-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  animation: upgrade-fade 0.15s ease-out;
+}
+
+.upgrade-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 2rem;
+  border-radius: 18px;
+  background: theme-color(primary);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.3);
+  text-align: center;
+
+  &__close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: theme-color(text-secondary);
+    font-size: 1.375rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { background: theme-color(secondary); }
+  }
+
+  &__icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: linear-gradient(135deg, theme-color(accent), #7c3aed);
+    color: theme-color(text-contrast);
+
+    &--expired {
+      background: rgba(theme-color(error), 0.1);
+      color: theme-color(error);
+    }
+  }
+
+  &__title {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  &__intro {
+    margin: 0 0 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: theme-color(text-secondary);
+  }
+
+  &__benefits {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    background: theme-color(secondary);
+    text-align: left;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0;
+      font-size: 0.875rem;
+
+      .icon { color: theme-color(success); flex-shrink: 0; }
+    }
+  }
+
+  &__limits {
+    margin: 0 0 1.25rem;
+    font-size: 0.8125rem;
+    color: theme-color(text-secondary);
+  }
+
+  &__cta {
+    display: block;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    background: theme-color(accent);
+    color: theme-color(text-contrast);
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover { background: theme-color(accent-hover); }
+  }
+
+  &__contact {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 1px dashed theme-color(border);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: theme-color(text-secondary);
+    overflow-wrap: anywhere;
+  }
+}
+
+@keyframes upgrade-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

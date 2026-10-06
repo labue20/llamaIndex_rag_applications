@@ -59,6 +59,13 @@ const PATHS = {
   sparkle: (
     <path d='M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6-5.6-1.9 5.6-1.9zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z' />
   ),
+  lock: (
+    <>
+      <rect x='5' y='11' width='14' height='10' rx='2' />
+      <path d='M8 11V8a4 4 0 0 1 8 0v3' />
+    </>
+  ),
+  arrowLeft: <path d='M19 12H5M11 18l-6-6 6-6' />,
   alert: (
     <>
       <circle cx='12' cy='12' r='9' />
