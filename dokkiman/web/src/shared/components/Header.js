@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import Icon from './Icon';
+import LogoMark from './LogoMark';
 import { AccountMenu, useAuth, TrialBadge } from '../../features/auth';
 
 const Header = () => {
@@ -10,7 +10,7 @@ const Header = () => {
       <div className='app-header__container'>
         <Link to='/' className='app-header__brand' aria-label='Dokkiman home'>
           <span className='app-header__logo'>
-            <Icon name='layers' size={18} />
+            <LogoMark size={18} />
           </span>
           <span className='app-header__title'>Dokkiman</span>
         </Link>

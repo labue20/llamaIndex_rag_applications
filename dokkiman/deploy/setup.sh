@@ -104,6 +104,8 @@ sed "s/__DOMAIN__/$DOMAIN/g" "$DEPLOY_DIR/Caddyfile" > /etc/caddy/Caddyfile
 mkdir -p /var/log/caddy
 chown caddy:caddy /var/log/caddy
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+# validate (run as root) creates the access log; Caddy runs as caddy and must be able to open it
+chown -R caddy:caddy /var/log/caddy
 systemctl enable caddy
 
 log "Installing the nightly backup"

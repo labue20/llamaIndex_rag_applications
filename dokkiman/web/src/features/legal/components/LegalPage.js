@@ -7,6 +7,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../../../shared/components/Icon';
+import LogoMark from '../../../shared/components/LogoMark';
 import { usePlanInfo } from '../../auth/hooks/usePlanInfo';
 import '../styles/legal.scss';
 
@@ -367,7 +368,7 @@ const LegalPage = ({ doc }) => {
       <header className='legal-page__nav'>
         <Link to='/' className='legal-page__brand' aria-label={`${SERVICE} home`}>
           <span className='legal-page__logo'>
-            <Icon name='layers' size={16} />
+            <LogoMark size={16} />
           </span>
           {SERVICE}
         </Link>

@@ -186,12 +186,21 @@ $tool-colors: (
     &:hover { background: theme-color(secondary); color: theme-color(text-primary); }
     &:focus-visible { outline: 2px solid theme-color(accent); }
 
-    // Phones: Pricing is in the footer, keeping the top bar to the two account buttons
-    @media (max-width: 520px) { display: none; }
+    @media (max-width: 520px) { padding: 0.5rem 0.625rem; }
   }
 
+  // Phones: just the logo, Pricing and the account buttons, spaced tighter to fit
   @media (max-width: 520px) {
     &__name { display: none; }
+    &__inner { gap: 0.75rem; padding: 0.625rem 1rem; }
+    &__actions { gap: 0.125rem; }
+  }
+
+  // Smallest phones (e.g. 320px): smaller buttons so everything still fits
+  @media (max-width: 380px) {
+    &__inner { gap: 0.5rem; padding: 0.625rem 0.75rem; }
+    &__pricing { padding: 0.5rem 0.375rem; font-size: 0.8125rem; }
+    .home-btn { padding: 0.5rem 0.625rem; font-size: 0.8125rem; }
   }
 }
 
