@@ -28,7 +28,7 @@ const path = () => screen.getByTestId('current-path').textContent;
 test('the homepage is at /', async () => {
   mockFetch({ '/auth/me': { status: 401 } });
   renderSite('/');
-  expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Do more with your PDFs');
+  expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Sign, convert and chat with your documents');
   expect(screen.queryByText('The app')).toBeNull();
 });
 
@@ -58,7 +58,7 @@ test('the browser Back button returns from a tool to the homepage', async () => 
 
   fireEvent.click(screen.getByRole('button', { name: 'Browser back' }));
   expect(path()).toBe('/');
-  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Do more with your PDFs');
+  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Sign, convert and chat with your documents');
 });
 
 test('direct links to a tool work, for guests too', async () => {

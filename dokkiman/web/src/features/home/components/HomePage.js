@@ -159,10 +159,11 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
             {trialLabel} · No credit card needed
           </span>
           <h1 className='home-hero__title'>
-            Do more with your <span className='home-hero__highlight'>PDFs</span>
+            Sign, convert and chat with your <span className='home-hero__highlight'>documents</span>
           </h1>
           <p className='home-hero__text'>
-            Chat with documents, convert between PDF and Word, and split files, all in one place.
+            Sign PDFs with an audit trail, convert between PDF and Word, split files, and ask AI questions
+            about anything you upload, all in one place.
           </p>
           <div className='home-hero__ctas'>
             {isLoggedIn ? (
