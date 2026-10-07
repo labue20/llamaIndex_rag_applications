@@ -1,6 +1,0 @@
-[Unit]
-Description=RAG app - back up accounts, search index and uploaded documents
-
-[Service]
-Type=oneshot
-ExecStart=/bin/bash /opt/rag/app/llama_index_web_app/deploy/backup.sh

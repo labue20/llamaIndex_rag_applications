@@ -1,0 +1,6 @@
+[Unit]
+Description=Dokkiman - back up accounts, search index and uploaded documents
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/dokkiman/app/dokkiman/deploy/backup.sh

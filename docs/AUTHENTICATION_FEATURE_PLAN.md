@@ -6,7 +6,7 @@ Adding login and signup functionality to your RAG application using the feature-
 ## Feature Structure
 
 ```
-llama_index_web_app/
+dokkiman/
 ├── backend/
 │   ├── features/
 │   │   └── authentication/

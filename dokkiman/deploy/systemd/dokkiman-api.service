@@ -1,0 +1,27 @@
+[Unit]
+Description=Dokkiman - API (gunicorn + Flask)
+# The API talks to the index server; restart together so its connection is fresh
+Requires=dokkiman-index.service
+After=dokkiman-index.service
+PartOf=dokkiman-index.service
+
+[Service]
+User=dokkiman
+Group=dokkiman
+WorkingDirectory=/opt/dokkiman/app/dokkiman/server
+EnvironmentFile=/opt/dokkiman/app/dokkiman/server/.env
+ExecStart=/opt/dokkiman/app/dokkiman/server/.venv/bin/gunicorn -c gunicorn.conf.py flask_demo:app
+Restart=on-failure
+RestartSec=5
+UMask=0027
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

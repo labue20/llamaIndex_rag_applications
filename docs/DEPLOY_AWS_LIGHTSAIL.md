@@ -1,7 +1,7 @@
 # Deploying to AWS Lightsail
 
 This guide puts the app on one Ubuntu server with HTTPS at your own domain.
-Everything it needs is in `llama_index_web_app/deploy/`.
+Everything it needs is in `dokkiman/deploy/`.
 
 ```
 Users ──HTTPS──▶ Caddy ─┬─ /      → React app (built files)
@@ -61,14 +61,14 @@ sudo -i
 Download the setup script and run it with your domain:
 
 ```bash
-curl -fsSL -o setup.sh https://raw.githubusercontent.com/labue20/llamaIndex_rag_applications/master/llama_index_web_app/deploy/setup.sh
+curl -fsSL -o setup.sh https://raw.githubusercontent.com/labue20/dokkiman/master/dokkiman/deploy/setup.sh
 DOMAIN=yourdomain.com bash setup.sh
 ```
 
-To deploy a different branch: `DOMAIN=yourdomain.com bash setup.sh https://github.com/labue20/llamaIndex_rag_applications.git dev`.
+To deploy a different branch: `DOMAIN=yourdomain.com bash setup.sh https://github.com/labue20/dokkiman.git dev`.
 
 It takes 10-15 minutes. It installs Python, Node, Caddy and LibreOffice,
-creates a `rag` user, downloads the app to `/opt/rag/app`, generates secrets,
+creates a `dokkiman` user, downloads the app to `/opt/dokkiman/app`, generates secrets,
 and sets up the services and nightly backups.
 
 ## 6. Add your OpenAI key and start
@@ -77,7 +77,7 @@ Setup stops and asks for your key. First set a **monthly spending limit** at
 <https://platform.openai.com> → Settings → Limits. Then:
 
 ```bash
-nano /opt/rag/app/llama_index_web_app/server/.env
+nano /opt/dokkiman/app/dokkiman/server/.env
 ```
 
 Set `OPENAI_API_KEY=...`, `GOOGLE_CLIENT_ID=...` (from the next section) and
@@ -85,7 +85,7 @@ Set `OPENAI_API_KEY=...`, `GOOGLE_CLIENT_ID=...` (from the next section) and
 then deploy:
 
 ```bash
-bash /opt/rag/app/llama_index_web_app/deploy/deploy.sh
+bash /opt/dokkiman/app/dokkiman/deploy/deploy.sh
 ```
 
 It ends with `Healthy: {"index_server":true,"status":"ok"}`. Open
@@ -96,7 +96,7 @@ It ends with `Healthy: {"index_server":true,"status":"ok"}`. Open
 People create their account and sign in with Google, so the site needs a
 Google OAuth client ID (free):
 
-1. Open <https://console.cloud.google.com>, create a project (e.g. "RAG Web App").
+1. Open <https://console.cloud.google.com>, create a project (e.g. "Dokkiman").
 2. **Google Auth Platform → Branding**: app name, support email, your logo
    (optional), and links to your privacy policy and terms. Under **Authorized
    domains** add `yourdomain.com`.
@@ -126,8 +126,8 @@ Without Stripe, "Upgrade to Pro" emails you and you upgrade people with
 3. Run the one-time setup, which creates the Pro product and prices, the
    customer portal settings and the webhook:
    ```bash
-   cd /opt/rag/app/llama_index_web_app/server
-   sudo -u rag .venv/bin/python stripe_setup.py --webhook-url https://yourdomain.com/api/billing/webhook
+   cd /opt/dokkiman/app/dokkiman/server
+   sudo -u dokkiman .venv/bin/python stripe_setup.py --webhook-url https://yourdomain.com/api/billing/webhook
    ```
 4. Copy the `STRIPE_PORTAL_CONFIGURATION=` and `STRIPE_WEBHOOK_SECRET=` lines it
    prints into `server/.env`, then run `deploy.sh`.
@@ -139,27 +139,27 @@ Without Stripe, "Upgrade to Pro" emails you and you upgrade people with
 Sign in on the site with Google, then give your account unlimited access:
 
 ```bash
-cd /opt/rag/app/llama_index_web_app/server
-sudo -u rag .venv/bin/python manage_users.py upgrade you@example.com
-sudo -u rag .venv/bin/python manage_users.py list
+cd /opt/dokkiman/app/dokkiman/server
+sudo -u dokkiman .venv/bin/python manage_users.py upgrade you@example.com
+sudo -u dokkiman .venv/bin/python manage_users.py list
 ```
 
 ## Everyday tasks
 
 | Task | Command (as root) |
 |---|---|
-| Deploy the latest code | `bash /opt/rag/app/llama_index_web_app/deploy/deploy.sh` |
-| Watch the logs | `journalctl -u rag-api -u rag-index -f` |
-| Restart the app | `systemctl restart rag-index` (restarts the API too) |
+| Deploy the latest code | `bash /opt/dokkiman/app/dokkiman/deploy/deploy.sh` |
+| Watch the logs | `journalctl -u dokkiman-api -u dokkiman-index -f` |
+| Restart the app | `systemctl restart dokkiman-index` (restarts the API too) |
 | Check health | `curl http://127.0.0.1:5601/health` |
-| Run a backup now | `systemctl start rag-backup` |
-| Manage accounts | `cd .../server && sudo -u rag .venv/bin/python manage_users.py --help` |
+| Run a backup now | `systemctl start dokkiman-backup` |
+| Manage accounts | `cd .../server && sudo -u dokkiman .venv/bin/python manage_users.py --help` |
 | Someone paid for Pro | `manage_users.py upgrade them@example.com --months 1` (or `--years 1`). Renewing early adds to their current end date; when it passes, they move to Free automatically |
 
 ## Backups
 
-- **Nightly archive:** `rag-backup.timer` saves accounts, the search index,
-  document records and uploaded files to `/opt/rag/backups` at 03:30 and keeps
+- **Nightly archive:** `dokkiman-backup.timer` saves accounts, the search index,
+  document records and uploaded files to `/opt/dokkiman/backups` at 03:30 and keeps
   14 days.
 - **Off-server copy (recommended):** these archives are on the same server, so
   also do one of:
@@ -168,16 +168,16 @@ sudo -u rag .venv/bin/python manage_users.py list
   - Create a Lightsail **bucket**, an access key for it, then on the server:
     `snap install aws-cli --classic`, `aws configure` (as root), and set
     `BACKUP_BUCKET=s3://your-bucket-name` in `server/.env`.
-- **Restore an archive:** `systemctl stop rag-index`, unpack the archive into
-  `/opt/rag/app/llama_index_web_app/server/` with `tar -xzf`, run
-  `chown -R rag:rag` on the restored files, then `systemctl start rag-index rag-api`.
+- **Restore an archive:** `systemctl stop dokkiman-index`, unpack the archive into
+  `/opt/dokkiman/app/dokkiman/server/` with `tar -xzf`, run
+  `chown -R dokkiman:dokkiman` on the restored files, then `systemctl start dokkiman-index dokkiman-api`.
 
 ## Security notes
 
 - Only Caddy faces the internet. The API and index server listen on
-  `127.0.0.1`, and the app runs as the unprivileged `rag` user.
+  `127.0.0.1`, and the app runs as the unprivileged `dokkiman` user.
 - `server/.env` (keys and secrets) and the data folders are readable only by
-  the `rag` user. Never commit `.env`.
+  the `dokkiman` user. Never commit `.env`.
 - Login cookies are HTTPS-only (`SESSION_COOKIE_SECURE=true`).
 - Ubuntu security updates install automatically.
 - Uploaded documents (including tax documents) are stored on the server and in
@@ -190,7 +190,7 @@ sudo -u rag .venv/bin/python manage_users.py list
 |---|---|
 | Site doesn't load | Lightsail firewall allows 80/443; DNS points at the static IP; `systemctl status caddy` |
 | HTTPS certificate error | DNS must resolve first; `journalctl -u caddy -n 50` |
-| "Can't reach the server" in the app | `curl http://127.0.0.1:5601/health`; `journalctl -u rag-api -u rag-index -n 50` |
+| "Can't reach the server" in the app | `curl http://127.0.0.1:5601/health`; `journalctl -u dokkiman-api -u dokkiman-index -n 50` |
 | AI answers fail | `OPENAI_API_KEY` in `server/.env`, OpenAI billing and limits |
 | Pro doesn't switch on after paying | Stripe Dashboard → Developers → Webhooks: the endpoint's recent deliveries; `STRIPE_WEBHOOK_SECRET` must match that endpoint |
 | "Sign-in isn't available right now" | `GOOGLE_CLIENT_ID` is empty in `server/.env` |
