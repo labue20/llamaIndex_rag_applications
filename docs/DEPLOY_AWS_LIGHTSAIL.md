@@ -61,11 +61,11 @@ sudo -i
 Download the setup script and run it with your domain:
 
 ```bash
-curl -fsSL -o setup.sh https://raw.githubusercontent.com/labue20/llamaIndex_rag_applications/master/dokkiman/deploy/setup.sh
+curl -fsSL -o setup.sh https://raw.githubusercontent.com/labue20/dokkiman/master/dokkiman/deploy/setup.sh
 DOMAIN=yourdomain.com bash setup.sh
 ```
 
-To deploy a different branch: `DOMAIN=yourdomain.com bash setup.sh https://github.com/labue20/llamaIndex_rag_applications.git dev`.
+To deploy a different branch: `DOMAIN=yourdomain.com bash setup.sh https://github.com/labue20/dokkiman.git dev`.
 
 It takes 10-15 minutes. It installs Python, Node, Caddy and LibreOffice,
 creates a `dokkiman` user, downloads the app to `/opt/dokkiman/app`, generates secrets,

@@ -13,7 +13,7 @@
 set -euo pipefail
 
 DOMAIN="${DOMAIN:?Set DOMAIN first, e.g. DOMAIN=example.com bash setup.sh}"
-REPO_URL="${1:-https://github.com/labue20/llamaIndex_rag_applications.git}"
+REPO_URL="${1:-https://github.com/labue20/dokkiman.git}"
 BRANCH="${2:-master}"
 
 APP_USER=dokkiman

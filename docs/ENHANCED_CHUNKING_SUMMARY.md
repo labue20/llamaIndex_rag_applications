@@ -98,7 +98,7 @@ pymupdf
 
 ### Testing the Enhanced System:
 ```bash
-cd /Users/wilfredlabue/Documents/GitHub/llamaIndex_rag_applications
+cd /Users/wilfredlabue/Documents/GitHub/dokkiman
 python3 test_enhanced_chunking.py
 ```
 
