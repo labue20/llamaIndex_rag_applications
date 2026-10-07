@@ -7,6 +7,7 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../../../shared/components/Icon';
+import LogoMark from '../../../shared/components/LogoMark';
 import { useAuth } from '../context/AuthContext';
 import { useAuthConfig } from '../hooks/useAuthConfig';
 import { usePlanInfo } from '../hooks/usePlanInfo';
@@ -211,7 +212,7 @@ const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
         )}
         <div className='auth-card__brand'>
           <span className='auth-card__logo'>
-            <Icon name='layers' size={20} />
+            <LogoMark size={20} />
           </span>
           <span className='auth-card__product'>Dokkiman</span>
         </div>

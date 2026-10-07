@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Icon from '../../../shared/components/Icon';
+import LogoMark from '../../../shared/components/LogoMark';
 import { TOOLS } from '../tools';
 
 const HomeFooter = ({ onLogin, onSignup, onOpenTool }) => (
@@ -13,7 +13,7 @@ const HomeFooter = ({ onLogin, onSignup, onOpenTool }) => (
     <div className='home-footer__inner'>
       <div className='home-footer__brand'>
         <span className='home-nav__logo'>
-          <Icon name='layers' size={16} />
+          <LogoMark size={16} />
         </span>
         <div>
           <strong>Dokkiman</strong>

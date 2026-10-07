@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Icon from '../../../shared/components/Icon';
+import LogoMark from '../../../shared/components/LogoMark';
 import { TRYABLE_TOOLS } from '../tools';
 
 const HomeNav = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false, onOpenApp }) => (
@@ -14,7 +14,7 @@ const HomeNav = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false, onOpenApp 
     <div className='home-nav__inner'>
       <Link to='/' className='home-nav__brand' aria-label='Dokkiman home'>
         <span className='home-nav__logo'>
-          <Icon name='layers' size={18} />
+          <LogoMark size={18} />
         </span>
         <span className='home-nav__name'>Dokkiman</span>
       </Link>
