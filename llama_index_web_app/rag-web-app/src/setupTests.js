@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom';
+import { TextDecoder, TextEncoder } from 'util';
+
+// React Router needs these browser globals, which CRA's jsdom lacks
+Object.assign(global, { TextEncoder, TextDecoder });
 const { configure } = require('@testing-library/react');
 
 configure({ testIdAttribute: 'data-testid' });
@@ -7,7 +11,16 @@ configure({ testIdAttribute: 'data-testid' });
 const mockPdfjs = () => ({
   GlobalWorkerOptions: {},
   // Plain functions (not jest.fn) so restoreAllMocks between tests doesn't wipe them
-  getDocument: () => ({ promise: Promise.resolve({ numPages: 3, getPage: () => {}, destroy: () => {} }) }),
+  getDocument: () => ({
+    promise: Promise.resolve({
+      numPages: 3,
+      getPage: () => Promise.resolve({
+        getViewport: ({ scale = 1 } = {}) => ({ width: 600 * scale, height: 800 * scale }),
+        render: () => ({ promise: Promise.resolve(), cancel: () => {} }),
+      }),
+      destroy: () => {},
+    }),
+  }),
 });
 jest.mock('pdfjs-dist', () => mockPdfjs());
 jest.mock('pdfjs-dist/webpack', () => mockPdfjs(), { virtual: true });

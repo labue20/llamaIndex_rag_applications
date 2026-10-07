@@ -24,7 +24,7 @@ const MODES = [
 
 const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-const SplitPdf = forwardRef(({ onStatusChange }, ref) => {
+const SplitPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref) => {
   const [file, setFile] = useState(null);
   const [pageCount, setPageCount] = useState(null); // filled in once the PDF has been read
   const [mode, setMode] = useState('every');
@@ -132,11 +132,13 @@ const SplitPdf = forwardRef(({ onStatusChange }, ref) => {
             <label htmlFor="split-pdf-file-input" className="upload-label">
               {file ? 'Change PDF File' : 'Choose PDF File'}
             </label>
-            <DocumentPicker
-              acceptedExtensions={['.pdf']}
-              onSelect={(pickedFile) => pickedFile && loadFile(pickedFile)}
-              disabled={isSplitting}
-            />
+            {allowDocumentManager && (
+              <DocumentPicker
+                acceptedExtensions={['.pdf']}
+                onSelect={(pickedFile) => pickedFile && loadFile(pickedFile)}
+                disabled={isSplitting}
+              />
+            )}
           </div>
           <p className="upload-hint">Drop your PDF here or click to browse • Max 50MB</p>
         </div>

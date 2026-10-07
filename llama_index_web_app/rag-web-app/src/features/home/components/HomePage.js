@@ -36,6 +36,12 @@ const TOOLS = [
     text: 'Pull out the pages you need into separate files.',
   },
   {
+    id: 'sign',
+    icon: 'pen',
+    title: 'Sign PDF',
+    text: 'Add your signature, initials and the date, with an audit trail.',
+  },
+  {
     id: 'manager',
     icon: 'folder',
     title: 'Document Manager',
@@ -143,6 +149,7 @@ const FEATURES = [
     title: 'Get answers instead of searching',
     text: 'Ask a question in plain language and get a clear answer built from the most relevant passages. Ask about “page 7” or “pages 3-5” and it looks at exactly those pages.',
     cta: 'Try Chat with PDF',
+    tool: 'chat',
     preview: <ChatPreview />,
   },
   {
@@ -150,6 +157,7 @@ const FEATURES = [
     title: 'Switch between PDF and Word in seconds',
     text: 'Convert PDFs into editable Word documents, or turn Word files into PDFs ready to share. Need only part of a file? Split it into the pages you want.',
     cta: 'Convert a file',
+    tool: 'pdf-word',
     preview: <ConvertPreview />,
   },
   {
@@ -161,11 +169,12 @@ const FEATURES = [
   },
 ];
 
-const HomePage = ({ onLogin, onSignup }) => {
+const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false, onOpenApp }) => {
+  // Tools can be tried without an account; the Document Manager needs one
+  const openTool = (toolId) => (toolId === 'manager' ? onSignup() : onTryTool(toolId));
+
   const planInfo = usePlanInfo();
   const trialLabel = `${planInfo.trial_days}-day free trial`;
-  const scrollToTools = () =>
-    document.getElementById('tools')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
     <div className='home'>
@@ -179,18 +188,26 @@ const HomePage = ({ onLogin, onSignup }) => {
           </div>
           <nav className='home-nav__links' aria-label='Tools'>
             {TOOLS.slice(0, 4).map((tool) => (
-              <button key={tool.id} type='button' onClick={scrollToTools}>
+              <button key={tool.id} type='button' onClick={() => openTool(tool.id)}>
                 {tool.title}
               </button>
             ))}
           </nav>
           <div className='home-nav__actions'>
-            <button type='button' className='home-btn home-btn--text' onClick={onLogin}>
-              Log in
-            </button>
-            <button type='button' className='home-btn home-btn--primary' onClick={onSignup}>
-              Start free trial
-            </button>
+            {isLoggedIn ? (
+              <button type='button' className='home-btn home-btn--primary' onClick={onOpenApp}>
+                Open the app
+              </button>
+            ) : (
+              <>
+                <button type='button' className='home-btn home-btn--text' onClick={onLogin}>
+                  Log in
+                </button>
+                <button type='button' className='home-btn home-btn--primary' onClick={onSignup}>
+                  Start free trial
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -208,11 +225,17 @@ const HomePage = ({ onLogin, onSignup }) => {
             Chat with documents, convert between PDF and Word, and split files, all in one place.
           </p>
           <div className='home-hero__ctas'>
-            <button type='button' className='home-btn home-btn--primary home-btn--large' onClick={onSignup}>
-              Start your {trialLabel}
-            </button>
-            <button type='button' className='home-btn home-btn--ghost home-btn--large' onClick={scrollToTools}>
-              Explore the tools
+            {isLoggedIn ? (
+              <button type='button' className='home-btn home-btn--primary home-btn--large' onClick={onOpenApp}>
+                Open the app
+              </button>
+            ) : (
+              <button type='button' className='home-btn home-btn--primary home-btn--large' onClick={onSignup}>
+                Start your {trialLabel}
+              </button>
+            )}
+            <button type='button' className='home-btn home-btn--ghost home-btn--large' onClick={() => onTryTool('chat')}>
+              Try it now, no sign-up
             </button>
           </div>
         </section>
@@ -225,7 +248,7 @@ const HomePage = ({ onLogin, onSignup }) => {
                 key={tool.id}
                 type='button'
                 className={`home-tool home-tool--${tool.id}`}
-                onClick={onSignup}
+                onClick={() => openTool(tool.id)}
               >
                 <span className='home-tool__icon'>
                   <Icon name={tool.icon} size={22} />
@@ -249,7 +272,11 @@ const HomePage = ({ onLogin, onSignup }) => {
               <span className='home-feature__eyebrow'>{feature.eyebrow}</span>
               <h2>{feature.title}</h2>
               <p>{feature.text}</p>
-              <button type='button' className='home-btn home-btn--link' onClick={onSignup}>
+              <button
+                type='button'
+                className='home-btn home-btn--link'
+                onClick={() => (feature.tool ? onTryTool(feature.tool) : onSignup())}
+              >
                 {feature.cta} →
               </button>
             </div>
@@ -303,7 +330,7 @@ const HomePage = ({ onLogin, onSignup }) => {
           <div className='home-footer__col'>
             <h4>Tools</h4>
             {TOOLS.map((tool) => (
-              <button key={tool.id} type='button' onClick={onSignup}>
+              <button key={tool.id} type='button' onClick={() => openTool(tool.id)}>
                 {tool.title}
               </button>
             ))}

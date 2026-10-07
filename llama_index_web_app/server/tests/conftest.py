@@ -96,6 +96,14 @@ class FakeIndexServer:
     def ping(self):
         return _Value(True)
 
+    def claim_guest_documents(self, guest_id, owner_id):
+        moved = 0
+        for doc in self.docs.values():
+            if doc["owner_id"] == guest_id:
+                doc["owner_id"] = owner_id
+                moved += 1
+        return _Value(moved)
+
     def claim_unowned_documents(self, owner_id):
         claimed = 0
         for doc in self.docs.values():

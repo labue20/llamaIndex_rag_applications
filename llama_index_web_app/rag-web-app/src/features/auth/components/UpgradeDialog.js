@@ -6,6 +6,7 @@
 import React, { useEffect } from 'react';
 import Icon from '../../../shared/components/Icon';
 import { useAuth } from '../context/AuthContext';
+import { usePlanInfo } from '../hooks/usePlanInfo';
 
 const PRO_BENEFITS = [
   'Unlimited documents',
@@ -15,7 +16,8 @@ const PRO_BENEFITS = [
 ];
 
 const UpgradeDialog = () => {
-  const { user, isUpgradeOpen, closeUpgrade } = useAuth();
+  const { user, isUpgradeOpen, closeUpgrade, showAuth } = useAuth();
+  const planInfo = usePlanInfo();
 
   // Close on Escape
   useEffect(() => {
@@ -25,7 +27,53 @@ const UpgradeDialog = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isUpgradeOpen, closeUpgrade]);
 
-  if (!isUpgradeOpen || !user) return null;
+  if (!isUpgradeOpen) return null;
+
+  // Guests who hit a limit are invited to create a free account
+  if (!user) {
+    return (
+      <div className='upgrade-overlay' onClick={closeUpgrade} data-testid='upgrade-overlay'>
+        <div
+          className='upgrade-dialog'
+          role='dialog'
+          aria-modal='true'
+          aria-labelledby='upgrade-title'
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button type='button' className='upgrade-dialog__close' onClick={closeUpgrade} aria-label='Close'>
+            ×
+          </button>
+          <span className='upgrade-dialog__icon'>
+            <Icon name='sparkle' size={22} />
+          </span>
+          <h2 id='upgrade-title' className='upgrade-dialog__title'>Create a free account to keep going</h2>
+          <p className='upgrade-dialog__intro'>
+            You've used what guests can try. A free account gives you a {planInfo.trial_days}-day
+            trial, and the document you're working on comes with you.
+          </p>
+          <ul className='upgrade-dialog__benefits'>
+            {[
+              `Up to ${planInfo.trial_max_documents} documents`,
+              `${planInfo.trial_max_questions_per_day} questions a day`,
+              'Your files saved in the Document Manager',
+              'No credit card needed',
+            ].map((benefit) => (
+              <li key={benefit}>
+                <Icon name='check' size={16} />
+                {benefit}
+              </li>
+            ))}
+          </ul>
+          <button type='button' className='upgrade-dialog__cta' onClick={() => showAuth('signup')}>
+            Create free account
+          </button>
+          <button type='button' className='upgrade-dialog__secondary' onClick={() => showAuth('login')}>
+            I already have an account
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const plan = user.plan || {};
   const isExpired = plan.state === 'expired';

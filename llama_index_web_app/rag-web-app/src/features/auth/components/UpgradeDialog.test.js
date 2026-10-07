@@ -1,21 +1,23 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { AuthProvider } from '../context/AuthContext';
 import AuthGate from './AuthGate';
 import TrialBadge from './TrialBadge';
 import { apiFetch } from '../../../shared/services/apiClient';
 import { makeUser, mockFetch } from '../../../test-utils/mockFetch';
+import { renderAt } from '../../../test-utils/router';
 
 const renderWithUser = (getUser) => {
   mockFetch({
     '/auth/me': () => ({ body: { user: getUser() } }),
     '/uploadFile': { status: 402, body: { code: 'trial_expired', error: 'Your free trial has ended.' } },
   });
-  return render(
+  return renderAt(
     <AuthProvider>
       <AuthGate>
         <TrialBadge />
       </AuthGate>
-    </AuthProvider>
+    </AuthProvider>,
+    '/app/documents'
   );
 };
 

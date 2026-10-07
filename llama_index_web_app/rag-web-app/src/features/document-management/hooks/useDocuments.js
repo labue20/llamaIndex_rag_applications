@@ -10,7 +10,7 @@ import { documentApi } from '../services/documentApi';
  * Hook for managing document list and operations
  * @returns {Object} Document state and operations
  */
-export const useDocuments = () => {
+export const useDocuments = ({ enabled = true } = {}) => {
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -56,10 +56,10 @@ export const useDocuments = () => {
     fetchDocuments();
   }, [fetchDocuments]);
 
-  // Fetch documents on mount
+  // Fetch documents on mount (not for guests, who have no Document Manager)
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    if (enabled) fetchDocuments();
+  }, [fetchDocuments, enabled]);
 
   return {
     documents,

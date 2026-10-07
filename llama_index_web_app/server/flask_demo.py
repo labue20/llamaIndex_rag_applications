@@ -1,21 +1,26 @@
 import io
 import os
 from multiprocessing.managers import BaseManager
-from flask import Flask, request, jsonify, make_response, send_file
+from flask import Flask, g, request, jsonify, make_response, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import fitz  # PyMuPDF for PDF to Word conversion
 from pdf_to_word_service import convert_pdf_to_word_document, validate_pdf_file
 from word_to_pdf_service import converter
 from split_pdf_service import SPLIT_MODES, SplitError, split_pdf, zip_parts
+from sign_pdf_service import SignError, sign_pdf
+from signature_log import save_signature_record
 from pathlib import Path
 import tempfile
 import uuid
 import zipfile
 from auth import init_auth, current_user_id
-from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES
+from werkzeug.middleware.proxy_fix import ProxyFix
+from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES, TRUSTED_PROXY_COUNT
 from plans import (
     document_limit_error,
+    limit_guest_conversions,
+    record_document,
     public_plan_info,
     question_limit_error,
     record_question,
@@ -23,6 +28,11 @@ from plans import (
 )
 
 app = Flask(__name__)
+
+# Behind a reverse proxy (Caddy in production), use the visitor's address from
+# X-Forwarded-For so rate limits apply per visitor, not to the proxy
+if TRUSTED_PROXY_COUNT > 0:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=TRUSTED_PROXY_COUNT, x_proto=TRUSTED_PROXY_COUNT)
 
 # Reject request bodies over this size (uploads included) with a 413
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
@@ -37,7 +47,8 @@ ALLOWED_ORIGINS = [
 ]
 # Credentials are needed so the browser sends the session cookie; the frontend
 # reads download file names from Content-Disposition
-CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True, expose_headers=["Content-Disposition"])
+CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True,
+     expose_headers=["Content-Disposition", "X-Document-SHA256", "X-Audit-Record-Id"])
 
 # Interface the API listens on; 127.0.0.1 keeps it off the local network
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
@@ -56,6 +67,7 @@ INDEX_SERVER_FUNCTIONS = [
     'claim_unowned_documents',
     'get_document_file',
     'ping',
+    'claim_guest_documents',
 ]
 
 
@@ -90,6 +102,8 @@ manager = _IndexServerConnection()
 
 # Login is required for every route except the auth endpoints
 app.config["ON_FIRST_USER"] = lambda user_id: manager.claim_unowned_documents(user_id)._getvalue()
+# A guest who signs up or logs in keeps the document they were trying
+app.config["ON_GUEST_CLAIM"] = lambda guest_id, user_id: manager.claim_guest_documents(guest_id, user_id)._getvalue()
 init_auth(app)
 
 
@@ -156,6 +170,7 @@ def upload_file():
         # later by /backgroundIndex); it's deleted with the document
         if result and result.get("success"):
             filepath = None
+            record_document(current_user_id())
 
         # Return detailed result
         if result and result.get("success"):
@@ -298,6 +313,7 @@ def delete_document(doc_id):
 
 @app.route("/convertPdfToWord", methods=["POST"])
 @requires_active_plan
+@limit_guest_conversions
 def convert_pdf_to_word():
     """Convert PDF to Word document using PyMuPDF."""
     try:
@@ -337,6 +353,7 @@ def convert_pdf_to_word():
 
 @app.route("/convertWordToPdf", methods=["POST"])
 @requires_active_plan
+@limit_guest_conversions
 def convert_word_to_pdf():
     """Convert an uploaded .docx Word document to PDF and return it as a download."""
     if 'file' not in request.files:
@@ -380,6 +397,7 @@ def convert_word_to_pdf():
 
 @app.route("/splitPdf", methods=["POST"])
 @requires_active_plan
+@limit_guest_conversions
 def split_pdf_route():
     """Split an uploaded PDF. Form fields: file, mode (every | ranges | extract),
     ranges (e.g. "1-3, 5"; not used for mode=every). Returns one PDF, or a ZIP
@@ -421,6 +439,48 @@ def health():
         index_ok = False
     status = 200 if index_ok else 503
     return jsonify({"status": "ok" if index_ok else "degraded", "index_server": index_ok}), status
+
+
+@app.route("/signPdf", methods=["POST"])
+@requires_active_plan
+@limit_guest_conversions
+def sign_pdf_route():
+    """Stamp signatures, initials and dates onto a PDF.
+
+    Form fields: file (the PDF); placements (JSON list of items with page,
+    x, y, width, height as fractions of the page as shown, type "image" with
+    an index into the uploaded images, or "text" with text); images (PNG/JPEG
+    files, in order); audit ("true"/"false", default true: add an audit page).
+    """
+    uploaded_file = request.files.get("file")
+    is_valid, error_message = validate_pdf_file(uploaded_file)
+    if not is_valid:
+        return jsonify({"error": error_message}), 400
+
+    stem = secure_filename(Path(uploaded_file.filename).stem) or "document"
+    signer = "Guest (not signed in)" if g.user.get("guest") else g.user["email"]
+    try:
+        signed, record = sign_pdf(
+            uploaded_file.read(),
+            request.form.get("placements", ""),
+            [image.read() for image in request.files.getlist("images")],
+            file_name=Path(uploaded_file.filename).name,
+            signer=signer,
+            ip_address=request.remote_addr,
+            add_audit_trail=request.form.get("audit", "true").lower() != "false",
+        )
+    except SignError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"Sign PDF error: {str(e)}")
+        return jsonify({"error": "The PDF could not be signed."}), 500
+
+    save_signature_record(record, None if g.user.get("guest") else g.user["id"])
+    response = send_file(io.BytesIO(signed), as_attachment=True,
+                         download_name=f"{stem}_signed.pdf", mimetype="application/pdf")
+    response.headers["X-Document-SHA256"] = record["final_sha256"]
+    response.headers["X-Audit-Record-Id"] = record["id"]
+    return response
 
 
 @app.route("/plans", methods=["GET"])

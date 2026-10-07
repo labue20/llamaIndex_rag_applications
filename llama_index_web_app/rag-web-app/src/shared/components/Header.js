@@ -1,19 +1,20 @@
+import { Link } from 'react-router-dom';
 import Icon from './Icon';
 import { useAuth, TrialBadge } from '../../features/auth';
 
 const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, showAuth } = useAuth();
 
   return (
     <header className='app-header'>
       <div className='app-header__container'>
-        <div className='app-header__brand'>
+        <Link to='/' className='app-header__brand' aria-label='RAG Web Application home'>
           <span className='app-header__logo'>
             <Icon name='layers' size={18} />
           </span>
-          <h1 className='app-header__title'>RAG Web Application</h1>
+          <span className='app-header__title'>RAG Web Application</span>
           <span className='app-header__subtitle'>LlamaIndex</span>
-        </div>
+        </Link>
         <div className='app-header__actions'>
           <TrialBadge />
           {user && (
@@ -24,6 +25,16 @@ const Header = () => {
               <span className='user-menu__email' title={user.email}>{user.email}</span>
               <button type='button' className='user-menu__logout' onClick={logout}>
                 Log out
+              </button>
+            </div>
+          )}
+          {!user && (
+            <div className='user-menu'>
+              <button type='button' className='user-menu__logout' onClick={() => showAuth('login')}>
+                Log in
+              </button>
+              <button type='button' className='trial-badge__upgrade' onClick={() => showAuth('signup')}>
+                Sign up free
               </button>
             </div>
           )}

@@ -6,17 +6,12 @@ import pytest
 
 import auth
 
+# Account-only routes (guests can use the tools; see test_guests.py)
 PROTECTED_ROUTES = [
     ("get", "/getDocuments"),
-    ("get", "/getFullDocument/some-id"),
     ("delete", "/documents/some-id"),
-    ("post", "/uploadFile"),
-    ("post", "/chat"),
+    ("get", "/documents/some-id/file"),
     ("get", "/queryFile?text=hi"),
-    ("post", "/backgroundIndex/some-id"),
-    ("post", "/convertPdfToWord"),
-    ("post", "/convertWordToPdf"),
-    ("post", "/splitPdf"),
 ]
 
 

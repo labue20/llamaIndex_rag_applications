@@ -6,6 +6,7 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { FileSelector, SplitLayout, Icon, apiFetch, DocumentPicker } from '../../../shared';
 import PdfViewer from './PdfViewer';
+import { usePlanInfo } from '../../auth/hooks/usePlanInfo';
 import MessageMarkdown from './MessageMarkdown';
 import { usePdfChat } from '../hooks/usePdfFeatures';
 
@@ -17,7 +18,8 @@ const DOCUMENT_TYPE_LABELS = {
   '.json': 'JSON file',
 };
 
-const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
+const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded, isGuest = false }, ref) => {
+  const guestLimits = usePlanInfo();
   const [inputMessage, setInputMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadedDocument, setUploadedDocument] = useState(null);
@@ -296,6 +298,13 @@ const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
             <p className='pdf-chat__intro-text'>
               Upload a document, then ask questions about it and get answers drawn from its content.
             </p>
+            {isGuest && (
+              <p className='pdf-chat__guest-note'>
+                Trying it as a guest: {guestLimits.guest_max_documents}{' '}
+                {guestLimits.guest_max_documents === 1 ? 'document' : 'documents'} and{' '}
+                {guestLimits.guest_max_questions} questions, no sign-up needed.
+              </p>
+            )}
           </div>
           <FileSelector
             onFileSelect={handleFileSelect}
@@ -307,14 +316,14 @@ const PdfChat = forwardRef(({ onStatusChange, onDocumentUploaded }, ref) => {
             hint='Drop your PDF here or click to browse'
             autoUpload={true}
             className='pdf-chat__file-selector'
-            extraActions={
+            extraActions={!isGuest && (
               <DocumentPicker
                 acceptedExtensions={['.pdf', '.docx', '.txt', '.md', '.json']}
                 allowWithoutFile
                 needsFile={(doc) => /\.pdf$/i.test(doc.filename)}
                 onSelect={handlePickDocument}
               />
-            }
+            )}
           />
         </div>
       </div>

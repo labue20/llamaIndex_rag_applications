@@ -66,6 +66,13 @@ const PATHS = {
     </>
   ),
   arrowLeft: <path d='M19 12H5M11 18l-6-6 6-6' />,
+  // Pen writing a signature line
+  pen: (
+    <>
+      <path d='M15.5 4.5l4 4L9 19l-5 1 1-5z' />
+      <path d='M13.5 6.5l4 4M14 20h6' />
+    </>
+  ),
   upload: <path d='M12 15V4M7.5 8.5L12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3' />,
   trash: (
     <>

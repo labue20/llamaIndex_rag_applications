@@ -20,6 +20,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import db
 from db import connect_db
 from plans import init_plans, new_trial_end, plan_status
+from signature_log import init_signature_log
 
 SECRET_KEY_PATH = "instance/secret_key"
 
@@ -32,6 +33,23 @@ FAILED_LOGIN_WINDOW_SECONDS = 15 * 60
 
 # Requests that don't need a logged-in user
 PUBLIC_PATHS = {"/", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me", "/plans", "/health"}
+
+# Routes guests (no account) may use to try the tools. Guests get an anonymous
+# ID in their session; their usage limits are enforced in plans.py.
+GUEST_PATHS = [
+    re.compile(pattern)
+    for pattern in (
+        r"^/convertPdfToWord$",
+        r"^/convertWordToPdf$",
+        r"^/splitPdf$",
+        r"^/signPdf$",
+        r"^/uploadFile$",
+        r"^/chat$",
+        r"^/backgroundIndex/[^/]+$",
+        r"^/getFullDocument/[^/]+$",
+    )
+]
+GUEST_ID_PREFIX = "guest_"
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -85,16 +103,33 @@ def init_db():
     # The database holds password hashes: keep it readable by this user only
     os.chmod(db.DB_PATH, 0o600)
     init_plans()
+    init_signature_log()
 
 
 def _require_login():
     if request.method == "OPTIONS" or request.path in PUBLIC_PATHS:
         return None
     user = _session_user()
+    if user is None and any(pattern.match(request.path) for pattern in GUEST_PATHS):
+        user = _guest_identity()
     if user is None:
         return jsonify({"error": "Authentication required"}), 401
     g.user = user
     return None
+
+
+def _guest_identity():
+    """The visitor's anonymous guest identity, created on first use."""
+    guest_id = session.get("guest_id")
+    if not guest_id:
+        guest_id = GUEST_ID_PREFIX + uuid.uuid4().hex
+        session["guest_id"] = guest_id
+    return {"id": guest_id, "email": None, "guest": True}
+
+
+def is_guest():
+    """Whether the current request comes from a guest (no account)."""
+    return bool(g.user.get("guest"))
 
 
 def _session_user():
@@ -120,9 +155,14 @@ def _user_payload(user):
 
 
 def _start_session(user):
+    # A guest who signs up or logs in keeps the document they were trying
+    guest_id = session.get("guest_id")
     session.clear()
     session.permanent = True
     session["user_id"] = user["id"]
+    on_guest_claim = current_app.config.get("ON_GUEST_CLAIM")
+    if guest_id and on_guest_claim:
+        on_guest_claim(guest_id, user["id"])
 
 
 def _credentials_from_request():
