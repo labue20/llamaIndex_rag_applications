@@ -6,19 +6,32 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
+const PAID_PLAN_NAMES = { basic: 'Basic', pro: 'Pro' };
+
 const TrialBadge = () => {
   const { user, openUpgrade } = useAuth();
   const plan = user?.plan;
   if (!plan) return null;
 
-  if (plan.state === 'pro') {
-    // A subscription's own period end; otherwise when Pro given by hand ends
+  const paidName = PAID_PLAN_NAMES[plan.state];
+  if (paidName) {
+    // A subscription's own period end; otherwise when a plan given by hand ends
     const end = plan.billing?.period_end || plan.pro_until;
     const date = end ? new Date(end).toLocaleDateString(undefined, { dateStyle: 'long' }) : null;
     const renews = plan.billing?.has_subscription && !plan.billing.cancel_at_period_end;
     let until;
-    if (date) until = renews ? `Pro · renews on ${date}` : `Pro until ${date}`;
-    return <span className='trial-badge trial-badge--pro' title={until}>Pro</span>;
+    if (date) until = renews ? `${paidName} · renews on ${date}` : `${paidName} until ${date}`;
+    const badge = <span className={`trial-badge trial-badge--${plan.state}`} title={until}>{paidName}</span>;
+    if (plan.state === 'pro') return badge;
+    // Basic has limits, so Pro is still on offer
+    return (
+      <div className='trial-badge-group'>
+        {badge}
+        <button type='button' className='trial-badge__upgrade' onClick={openUpgrade}>
+          Upgrade
+        </button>
+      </div>
+    );
   }
 
   const isFree = plan.state === 'free';

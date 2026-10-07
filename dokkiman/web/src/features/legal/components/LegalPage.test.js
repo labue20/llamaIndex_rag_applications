@@ -45,7 +45,7 @@ test('the terms use the real trial terms and warn that AI answers are not advice
     .toBeInTheDocument();
   expect(screen.getByRole('heading', { name: '6. AI answers are not professional advice' })).toBeInTheDocument();
   expect(screen.getByText(/not tax, legal, accounting or financial advice/)).toBeInTheDocument();
-  expect(screen.getByText(/doesn.t renew automatically/)).toBeInTheDocument();
+  expect(screen.getByText(/don.t renew automatically/)).toBeInTheDocument();
   expect(screen.getByText(/up to 150 AI questions a day/)).toBeInTheDocument();
 
   fireEvent.click(screen.getAllByRole('link', { name: /Back to home/ })[0]);

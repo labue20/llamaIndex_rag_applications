@@ -17,8 +17,15 @@ FREE_MAX_QUESTIONS_PER_DAY = int(os.environ.get("FREE_MAX_QUESTIONS_PER_DAY", "1
 # Fair use of PDF to Word, Word to PDF, Split PDF and Sign PDF on the Free plan
 FREE_CONVERSIONS_PER_DAY = int(os.environ.get("FREE_CONVERSIONS_PER_DAY", "20"))
 
+# Basic plan: a low-cost tier between Free and Pro, with higher caps than Free
+# and no limit on file conversions (US dollars)
+BASIC_PRICE_MONTHLY = float(os.environ.get("BASIC_PRICE_MONTHLY", "1.99"))
+BASIC_PRICE_YEARLY = float(os.environ.get("BASIC_PRICE_YEARLY", "19.99"))
+BASIC_MAX_DOCUMENTS = int(os.environ.get("BASIC_MAX_DOCUMENTS", "25"))
+BASIC_MAX_QUESTIONS_PER_DAY = int(os.environ.get("BASIC_MAX_QUESTIONS_PER_DAY", "50"))
+
 # Pro plan prices shown on the pricing page (US dollars)
-PRO_PRICE_MONTHLY = float(os.environ.get("PRO_PRICE_MONTHLY", "9"))
+PRO_PRICE_MONTHLY = float(os.environ.get("PRO_PRICE_MONTHLY", "9.99"))
 PRO_PRICE_YEARLY = float(os.environ.get("PRO_PRICE_YEARLY", "90"))
 # Pro's "unlimited" questions are subject to fair use, so one very heavy
 # account can't cost more in OpenAI usage than the plan earns (see the Terms)

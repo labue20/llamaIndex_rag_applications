@@ -350,6 +350,11 @@
     color: theme-color(text-contrast);
   }
 
+  &--basic {
+    background: rgba(theme-color(accent), 0.12);
+    color: theme-color(accent);
+  }
+
   @media (max-width: 640px) { display: none; }
 
   &__upgrade {
@@ -500,9 +505,12 @@
     font: inherit;
     font-size: 0.875rem;
     font-weight: 600;
+    text-align: center;
+    text-decoration: none; // also used as a link (Basic by email)
     cursor: pointer;
 
     &:hover { background: theme-color(accent-light); }
+    &:disabled { opacity: 0.55; cursor: not-allowed; }
   }
 
   &__contact {

@@ -29,7 +29,8 @@ class FakeStripe:
         self.requests = []
         self.subscriptions = {}
         self.customers_created = 0
-        self.prices = {"pro_monthly": "price_monthly", "pro_yearly": "price_yearly"}
+        self.prices = {"pro_monthly": "price_monthly", "pro_yearly": "price_yearly",
+                       "basic_monthly": "price_basic_monthly", "basic_yearly": "price_basic_yearly"}
         self._real = stripe.StripeClient("sk_test_fake")
         ns = SimpleNamespace
         self.v1 = ns(
@@ -61,14 +62,14 @@ class FakeStripe:
         return self._real.construct_event(payload, sig_header, secret)
 
     def add_subscription(self, sub_id="sub_1", customer="cus_1", status="active", interval="month",
-                         period_end=None, cancel_at_period_end=False):
+                         period_end=None, cancel_at_period_end=False, price=None):
         period_end = period_end or int(time.time()) + 30 * 86400
         self.subscriptions[sub_id] = {
             "id": sub_id, "object": "subscription", "customer": customer, "status": status,
             "cancel_at_period_end": cancel_at_period_end,
             "items": {"object": "list", "data": [{
                 "id": f"si_{sub_id}", "object": "subscription_item", "current_period_end": period_end,
-                "price": {"id": "price_x", "object": "price", "recurring": {"interval": interval}},
+                "price": price or {"id": "price_x", "object": "price", "recurring": {"interval": interval}},
             }]},
         }
         return period_end
@@ -105,9 +106,9 @@ def plan_of(user_client):
     return user_client.get("/auth/me").get_json()["user"]["plan"]
 
 
-def subscribe(client, user_client, fake, **subscription):
+def subscribe(client, user_client, fake, plan="pro", **subscription):
     """Checkout, then Stripe's checkout.session.completed webhook."""
-    assert user_client.post("/billing/checkout", json={"billing": "monthly"}).status_code == 200
+    assert user_client.post("/billing/checkout", json={"plan": plan, "billing": "monthly"}).status_code == 200
     customer = next(params for kind, params in fake.requests if kind == "checkout")["customer"]
     period_end = fake.add_subscription(customer=customer, **subscription)
     response = send_event(client, "checkout.session.completed", {
@@ -155,6 +156,17 @@ def test_checkout_creates_one_customer_and_a_subscription_session(signup, fake_s
 
 def test_checkout_rejects_an_unknown_billing_period(signup, fake_stripe):
     assert signup().post("/billing/checkout", json={"billing": "weekly"}).status_code == 400
+
+
+def test_checkout_for_basic_uses_the_basic_price(signup, fake_stripe):
+    user_client = signup()
+    assert user_client.post("/billing/checkout", json={"plan": "basic", "billing": "yearly"}).status_code == 200
+    session = next(params for kind, params in fake_stripe.requests if kind == "checkout")
+    assert session["line_items"] == [{"price": "price_basic_yearly", "quantity": 1}]
+
+
+def test_checkout_rejects_an_unknown_plan(signup, fake_stripe):
+    assert signup().post("/billing/checkout", json={"plan": "trial", "billing": "monthly"}).status_code == 400
 
 
 def test_checkout_without_stripe_or_prices_explains(signup, fake_stripe, monkeypatch):
@@ -210,6 +222,52 @@ def test_payment_makes_the_account_pro_until_the_period_ends(client, signup, fak
     assert plan["billing"] == {"has_subscription": True, "status": "active", "interval": "monthly",
                                "cancel_at_period_end": False,
                                "period_end": datetime.fromtimestamp(period_end, timezone.utc).isoformat()}
+
+
+BASIC_PRICE = {"id": "price_basic_monthly", "object": "price", "lookup_key": "basic_monthly",
+              "metadata": {"plan": "basic"}, "recurring": {"interval": "month"}}
+PRO_PRICE = {"id": "price_monthly", "object": "price", "lookup_key": "pro_monthly",
+             "metadata": {"plan": "pro"}, "recurring": {"interval": "month"}}
+
+
+def test_paying_for_basic_makes_the_account_basic(client, signup, fake_stripe):
+    user_client = signup()
+    subscribe(client, user_client, fake_stripe, plan="basic", price=BASIC_PRICE)
+    plan = plan_of(user_client)
+    assert plan["state"] == "basic"
+    assert plan["limits"]["max_documents"] == config.BASIC_MAX_DOCUMENTS
+    assert plan["billing"]["has_subscription"] is True
+
+    # A Basic subscriber is sent to Manage billing to change plan, not a second checkout
+    again = user_client.post("/billing/checkout", json={"plan": "pro", "billing": "monthly"})
+    assert again.status_code == 409
+    assert again.get_json()["code"] == "already_subscribed"
+
+
+def test_switching_plan_in_the_portal_changes_the_account(client, signup, fake_stripe):
+    user_client = signup()
+    customer, _ = subscribe(client, user_client, fake_stripe, plan="basic", price=BASIC_PRICE)
+
+    # Basic -> Pro: Stripe changes the subscription's price
+    fake_stripe.add_subscription(customer=customer, price=PRO_PRICE)
+    send_event(client, "customer.subscription.updated", {"id": "sub_1", "object": "subscription"})
+    assert plan_of(user_client)["state"] == "pro"
+
+    # And back
+    fake_stripe.add_subscription(customer=customer, price=BASIC_PRICE)
+    send_event(client, "customer.subscription.updated", {"id": "sub_1", "object": "subscription"})
+    assert plan_of(user_client)["state"] == "basic"
+
+
+@pytest.mark.parametrize("price,expected", [
+    ({"metadata": {"plan": "basic"}}, "basic"),
+    ({"lookup_key": "basic_yearly"}, "basic"),
+    ({"lookup_key": "pro_monthly"}, "pro"),
+    # A Pro price from before Basic existed, which has lost its lookup key to a newer price
+    ({"lookup_key": None, "metadata": {}}, "pro"),
+])
+def test_the_plan_comes_from_the_subscribed_price(price, expected):
+    assert billing._plan_of_price(price) == expected
 
 
 def test_duplicate_events_are_handled_once(client, signup, fake_stripe):

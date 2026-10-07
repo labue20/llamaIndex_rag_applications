@@ -1,11 +1,12 @@
 """
-Plans: the free trial, the Free plan and Pro.
+Plans: the free trial, the Free plan, Basic and Pro.
 
 Every new account starts on a TRIAL_DAYS trial with generous caps. When the
 trial ends the account moves to the Free plan, with smaller caps, until it is
-moved to the "pro" plan, which has no caps (apart from a fair-use limit on
-questions). Pro can have an end date (pro_until, set by manage_users.py when
-someone pays for a month or a year); after it the account is back on Free.
+moved to a paid plan: "basic" (low-cost, higher caps than Free, unlimited
+conversions) or "pro" (no caps, apart from a fair-use limit on questions).
+A paid plan can have an end date (pro_until, set by Stripe payments or by
+manage_users.py); after it the account is back on Free.
 """
 
 import math
@@ -20,6 +21,10 @@ from config import (
     FREE_CONVERSIONS_PER_DAY,
     FREE_MAX_DOCUMENTS,
     FREE_MAX_QUESTIONS_PER_DAY,
+    BASIC_MAX_DOCUMENTS,
+    BASIC_MAX_QUESTIONS_PER_DAY,
+    BASIC_PRICE_MONTHLY,
+    BASIC_PRICE_YEARLY,
     GUEST_CONVERSIONS_PER_HOUR,
     GUEST_FILE_HOURS,
     GUEST_IP_MAX_DOCUMENTS_PER_DAY,
@@ -38,12 +43,15 @@ import config
 from db import connect_db
 
 PLAN_TRIAL = "trial"
+PLAN_BASIC = "basic"
 PLAN_PRO = "pro"
-PLANS = (PLAN_TRIAL, PLAN_PRO)
+PLANS = (PLAN_TRIAL, PLAN_BASIC, PLAN_PRO)
+PAID_PLANS = (PLAN_BASIC, PLAN_PRO)
 
 # What a user can do right now
 STATE_TRIAL = "trial"  # trial running: full access within generous caps
 STATE_FREE = "free"    # trial over, not upgraded: the Free plan's smaller caps
+STATE_BASIC = "basic"    # paid, low-cost: higher caps than Free, unlimited conversions
 STATE_PRO = "pro"      # paid: no caps
 
 
@@ -60,6 +68,9 @@ def _limits(state):
     if state == STATE_FREE:
         return {"max_documents": FREE_MAX_DOCUMENTS, "max_questions_per_day": FREE_MAX_QUESTIONS_PER_DAY,
                 "max_conversions_per_day": FREE_CONVERSIONS_PER_DAY}
+    if state == STATE_BASIC:
+        return {"max_documents": BASIC_MAX_DOCUMENTS, "max_questions_per_day": BASIC_MAX_QUESTIONS_PER_DAY,
+                "max_conversions_per_day": None}
     return None
 
 
@@ -83,7 +94,7 @@ def init_plans():
             conn.execute(f"ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT '{PLAN_TRIAL}'")
         if "trial_ends_at" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN trial_ends_at TEXT")
-        # When a paid Pro period ends (NULL = no end date)
+        # When a paid (Basic or Pro) period ends (NULL = no end date)
         if "pro_until" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN pro_until TEXT")
         # Accounts that existed before trials get a fresh trial
@@ -186,10 +197,14 @@ def plan_status(user_id):
     trial_ends_at = row["trial_ends_at"] if row else None
     pro_until = datetime.fromisoformat(row["pro_until"]) if row and row["pro_until"] else None
 
-    # Pro until its paid period ends; after that the account is on its trial or Free
-    if plan == PLAN_PRO and (pro_until is None or pro_until > _now()):
-        return {"plan": plan, "state": STATE_PRO, "limits": None,
-                "pro_until": pro_until.isoformat() if pro_until else None, "support_email": SUPPORT_EMAIL}
+    # Basic or Pro until the paid period ends; after that the account is on its trial or Free
+    if plan in PAID_PLANS and (pro_until is None or pro_until > _now()):
+        status = {"plan": plan, "state": plan, "limits": _limits(plan),
+                  "pro_until": pro_until.isoformat() if pro_until else None, "support_email": SUPPORT_EMAIL}
+        if plan == PLAN_BASIC:
+            status["usage"] = {"questions_today": questions_today(user_id),
+                               "conversions_today": _today_usage(user_id, "conversions")}
+        return status
 
     ends = datetime.fromisoformat(trial_ends_at) if trial_ends_at else _now()
     remaining = ends - _now()
@@ -215,6 +230,10 @@ def public_plan_info():
         "free_max_documents": FREE_MAX_DOCUMENTS,
         "free_max_questions_per_day": FREE_MAX_QUESTIONS_PER_DAY,
         "free_conversions_per_day": FREE_CONVERSIONS_PER_DAY,
+        "basic_price_monthly": BASIC_PRICE_MONTHLY,
+        "basic_price_yearly": BASIC_PRICE_YEARLY,
+        "basic_max_documents": BASIC_MAX_DOCUMENTS,
+        "basic_max_questions_per_day": BASIC_MAX_QUESTIONS_PER_DAY,
         "pro_price_monthly": PRO_PRICE_MONTHLY,
         "pro_price_yearly": PRO_PRICE_YEARLY,
         "pro_fair_use_questions_per_day": PRO_FAIR_USE_QUESTIONS_PER_DAY,
@@ -238,14 +257,14 @@ def _limit_error(message, code, status):
 
 # Account limits answer 402 ("upgrade needed"), which opens the Upgrade dialog in the app
 UPGRADE_STATUS = 402
-PLAN_NAMES = {STATE_TRIAL: "free trial", STATE_FREE: "Free plan"}
+PLAN_NAMES = {STATE_TRIAL: "free trial", STATE_FREE: "Free plan", STATE_BASIC: "Basic plan"}
 
 
 GUEST_SIGNUP_HINT = "Create a free account to keep going. Your document comes with you."
 
 
 def question_limit_error(user_id):
-    """Error response if the user has used today's trial questions, else None."""
+    """Error response if the user has used today's questions for their plan, else None."""
     if _is_guest():
         if (_total_questions(user_id) >= GUEST_MAX_QUESTIONS
                 or _today_usage(_guest_address_key(), "questions") >= GUEST_IP_MAX_QUESTIONS_PER_DAY):
@@ -280,7 +299,7 @@ def question_limit_error(user_id):
 
 
 def document_limit_error(user_id, document_count):
-    """Error response if the user already has the trial's maximum documents, else None."""
+    """Error response if the user already has their plan's maximum documents, else None."""
     if _is_guest():
         if (document_count >= GUEST_MAX_DOCUMENTS
                 or _today_usage(_guest_address_key(), "documents") >= GUEST_IP_MAX_DOCUMENTS_PER_DAY):
@@ -312,7 +331,7 @@ _guest_conversions_lock = threading.Lock()
 def limit_conversions(view):
     """Guests: GUEST_CONVERSIONS_PER_HOUR per network address. Free plan:
     FREE_CONVERSIONS_PER_DAY per account (only successful ones count).
-    Trial and Pro: no limit."""
+    Trial, Basic and Pro: no limit."""
     @wraps(view)
     def wrapper(*args, **kwargs):
         if not _is_guest():

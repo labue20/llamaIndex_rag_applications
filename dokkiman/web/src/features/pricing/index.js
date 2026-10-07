@@ -3,5 +3,5 @@
  */
 
 export { default as PricingPage } from './components/PricingPage';
-export { formatPrice, proUpgradeMailto, yearlySavings } from './pricing';
+export { formatPrice, monthsFree, upgradeMailto, yearlySavings } from './pricing';
 export { openBillingPortal, startCheckout } from './billing';

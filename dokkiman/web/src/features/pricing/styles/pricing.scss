@@ -72,16 +72,18 @@
 
   &__plans {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-    max-width: 820px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
     margin: 0 auto;
 
-    @media (max-width: 720px) { grid-template-columns: minmax(0, 1fr); }
+    // Stacked on tablets and phones, at a readable card width
+    @media (max-width: 880px) {
+      grid-template-columns: minmax(0, 1fr);
+      max-width: 480px;
+    }
   }
 
   &__guest {
-    max-width: 820px;
     margin: 1.5rem auto 0;
     padding: 1.25rem 1.5rem;
     display: flex;
@@ -107,7 +109,6 @@
   }
 
   &__faq {
-    max-width: 820px;
     margin: 4rem auto 0;
 
     h2 {

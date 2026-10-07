@@ -1,16 +1,17 @@
 """
-Set up Stripe for Pro (run once per Stripe account / sandbox, and again after
-changing PRO_PRICE_MONTHLY or PRO_PRICE_YEARLY).
+Set up Stripe for Basic and Pro (run once per Stripe account / sandbox, and
+again after changing BASIC_PRICE_* or PRO_PRICE_*).
 
 Run from the server/ folder, with STRIPE_SECRET_KEY in .env:
     .venv/bin/python stripe_setup.py
     .venv/bin/python stripe_setup.py --webhook-url https://yourdomain.com/api/billing/webhook
 
 It creates (or reuses):
-- the "Pro" product with a monthly and a yearly price (lookup keys pro_monthly
-  and pro_yearly, which the app uses to find them)
+- the "Basic" and "Pro" products, each with a monthly and a yearly price
+  (lookup keys basic_monthly, basic_yearly, pro_monthly and pro_yearly, which the
+  app uses to find them; each price's metadata says which plan it is for)
 - customer portal settings: cancel at the end of the period, switch between
-  monthly and yearly, update the card, see invoices
+  monthly and yearly or Basic and Pro, update the card, see invoices
 - with --webhook-url: the production webhook endpoint (prints its signing
   secret for STRIPE_WEBHOOK_SECRET). For local testing use `stripe listen` instead.
 """
@@ -38,60 +39,83 @@ _load_env_file()
 
 import config  # noqa: E402  (reads the environment loaded above)
 from billing import HANDLED_EVENTS, LOOKUP_KEYS  # noqa: E402
+from plans import PLAN_BASIC, PLAN_PRO  # noqa: E402
 
-PRODUCT_NAME = "Pro"
 INTERVALS = {"monthly": "month", "yearly": "year"}
 
 
-def _amount(billing):
-    dollars = config.PRO_PRICE_MONTHLY if billing == "monthly" else config.PRO_PRICE_YEARLY
+def _products():
+    """Name, description and prices (dollars) of each paid plan's product."""
+    return {
+        PLAN_BASIC: {
+            "name": "Basic",
+            "description": f"Up to {config.BASIC_MAX_DOCUMENTS} documents, {config.BASIC_MAX_QUESTIONS_PER_DAY} AI "
+                           "questions a day and unlimited file conversions.",
+            "prices": {"monthly": config.BASIC_PRICE_MONTHLY, "yearly": config.BASIC_PRICE_YEARLY},
+        },
+        PLAN_PRO: {
+            "name": "Pro",
+            "description": "Unlimited documents, AI questions and file conversions.",
+            "prices": {"monthly": config.PRO_PRICE_MONTHLY, "yearly": config.PRO_PRICE_YEARLY},
+        },
+    }
+
+
+def _cents(dollars):
     return int(round(dollars * 100))
 
 
-def ensure_prices(client):
-    """The Pro product and its two prices; returns (product_id, {billing: price_id})."""
+def ensure_prices(client, plan):
+    """A plan's product and its two prices; returns (product_id, {billing: price_id})."""
+    product_info = _products()[plan]
+    lookup_keys = LOOKUP_KEYS[plan]
     existing = {p.lookup_key: p for p in client.v1.prices.list(
-        {"lookup_keys": list(LOOKUP_KEYS.values()), "active": True, "expand": ["data.product"]}).data}
+        {"lookup_keys": list(lookup_keys.values()), "active": True, "expand": ["data.product"]}).data}
 
     product_id = next((p.product.id for p in existing.values()), None)
     if product_id is None:
         product = client.v1.products.create({
-            "name": PRODUCT_NAME,
-            "description": "Unlimited documents, AI questions and file conversions.",
+            "name": product_info["name"],
+            "description": product_info["description"],
+            "metadata": {"plan": plan},
         })
         product_id = product.id
-        print(f"Created product {PRODUCT_NAME} ({product_id})")
+        print(f"Created product {product_info['name']} ({product_id})")
 
     price_ids = {}
-    for billing, lookup_key in LOOKUP_KEYS.items():
+    for billing, lookup_key in lookup_keys.items():
+        amount = _cents(product_info["prices"][billing])
         price = existing.get(lookup_key)
-        if price and price.unit_amount == _amount(billing) and price.currency == "usd":
+        if price and price.unit_amount == amount and price.currency == "usd":
             price_ids[billing] = price.id
-            print(f"Using {billing} price {price.id} (${price.unit_amount / 100:g})")
+            print(f"Using {product_info['name']} {billing} price {price.id} (${price.unit_amount / 100:g})")
             continue
         # New amount: a new price takes over the lookup key; existing subscribers keep theirs
         price = client.v1.prices.create({
             "product": product_id,
             "currency": "usd",
-            "unit_amount": _amount(billing),
+            "unit_amount": amount,
             "recurring": {"interval": INTERVALS[billing]},
             "lookup_key": lookup_key,
             "transfer_lookup_key": True,
+            # Tells the webhook which plan a subscription is for
+            "metadata": {"plan": plan},
         })
         price_ids[billing] = price.id
-        print(f"Created {billing} price {price.id} (${price.unit_amount / 100:g})")
+        print(f"Created {product_info['name']} {billing} price {price.id} (${price.unit_amount / 100:g})")
     return product_id, price_ids
 
 
-def create_portal_configuration(client, product_id, price_ids):
+def create_portal_configuration(client, products):
+    """products: {plan: (product_id, {billing: price_id})}."""
     configuration = client.v1.billing_portal.configurations.create({
-        "business_profile": {"headline": "Manage your Pro plan"},
+        "business_profile": {"headline": "Manage your Dokkiman plan"},
         "features": {
             "invoice_history": {"enabled": True},
             "payment_method_update": {"enabled": True},
             "subscription_cancel": {
                 "enabled": True,
-                "mode": "at_period_end",  # keep Pro until the end of the paid period
+                "mode": "at_period_end",  # keep the plan until the end of the paid period
                 "cancellation_reason": {
                     "enabled": True,
                     "options": ["too_expensive", "unused", "missing_features", "switched_service", "other"],
@@ -100,7 +124,9 @@ def create_portal_configuration(client, product_id, price_ids):
             "subscription_update": {
                 "enabled": True,
                 "default_allowed_updates": ["price"],
-                "products": [{"product": product_id, "prices": list(price_ids.values())}],
+                # Switch between monthly and yearly, and between Basic and Pro
+                "products": [{"product": product_id, "prices": list(price_ids.values())}
+                             for product_id, price_ids in products.values()],
                 "proration_behavior": "create_prorations",
             },
         },
@@ -113,7 +139,7 @@ def create_webhook(client, url):
     endpoint = client.v1.webhook_endpoints.create({
         "url": url,
         "enabled_events": list(HANDLED_EVENTS),
-        "description": "Dokkiman: Pro subscriptions",
+        "description": "Dokkiman: Basic and Pro subscriptions",
     })
     print(f"Created webhook endpoint {endpoint.id} for {url}")
     return endpoint.secret
@@ -132,8 +158,8 @@ def main():
     print(f"Stripe {config.STRIPE_MODE.upper()} mode")
 
     client = stripe.StripeClient(config.STRIPE_SECRET_KEY)
-    product_id, price_ids = ensure_prices(client)
-    portal_id = create_portal_configuration(client, product_id, price_ids)
+    products = {plan: ensure_prices(client, plan) for plan in LOOKUP_KEYS}
+    portal_id = create_portal_configuration(client, products)
 
     print("\nAdd to server/.env:")
     print(f"STRIPE_PORTAL_CONFIGURATION={portal_id}")
