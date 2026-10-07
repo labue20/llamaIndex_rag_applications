@@ -54,10 +54,17 @@ def init_auth_limits():
             )"""
         )
         conn.execute("CREATE INDEX IF NOT EXISTS auth_attempts_kind_key ON auth_attempts (kind, key, at)")
+        _delete_expired(conn)
+
+
+def _delete_expired(conn):
+    """Nothing older than the longest window is needed (the privacy policy says 24 hours)."""
+    conn.execute("DELETE FROM auth_attempts WHERE at < ?", (time.time() - SIGNUP_WINDOW_SECONDS,))
 
 
 def recent_attempts(kind, key, window_seconds):
     with connect_db() as conn:
+        _delete_expired(conn)
         return conn.execute(
             "SELECT COUNT(*) FROM auth_attempts WHERE kind = ? AND key = ? AND at > ?",
             (kind, key, time.time() - window_seconds),
@@ -68,8 +75,7 @@ def record_attempt(kind, key):
     now = time.time()
     with connect_db() as conn:
         conn.execute("INSERT INTO auth_attempts (kind, key, at) VALUES (?, ?, ?)", (kind, key, now))
-        # Keep the table small: nothing older than the longest window matters
-        conn.execute("DELETE FROM auth_attempts WHERE at < ?", (now - SIGNUP_WINDOW_SECONDS,))
+        _delete_expired(conn)
 
 
 def clear_attempts(kind, key):

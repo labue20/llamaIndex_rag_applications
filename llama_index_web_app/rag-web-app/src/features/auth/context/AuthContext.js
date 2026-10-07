@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }) => {
         navigateRef.current('/login');
       }
     });
-    // A 402 means the free trial has ended: refresh the plan and offer an upgrade
+    // A 402 means a plan limit was reached: refresh the plan and offer an upgrade
     setPlanRequiredHandler(() => {
       refreshUser();
       setIsUpgradeOpen(true);

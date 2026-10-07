@@ -340,9 +340,9 @@
   font-weight: 600;
   white-space: nowrap;
 
-  &--expired {
-    background: rgba(theme-color(error), 0.1);
-    color: darken(theme-color(error), 8%);
+  &--free {
+    background: theme-color(secondary);
+    color: theme-color(text-secondary);
   }
 
   &--pro {
@@ -423,11 +423,6 @@
     border-radius: 14px;
     background: linear-gradient(135deg, theme-color(accent), #7c3aed);
     color: theme-color(text-contrast);
-
-    &--expired {
-      background: rgba(theme-color(error), 0.1);
-      color: theme-color(error);
-    }
   }
 
   &__title {
@@ -461,6 +456,14 @@
 
       .icon { color: theme-color(success); flex-shrink: 0; }
     }
+  }
+
+  &__price {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    color: theme-color(text-secondary);
+
+    a { color: theme-color(accent); font-weight: 600; }
   }
 
   &__limits {
@@ -737,6 +740,16 @@
     text-align: center;
     font-size: 0.8125rem;
     color: theme-color(text-muted);
+  }
+
+  &__legal {
+    margin: 0;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: theme-color(text-muted);
+
+    a { color: theme-color(text-secondary); }
   }
 
   &__divider {

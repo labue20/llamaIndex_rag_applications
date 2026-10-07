@@ -6,57 +6,23 @@
 import React from 'react';
 import Icon from '../../../shared/components/Icon';
 import { usePlanInfo } from '../../auth/hooks/usePlanInfo';
+import { TOOLS } from '../tools';
+import HomeNav from './HomeNav';
+import HomeFooter from './HomeFooter';
 import '../styles/home.scss';
-
-// Each tool gets its own accent color (see .home-tool--* in home.scss)
-const TOOLS = [
-  {
-    id: 'chat',
-    icon: 'chat',
-    title: 'Chat with PDF',
-    text: 'Ask questions and get answers drawn from your document.',
-    badge: 'AI',
-  },
-  {
-    id: 'pdf-word',
-    icon: 'fileToWord',
-    title: 'PDF to Word',
-    text: 'Turn a PDF into an editable Word document.',
-  },
-  {
-    id: 'word-pdf',
-    icon: 'fileToPdf',
-    title: 'Word to PDF',
-    text: 'Convert Word files into PDFs that look right everywhere.',
-  },
-  {
-    id: 'split',
-    icon: 'scissors',
-    title: 'Split PDF',
-    text: 'Pull out the pages you need into separate files.',
-  },
-  {
-    id: 'sign',
-    icon: 'pen',
-    title: 'Sign PDF',
-    text: 'Add your signature, initials and the date, with an audit trail.',
-  },
-  {
-    id: 'manager',
-    icon: 'folder',
-    title: 'Document Manager',
-    text: 'Keep your uploads in one place, ready to use again.',
-  },
-];
 
 const SECURITY_POINTS = [
   {
     title: 'Private by default',
-    text: 'Your documents are tied to your account. Nobody else can list, open or chat with them.',
+    text: 'Your documents are tied to your account. Other users can’t list, open or chat with them.',
   },
   {
-    title: 'Passwords never stored',
-    text: 'Only a salted, one-way hash of your password is kept, so it can’t be read back.',
+    title: 'No passwords to leak',
+    text: 'You sign in with Google, so we never see or store your password.',
+  },
+  {
+    title: 'AI without training',
+    text: 'Your documents are processed by OpenAI to answer your questions, and aren’t used to train AI models.',
   },
   {
     title: 'Delete means delete',
@@ -178,39 +144,13 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
 
   return (
     <div className='home'>
-      <header className='home-nav'>
-        <div className='home-nav__inner'>
-          <div className='home-nav__brand'>
-            <span className='home-nav__logo'>
-              <Icon name='layers' size={18} />
-            </span>
-            <span className='home-nav__name'>RAG Web Application</span>
-          </div>
-          <nav className='home-nav__links' aria-label='Tools'>
-            {TOOLS.filter((tool) => tool.id !== 'manager').map((tool) => (
-              <button key={tool.id} type='button' onClick={() => openTool(tool.id)}>
-                {tool.title}
-              </button>
-            ))}
-          </nav>
-          <div className='home-nav__actions'>
-            {isLoggedIn ? (
-              <button type='button' className='home-btn home-btn--primary' onClick={onOpenApp}>
-                Open the app
-              </button>
-            ) : (
-              <>
-                <button type='button' className='home-btn home-btn--text' onClick={onLogin}>
-                  Log in
-                </button>
-                <button type='button' className='home-btn home-btn--primary' onClick={onSignup}>
-                  Start free trial
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <HomeNav
+        onLogin={onLogin}
+        onSignup={onSignup}
+        onOpenTool={openTool}
+        isLoggedIn={isLoggedIn}
+        onOpenApp={onOpenApp}
+      />
 
       <main>
         <section className='home-hero'>
@@ -308,7 +248,8 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
           <h2>Try it free for {planInfo.trial_days} days</h2>
           <p>
             Full access to every tool, up to {planInfo.trial_max_documents} documents and{' '}
-            {planInfo.trial_max_questions_per_day} questions a day. No credit card needed.
+            {planInfo.trial_max_questions_per_day} questions a day. Then keep going on the Free plan, or
+            upgrade to Pro. No credit card needed.
           </p>
           <button type='button' className='home-btn home-btn--light home-btn--large' onClick={onSignup}>
             Start free trial
@@ -316,33 +257,7 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
         </section>
       </main>
 
-      <footer className='home-footer'>
-        <div className='home-footer__inner'>
-          <div className='home-footer__brand'>
-            <span className='home-nav__logo'>
-              <Icon name='layers' size={16} />
-            </span>
-            <div>
-              <strong>RAG Web Application</strong>
-              <p>Chat with and convert your PDFs.</p>
-            </div>
-          </div>
-          <div className='home-footer__col'>
-            <h4>Tools</h4>
-            {TOOLS.map((tool) => (
-              <button key={tool.id} type='button' onClick={() => openTool(tool.id)}>
-                {tool.title}
-              </button>
-            ))}
-          </div>
-          <div className='home-footer__col'>
-            <h4>Account</h4>
-            <button type='button' onClick={onLogin}>Log in</button>
-            <button type='button' onClick={onSignup}>Start free trial</button>
-          </div>
-        </div>
-        <p className='home-footer__note'>Built with LlamaIndex and OpenAI</p>
-      </footer>
+      <HomeFooter onLogin={onLogin} onSignup={onSignup} onOpenTool={openTool} />
     </div>
   );
 };

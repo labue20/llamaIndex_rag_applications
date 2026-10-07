@@ -10,9 +10,24 @@ const DEFAULT_PLAN_INFO = {
   trial_days: 7,
   trial_max_documents: 10,
   trial_max_questions_per_day: 50,
+  free_max_documents: 3,
+  free_max_questions_per_day: 10,
+  free_conversions_per_day: 20,
+  pro_price_monthly: 9,
+  pro_price_yearly: 90,
+  pro_fair_use_questions_per_day: 150,
+  guest_max_documents: 1,
+  guest_max_questions: 5,
+  guest_file_hours: 24,
+  guest_conversions_per_hour: 20,
+  support_email: '',
 };
 
 let cachedPlanInfo = null;
+
+export const resetPlanInfoCache = () => {
+  cachedPlanInfo = null;
+};
 
 export const usePlanInfo = () => {
   const [planInfo, setPlanInfo] = useState(cachedPlanInfo || DEFAULT_PLAN_INFO);
@@ -24,8 +39,9 @@ export const usePlanInfo = () => {
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (data && !cancelled) {
-          cachedPlanInfo = data;
-          setPlanInfo(data);
+          // Anything an older server doesn't send keeps its default
+          cachedPlanInfo = { ...DEFAULT_PLAN_INFO, ...data };
+          setPlanInfo(cachedPlanInfo);
         }
       })
       .catch(() => {});

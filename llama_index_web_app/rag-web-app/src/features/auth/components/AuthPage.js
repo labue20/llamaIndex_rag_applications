@@ -5,6 +5,7 @@
  */
 
 import React, { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Icon from '../../../shared/components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { useAuthConfig } from '../hooks/useAuthConfig';
@@ -243,6 +244,10 @@ const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
               {isSignup
                 ? 'Use your Google account. No new password to remember.'
                 : 'Use the Google account you signed up with.'}
+            </p>
+            <p className='auth-sso__legal'>
+              By continuing, you agree to our <Link to='/terms'>Terms of Service</Link> and{' '}
+              <Link to='/privacy'>Privacy Policy</Link>.
             </p>
           </div>
         )}

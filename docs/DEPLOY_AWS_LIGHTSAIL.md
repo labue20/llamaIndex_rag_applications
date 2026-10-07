@@ -130,6 +130,7 @@ sudo -u rag .venv/bin/python manage_users.py list
 | Check health | `curl http://127.0.0.1:5601/health` |
 | Run a backup now | `systemctl start rag-backup` |
 | Manage accounts | `cd .../server && sudo -u rag .venv/bin/python manage_users.py --help` |
+| Someone paid for Pro | `manage_users.py upgrade them@example.com --months 1` (or `--years 1`). Renewing early adds to their current end date; when it passes, they move to Free automatically |
 
 ## Backups
 

@@ -1,12 +1,13 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import HomePage from './HomePage';
 import { mockFetch } from '../../../test-utils/mockFetch';
+import { renderAt } from '../../../test-utils/router';
 
 const renderHome = () => {
   const onLogin = jest.fn();
   const onSignup = jest.fn();
   const onTryTool = jest.fn();
-  render(<HomePage onLogin={onLogin} onSignup={onSignup} onTryTool={onTryTool} />);
+  renderAt(<HomePage onLogin={onLogin} onSignup={onSignup} onTryTool={onTryTool} />);
   return { onLogin, onSignup, onTryTool };
 };
 

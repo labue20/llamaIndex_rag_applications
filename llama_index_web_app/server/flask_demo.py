@@ -19,12 +19,11 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES, TRUSTED_PROXY_COUNT
 from plans import (
     document_limit_error,
-    limit_guest_conversions,
+    limit_conversions,
     record_document,
     public_plan_info,
     question_limit_error,
     record_question,
-    requires_active_plan,
 )
 
 app = Flask(__name__)
@@ -113,7 +112,6 @@ def file_too_large(_error):
 
 
 @app.route("/queryFile", methods=["GET"])
-@requires_active_plan
 def query_index_route():
     global manager
     query_text = request.args.get("text", None)
@@ -133,7 +131,6 @@ def query_index_route():
 
 
 @app.route("/uploadFile", methods=["POST"])
-@requires_active_plan
 def upload_file():
     global manager
     if 'file' not in request.files:
@@ -199,7 +196,6 @@ def upload_file():
 
 
 @app.route("/chat", methods=["POST"])
-@requires_active_plan
 def chat_with_document():
     """Chat with a specific document."""
     global manager
@@ -312,8 +308,7 @@ def delete_document(doc_id):
 
 
 @app.route("/convertPdfToWord", methods=["POST"])
-@requires_active_plan
-@limit_guest_conversions
+@limit_conversions
 def convert_pdf_to_word():
     """Convert PDF to Word document using PyMuPDF."""
     try:
@@ -352,8 +347,7 @@ def convert_pdf_to_word():
 
 
 @app.route("/convertWordToPdf", methods=["POST"])
-@requires_active_plan
-@limit_guest_conversions
+@limit_conversions
 def convert_word_to_pdf():
     """Convert an uploaded .docx Word document to PDF and return it as a download."""
     if 'file' not in request.files:
@@ -396,8 +390,7 @@ def convert_word_to_pdf():
 
 
 @app.route("/splitPdf", methods=["POST"])
-@requires_active_plan
-@limit_guest_conversions
+@limit_conversions
 def split_pdf_route():
     """Split an uploaded PDF. Form fields: file, mode (every | ranges | extract),
     ranges (e.g. "1-3, 5"; not used for mode=every). Returns one PDF, or a ZIP
@@ -442,8 +435,7 @@ def health():
 
 
 @app.route("/signPdf", methods=["POST"])
-@requires_active_plan
-@limit_guest_conversions
+@limit_conversions
 def sign_pdf_route():
     """Stamp signatures, initials and dates onto a PDF.
 
@@ -495,7 +487,6 @@ def home():
 
 
 @app.route("/backgroundIndex/<doc_id>", methods=["POST"])
-@requires_active_plan
 def background_index(doc_id):
     """Trigger background indexing for a document."""
     global manager

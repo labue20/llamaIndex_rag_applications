@@ -1,9 +1,11 @@
 """
-Plans and the free trial.
+Plans: the free trial, the Free plan and Pro.
 
-Every new account starts on a TRIAL_DAYS trial with usage caps. When the trial
-ends the account is read-only (it can still list, view and delete documents)
-until it is moved to the "pro" plan, which has no caps.
+Every new account starts on a TRIAL_DAYS trial with generous caps. When the
+trial ends the account moves to the Free plan, with smaller caps, until it is
+moved to the "pro" plan, which has no caps (apart from a fair-use limit on
+questions). Pro can have an end date (pro_until, set by manage_users.py when
+someone pays for a month or a year); after it the account is back on Free.
 """
 
 import math
@@ -12,14 +14,21 @@ import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
-from flask import g, jsonify, request
+from flask import current_app, g, jsonify, request
 
 from config import (
+    FREE_CONVERSIONS_PER_DAY,
+    FREE_MAX_DOCUMENTS,
+    FREE_MAX_QUESTIONS_PER_DAY,
     GUEST_CONVERSIONS_PER_HOUR,
+    GUEST_FILE_HOURS,
     GUEST_IP_MAX_DOCUMENTS_PER_DAY,
     GUEST_IP_MAX_QUESTIONS_PER_DAY,
     GUEST_MAX_DOCUMENTS,
     GUEST_MAX_QUESTIONS,
+    PRO_FAIR_USE_QUESTIONS_PER_DAY,
+    PRO_PRICE_MONTHLY,
+    PRO_PRICE_YEARLY,
     SUPPORT_EMAIL,
     TRIAL_DAYS,
     TRIAL_MAX_DOCUMENTS,
@@ -32,9 +41,25 @@ PLAN_PRO = "pro"
 PLANS = (PLAN_TRIAL, PLAN_PRO)
 
 # What a user can do right now
-STATE_TRIAL = "trial"      # trial running: full access within the caps
-STATE_EXPIRED = "expired"  # trial over: read-only
-STATE_PRO = "pro"          # paid: no caps
+STATE_TRIAL = "trial"  # trial running: full access within generous caps
+STATE_FREE = "free"    # trial over, not upgraded: the Free plan's smaller caps
+STATE_PRO = "pro"      # paid: no caps
+
+
+def _count(number, word):
+    """'1 question', '10 questions'."""
+    return f"{number} {word}{'' if number == 1 else 's'}"
+
+
+def _limits(state):
+    """Caps for a state (None = no caps)."""
+    if state == STATE_TRIAL:
+        return {"max_documents": TRIAL_MAX_DOCUMENTS, "max_questions_per_day": TRIAL_MAX_QUESTIONS_PER_DAY,
+                "max_conversions_per_day": None}
+    if state == STATE_FREE:
+        return {"max_documents": FREE_MAX_DOCUMENTS, "max_questions_per_day": FREE_MAX_QUESTIONS_PER_DAY,
+                "max_conversions_per_day": FREE_CONVERSIONS_PER_DAY}
+    return None
 
 
 def _now():
@@ -57,6 +82,9 @@ def init_plans():
             conn.execute(f"ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT '{PLAN_TRIAL}'")
         if "trial_ends_at" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN trial_ends_at TEXT")
+        # When a paid Pro period ends (NULL = no end date)
+        if "pro_until" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN pro_until TEXT")
         # Accounts that existed before trials get a fresh trial
         conn.execute(
             "UPDATE users SET trial_ends_at = ? WHERE trial_ends_at IS NULL", (new_trial_end(),)
@@ -72,6 +100,9 @@ def init_plans():
         usage_columns = {row["name"] for row in conn.execute("PRAGMA table_info(daily_usage)")}
         if "documents" not in usage_columns:
             conn.execute("ALTER TABLE daily_usage ADD COLUMN documents INTEGER NOT NULL DEFAULT 0")
+        if "conversions" not in usage_columns:
+            conn.execute("ALTER TABLE daily_usage ADD COLUMN conversions INTEGER NOT NULL DEFAULT 0")
+        _delete_old_anonymous_usage(conn)
 
 
 def questions_today(user_id):
@@ -82,6 +113,19 @@ def questions_today(user_id):
     return row["questions"] if row else 0
 
 
+# Usage counts of visitors without an account (guest IDs and network
+# addresses) are deleted after this many days, as the privacy policy says
+ANONYMOUS_USAGE_DAYS = 30
+
+
+def _delete_old_anonymous_usage(conn):
+    cutoff = (_now() - timedelta(days=ANONYMOUS_USAGE_DAYS)).date().isoformat()
+    conn.execute(
+        "DELETE FROM daily_usage WHERE day < ? AND (user_id LIKE 'ip:%' OR user_id LIKE 'guest\\_%' ESCAPE '\\')",
+        (cutoff,),
+    )
+
+
 def _increment(key, column):
     with connect_db() as conn:
         conn.execute(
@@ -89,6 +133,7 @@ def _increment(key, column):
                ON CONFLICT(user_id, day) DO UPDATE SET {column} = {column} + 1""",
             (key, _today()),
         )
+        _delete_old_anonymous_usage(conn)
 
 
 def _guest_address_key():
@@ -133,41 +178,54 @@ def plan_status(user_id):
     """Plan, trial timing, caps and today's usage for a user."""
     with connect_db() as conn:
         row = conn.execute(
-            "SELECT plan, trial_ends_at FROM users WHERE id = ?", (user_id,)
+            "SELECT plan, trial_ends_at, pro_until FROM users WHERE id = ?", (user_id,)
         ).fetchone()
 
     plan = row["plan"] if row else PLAN_TRIAL
     trial_ends_at = row["trial_ends_at"] if row else None
+    pro_until = datetime.fromisoformat(row["pro_until"]) if row and row["pro_until"] else None
 
-    if plan == PLAN_PRO:
-        return {"plan": plan, "state": STATE_PRO, "support_email": SUPPORT_EMAIL}
+    # Pro until its paid period ends; after that the account is on its trial or Free
+    if plan == PLAN_PRO and (pro_until is None or pro_until > _now()):
+        return {"plan": plan, "state": STATE_PRO, "limits": None,
+                "pro_until": pro_until.isoformat() if pro_until else None, "support_email": SUPPORT_EMAIL}
 
     ends = datetime.fromisoformat(trial_ends_at) if trial_ends_at else _now()
     remaining = ends - _now()
+    state = STATE_TRIAL if remaining.total_seconds() > 0 else STATE_FREE
     return {
         "plan": plan,
-        "state": STATE_TRIAL if remaining.total_seconds() > 0 else STATE_EXPIRED,
+        "state": state,
         "trial_ends_at": ends.isoformat(),
         "trial_days_left": max(0, math.ceil(remaining.total_seconds() / 86400)),
-        "limits": {
-            "max_documents": TRIAL_MAX_DOCUMENTS,
-            "max_questions_per_day": TRIAL_MAX_QUESTIONS_PER_DAY,
+        "limits": _limits(state),
+        "usage": {
+            "questions_today": questions_today(user_id),
+            "conversions_today": _today_usage(user_id, "conversions"),
         },
-        "usage": {"questions_today": questions_today(user_id)},
         "support_email": SUPPORT_EMAIL,
     }
 
 
 def public_plan_info():
-    """Trial terms shown on the homepage before anyone logs in."""
+    """Plan terms and prices shown on the homepage and pricing page."""
     return {
         "trial_days": TRIAL_DAYS,
+        "free_max_documents": FREE_MAX_DOCUMENTS,
+        "free_max_questions_per_day": FREE_MAX_QUESTIONS_PER_DAY,
+        "free_conversions_per_day": FREE_CONVERSIONS_PER_DAY,
+        "pro_price_monthly": PRO_PRICE_MONTHLY,
+        "pro_price_yearly": PRO_PRICE_YEARLY,
+        "pro_fair_use_questions_per_day": PRO_FAIR_USE_QUESTIONS_PER_DAY,
+        "guest_conversions_per_hour": GUEST_CONVERSIONS_PER_HOUR,
         "trial_max_documents": TRIAL_MAX_DOCUMENTS,
         "trial_max_questions_per_day": TRIAL_MAX_QUESTIONS_PER_DAY,
         "guest_max_documents": GUEST_MAX_DOCUMENTS,
         "guest_max_questions": GUEST_MAX_QUESTIONS,
-        # For "Forgot password?" help until password reset emails exist
+        # For "Forgot password?" help and the privacy policy's contact details
         "support_email": SUPPORT_EMAIL,
+        # How long guests' files are kept (privacy policy)
+        "guest_file_hours": GUEST_FILE_HOURS,
     }
 
 
@@ -175,19 +233,9 @@ def _limit_error(message, code, status):
     return jsonify({"error": message, "code": code}), status
 
 
-def requires_active_plan(view):
-    """Reject the request with 402 if the user's trial has ended."""
-    @wraps(view)
-    def wrapper(*args, **kwargs):
-        # Guests have no trial; their limits are checked separately
-        if not _is_guest() and plan_status(g.user["id"])["state"] == STATE_EXPIRED:
-            return _limit_error(
-                "Your free trial has ended. Upgrade to keep uploading, chatting and converting.",
-                "trial_expired",
-                402,
-            )
-        return view(*args, **kwargs)
-    return wrapper
+# Account limits answer 402 ("upgrade needed"), which opens the Upgrade dialog in the app
+UPGRADE_STATUS = 402
+PLAN_NAMES = {STATE_TRIAL: "free trial", STATE_FREE: "Free plan"}
 
 
 GUEST_SIGNUP_HINT = "Create a free account to keep going. Your document comes with you."
@@ -206,12 +254,24 @@ def question_limit_error(user_id):
         return None
 
     status = plan_status(user_id)
-    if status["state"] == STATE_TRIAL and status["usage"]["questions_today"] >= TRIAL_MAX_QUESTIONS_PER_DAY:
+    if status["state"] == STATE_PRO:
+        # Fair use: not an upgrade question, so 429 rather than 402
+        if questions_today(user_id) >= PRO_FAIR_USE_QUESTIONS_PER_DAY:
+            contact = f" If you need more, contact us at {SUPPORT_EMAIL}." if SUPPORT_EMAIL else ""
+            return _limit_error(
+                f"You've asked {_count(PRO_FAIR_USE_QUESTIONS_PER_DAY, 'question')} today, the fair-use limit for Pro. "
+                f"You can ask more after midnight UTC.{contact}",
+                "fair_use_limit",
+                429,
+            )
+        return None
+    limits = status["limits"]
+    if limits and status["usage"]["questions_today"] >= limits["max_questions_per_day"]:
         return _limit_error(
-            f"You've used today's {TRIAL_MAX_QUESTIONS_PER_DAY} trial questions. "
-            "They reset at midnight UTC, or upgrade for unlimited questions.",
-            "trial_question_limit",
-            429,
+            f"You've used today's {_count(limits['max_questions_per_day'], 'question')} on the "
+            f"{PLAN_NAMES[status['state']]}. They reset at midnight UTC, or upgrade to Pro for unlimited questions.",
+            "question_limit",
+            UPGRADE_STATUS,
         )
     return None
 
@@ -222,33 +282,54 @@ def document_limit_error(user_id, document_count):
         if (document_count >= GUEST_MAX_DOCUMENTS
                 or _today_usage(_guest_address_key(), "documents") >= GUEST_IP_MAX_DOCUMENTS_PER_DAY):
             return _limit_error(
-                f"Guests can chat with {GUEST_MAX_DOCUMENTS} "
-                f"{'document' if GUEST_MAX_DOCUMENTS == 1 else 'documents'}. {GUEST_SIGNUP_HINT}",
+                f"Guests can chat with {_count(GUEST_MAX_DOCUMENTS, 'document')}. {GUEST_SIGNUP_HINT}",
                 "guest_limit",
                 402,
             )
         return None
 
-    if plan_status(user_id)["state"] == STATE_TRIAL and document_count >= TRIAL_MAX_DOCUMENTS:
+    status = plan_status(user_id)
+    limits = status["limits"]
+    if limits and document_count >= limits["max_documents"]:
         return _limit_error(
-            f"The free trial allows up to {TRIAL_MAX_DOCUMENTS} documents. "
-            "Delete one to upload another, or upgrade for unlimited documents.",
-            "trial_document_limit",
-            403,
+            f"The {PLAN_NAMES[status['state']]} allows up to {_count(limits['max_documents'], 'document')}. "
+            "Delete one to upload another, or upgrade to Pro for unlimited documents.",
+            "document_limit",
+            UPGRADE_STATUS,
         )
     return None
 
 
-# --- guest conversions -----------------------------------------------------------
+# --- conversions (PDF to Word, Word to PDF, Split PDF, Sign PDF) -----------------
 
 _guest_conversions = {}
 _guest_conversions_lock = threading.Lock()
 
 
-def limit_guest_conversions(view):
-    """Rate-limit converter routes for guests: GUEST_CONVERSIONS_PER_HOUR per address."""
+def limit_conversions(view):
+    """Guests: GUEST_CONVERSIONS_PER_HOUR per network address. Free plan:
+    FREE_CONVERSIONS_PER_DAY per account (only successful ones count).
+    Trial and Pro: no limit."""
     @wraps(view)
     def wrapper(*args, **kwargs):
+        if not _is_guest():
+            user_id = g.user["id"]
+            status = plan_status(user_id)
+            cap = (status["limits"] or {}).get("max_conversions_per_day")
+            if cap is None:
+                return view(*args, **kwargs)
+            if status["usage"]["conversions_today"] >= cap:
+                return _limit_error(
+                    f"You've used today's {_count(cap, 'file conversion')} on the Free plan. "
+                    "They reset at midnight UTC, or upgrade to Pro for unlimited use.",
+                    "conversion_limit",
+                    UPGRADE_STATUS,
+                )
+            response = current_app.make_response(view(*args, **kwargs))
+            if response.status_code < 400:
+                _increment(user_id, "conversions")
+            return response
+
         if _is_guest():
             now = time.time()
             key = request.remote_addr

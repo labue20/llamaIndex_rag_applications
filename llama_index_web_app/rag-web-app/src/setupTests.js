@@ -30,6 +30,7 @@ beforeEach(() => {
   jest.spyOn(console, 'log').mockImplementation(() => {});
   // Each test's fake server says how sign-in works; don't reuse an earlier answer
   require('./features/auth/hooks/useAuthConfig').resetAuthConfigCache();
+  require('./features/auth/hooks/usePlanInfo').resetPlanInfoCache();
 });
 afterEach(() => {
   jest.restoreAllMocks();

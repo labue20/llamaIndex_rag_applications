@@ -196,3 +196,16 @@ def test_database_connections_are_closed(fresh_db):
         conn.execute("SELECT 1")
     with pytest.raises(sqlite3.ProgrammingError):
         conn.execute("SELECT 1")
+
+
+def test_sign_in_records_expire_after_24_hours(client, fresh_db):
+    """The privacy policy says failed sign-in and new-account records are kept up to 24 hours."""
+    import time
+
+    with sqlite3.connect(fresh_db) as conn:
+        conn.execute("INSERT INTO auth_attempts (kind, key, at) VALUES ('login-address', '10.0.0.1', ?)",
+                     (time.time() - 25 * 3600,))
+    _login(client)  # any sign-in check clears expired records
+    with sqlite3.connect(fresh_db) as conn:
+        expired = conn.execute("SELECT COUNT(*) FROM auth_attempts WHERE at < ?", (time.time() - 24 * 3600,))
+        assert expired.fetchone()[0] == 0

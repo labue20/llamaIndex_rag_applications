@@ -5,6 +5,9 @@
  *   /login         sign in
  *   /signup        create an account
  *   /app/<tool>    the app (the tools work for guests too; see routes.js)
+ *   /pricing       Free and Pro plans
+ *   /privacy       Privacy Policy
+ *   /terms         Terms of Service
  */
 
 import React from 'react';
@@ -13,6 +16,8 @@ import { useAuth } from '../context/AuthContext';
 import AuthPage from './AuthPage';
 import UpgradeDialog from './UpgradeDialog';
 import { HomePage } from '../../home';
+import { LegalPage } from '../../legal';
+import { PricingPage } from '../../pricing';
 import { HOME_AFTER_LOGIN } from '../../../routes';
 
 const AuthGate = ({ children }) => {
@@ -53,6 +58,19 @@ const AuthGate = ({ children }) => {
           />
         }
       />
+      <Route
+        path='/pricing'
+        element={
+          <PricingPage
+            onLogin={() => showAuth('login')}
+            onSignup={() => showAuth('signup')}
+            onTryTool={tryTool}
+            onOpenApp={() => navigate(HOME_AFTER_LOGIN)}
+          />
+        }
+      />
+      <Route path='/privacy' element={<LegalPage doc='privacy' />} />
+      <Route path='/terms' element={<LegalPage doc='terms' />} />
       <Route path='/login' element={authPage('login')} />
       <Route path='/signup' element={authPage('signup')} />
       <Route
