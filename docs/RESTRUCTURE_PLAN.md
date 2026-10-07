@@ -13,7 +13,7 @@ Your RAG application currently has a mixed structure that makes it challenging t
 ### Phase 1: Immediate Improvements (Low Risk)
 
 ```
-llama_index_web_app/
+dokkiman/
 ├── backend/
 │   ├── core/
 │   │   ├── indexing/

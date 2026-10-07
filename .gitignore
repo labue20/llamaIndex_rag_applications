@@ -4,7 +4,7 @@ __pycache__/
 .venv/
 .env
 
-# Node (frontend deps live in llama_index_web_app/rag-web-app)
+# Node (frontend deps live in dokkiman/web)
 node_modules/
 
 # Editor
@@ -12,12 +12,12 @@ node_modules/
 .DS_Store
 
 # App data (index and document metadata from uploads)
-llama_index_web_app/server/saved_index/
-llama_index_web_app/server/stored_documents.pkl
+dokkiman/server/saved_index/
+dokkiman/server/stored_documents.pkl
 
 # Backend runtime data (user accounts, session secret, uploads)
-llama_index_web_app/server/instance/
-llama_index_web_app/server/documents/
+dokkiman/server/instance/
+dokkiman/server/documents/
 
 # Test caches
 .pytest_cache/

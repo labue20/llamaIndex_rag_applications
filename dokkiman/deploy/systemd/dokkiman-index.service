@@ -1,0 +1,26 @@
+[Unit]
+Description=Dokkiman - index server (search index and documents)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=dokkiman
+Group=dokkiman
+WorkingDirectory=/opt/dokkiman/app/dokkiman/server
+EnvironmentFile=/opt/dokkiman/app/dokkiman/server/.env
+ExecStart=/opt/dokkiman/app/dokkiman/server/.venv/bin/python -u index_server.py
+Restart=on-failure
+RestartSec=5
+# Files the app creates (accounts, index, uploads) aren't readable by other users
+UMask=0027
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
