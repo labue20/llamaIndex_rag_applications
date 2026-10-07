@@ -154,13 +154,14 @@ $tool-colors: (
       font: inherit;
       font-size: 0.875rem;
       font-weight: 500;
+      white-space: nowrap;
       cursor: pointer;
 
       &:hover { background: theme-color(secondary); color: theme-color(text-primary); }
       &:focus-visible { outline: 2px solid theme-color(accent); }
     }
 
-    @media (max-width: 960px) { display: none; }
+    @media (max-width: 1080px) { display: none; }
   }
 
   &__actions {

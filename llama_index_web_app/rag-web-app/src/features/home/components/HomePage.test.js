@@ -22,6 +22,17 @@ test('lists every tool', () => {
   });
 });
 
+test('the top bar links to every tool that can be tried without an account', () => {
+  mockFetch({});
+  const { onTryTool } = renderHome();
+  const links = within(screen.getByRole('navigation', { name: 'Tools' })).getAllByRole('button');
+  expect(links.map((link) => link.textContent)).toEqual(
+    ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Sign PDF']
+  );
+  fireEvent.click(links[4]);
+  expect(onTryTool).toHaveBeenLastCalledWith('sign');
+});
+
 test('shows the trial terms from the server', async () => {
   mockFetch({ '/plans': { body: { trial_days: 14, trial_max_documents: 5, trial_max_questions_per_day: 20 } } });
   renderHome();

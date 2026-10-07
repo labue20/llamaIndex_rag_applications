@@ -187,7 +187,7 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
             <span className='home-nav__name'>RAG Web Application</span>
           </div>
           <nav className='home-nav__links' aria-label='Tools'>
-            {TOOLS.slice(0, 4).map((tool) => (
+            {TOOLS.filter((tool) => tool.id !== 'manager').map((tool) => (
               <button key={tool.id} type='button' onClick={() => openTool(tool.id)}>
                 {tool.title}
               </button>
