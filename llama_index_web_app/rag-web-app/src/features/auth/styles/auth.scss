@@ -778,3 +778,52 @@
     min-height: 44px; // keeps the layout steady while Google's button loads
   }
 }
+
+// Shown after returning from Stripe checkout
+.upgrade-notice {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: 90;
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 2rem));
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.3);
+
+  .icon { flex-shrink: 0; margin-top: 0.15rem; }
+
+  &--done .icon { color: #4ade80; }
+
+  span { flex: 1; }
+
+  &__close {
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { color: #fff; }
+  }
+
+  // Above the phone tab bar
+  @media (max-width: 768px) { bottom: 5rem; }
+}
+
+.upgrade-dialog__error,
+.account-menu__error {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: darken(theme-color(error), 8%);
+}
+
+.account-menu__error { padding: 0 0.625rem 0.375rem; }

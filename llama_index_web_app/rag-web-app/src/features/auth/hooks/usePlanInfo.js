@@ -16,6 +16,7 @@ const DEFAULT_PLAN_INFO = {
   pro_price_monthly: 9,
   pro_price_yearly: 90,
   pro_fair_use_questions_per_day: 150,
+  online_payments: false,
   guest_max_documents: 1,
   guest_max_questions: 5,
   guest_file_hours: 24,

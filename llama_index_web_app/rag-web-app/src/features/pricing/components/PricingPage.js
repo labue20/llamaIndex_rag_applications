@@ -5,13 +5,14 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Icon from '../../../shared/components/Icon';
 import { useAuth } from '../../auth/context/AuthContext';
 import { usePlanInfo } from '../../auth/hooks/usePlanInfo';
 import HomeNav from '../../home/components/HomeNav';
 import HomeFooter from '../../home/components/HomeFooter';
 import { formatPrice, proUpgradeMailto, yearlySavings } from '../pricing';
+import { openBillingPortal, startCheckout } from '../billing';
 import '../../home/styles/home.scss';
 import '../styles/pricing.scss';
 
@@ -22,7 +23,7 @@ const Feature = ({ children }) => (
   </li>
 );
 
-const FAQ = ({ plan, supportEmail }) => [
+const FAQ = ({ plan, supportEmail, online }) => [
   {
     q: `What happens after the ${plan.trial_days}-day trial?`,
     a: `Your account moves to the Free plan automatically. Nothing is deleted. If you have more than ${plan.free_max_documents} documents, you keep them all, but you'll need to delete some (or upgrade) before uploading new ones.`,
@@ -31,16 +32,26 @@ const FAQ = ({ plan, supportEmail }) => [
     q: 'Do I need a credit card to start?',
     a: 'No. Sign in with Google and you’re in.',
   },
-  {
-    q: 'How do I upgrade to Pro?',
-    a: supportEmail
-      ? `Click “Upgrade to Pro” to email us at ${supportEmail}. We’ll reply with how to pay, and your account switches to Pro once payment is received.`
-      : 'Online upgrades are coming soon. Until then, contact us and we’ll switch your account to Pro.',
-  },
-  {
-    q: 'Does Pro renew automatically?',
-    a: 'No. You pay for a month or a year at a time. When that period ends, your account moves to the Free plan unless you renew, and nothing is deleted.',
-  },
+  online
+    ? {
+      q: 'How do I upgrade to Pro?',
+      a: 'Click “Upgrade to Pro” and pay securely with Stripe by card or wallet. Pro starts as soon as the payment goes through.',
+    }
+    : {
+      q: 'How do I upgrade to Pro?',
+      a: supportEmail
+        ? `Click “Upgrade to Pro” to email us at ${supportEmail}. We’ll reply with how to pay, and your account switches to Pro once payment is received.`
+        : 'Online upgrades are coming soon. Until then, contact us and we’ll switch your account to Pro.',
+    },
+  online
+    ? {
+      q: 'Can I cancel Pro?',
+      a: 'Yes, at any time, from “Manage billing” in your account menu. Pro renews automatically until you cancel; after cancelling, you keep Pro until the end of the period you’ve paid for, then your account moves to the Free plan. Nothing is deleted.',
+    }
+    : {
+      q: 'Does Pro renew automatically?',
+      a: 'No. You pay for a month or a year at a time. When that period ends, your account moves to the Free plan unless you renew, and nothing is deleted.',
+    },
   {
     q: 'Is Pro really unlimited?',
     a: `There are no limits on documents or file conversions. AI questions are subject to fair use: up to ${plan.pro_fair_use_questions_per_day} a day, far more than normal use needs.`,
@@ -63,7 +74,11 @@ const FAQ = ({ plan, supportEmail }) => [
 const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
   const { user } = useAuth();
   const plan = usePlanInfo();
+  const { search } = useLocation();
   const [billing, setBilling] = useState('monthly');
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [billingError, setBillingError] = useState('');
+  const checkoutCancelled = new URLSearchParams(search).get('upgrade') === 'cancelled';
 
   useEffect(() => {
     document.title = 'Pricing · RAG Web Application';
@@ -73,6 +88,20 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
   const yearly = plan.pro_price_yearly;
   const { perMonth, saved } = yearlySavings(monthly, yearly);
   const isPro = user?.plan?.state === 'pro';
+  const online = Boolean(plan.online_payments);
+  const hasBilling = Boolean(user?.plan?.billing);
+
+  // Leave for Stripe's checkout or billing page
+  const goToStripe = async (action) => {
+    setBillingError('');
+    setIsRedirecting(true);
+    try {
+      await action();
+    } catch (err) {
+      setBillingError(err.message);
+      setIsRedirecting(false);
+    }
+  };
   const mailto = proUpgradeMailto({
     supportEmail: plan.support_email, billing, monthly, yearly, accountEmail: user?.email,
   });
@@ -95,6 +124,12 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
             Start with a {plan.trial_days}-day free trial with full access. After that, keep using the Free plan
             for as long as you like, or upgrade to Pro for no limits.
           </p>
+
+          {checkoutCancelled && (
+            <p className='pricing__notice' role='status'>
+              Checkout was cancelled, and you haven&apos;t been charged.
+            </p>
+          )}
 
           <div className='pricing__billing' role='group' aria-label='Billing period'>
             <button type='button' aria-pressed={billing === 'monthly'} onClick={() => setBilling('monthly')}>
@@ -157,10 +192,29 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
                 ? `Or ${formatPrice(yearly)} a year, and get 2 months free.`
                 : `Just ${formatPrice(perMonth)} a month. You save ${formatPrice(saved)}.`}
             </p>
-            {isPro ? (
+            {isPro && online && hasBilling ? (
+              <button
+                type='button'
+                className='home-btn home-btn--ghost pricing-card__cta'
+                onClick={() => goToStripe(openBillingPortal)}
+                disabled={isRedirecting}
+              >
+                {isRedirecting ? 'Opening…' : 'Manage billing'}
+              </button>
+            ) : isPro ? (
               <p className='pricing-card__current'>
                 <Icon name='checkCircle' size={16} /> You&apos;re on Pro
               </p>
+            ) : online ? (
+              <button
+                type='button'
+                className='home-btn home-btn--primary pricing-card__cta'
+                // Without an account: sign up first, then come back here
+                onClick={() => (user ? goToStripe(() => startCheckout(billing)) : onSignup())}
+                disabled={isRedirecting}
+              >
+                {isRedirecting ? 'Opening secure checkout…' : 'Upgrade to Pro'}
+              </button>
             ) : mailto ? (
               <a className='home-btn home-btn--primary pricing-card__cta' href={mailto}>
                 Upgrade to Pro
@@ -170,6 +224,12 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
                 Upgrades open soon
               </button>
             )}
+            {online && !isPro && (
+              <p className='pricing-card__secure'>
+                <Icon name='lock' size={13} /> Secure payment with Stripe. Cancel anytime.
+              </p>
+            )}
+            {billingError && <p className='pricing-card__error' role='alert'>{billingError}</p>}
             <ul className='pricing-card__features'>
               <Feature>Unlimited documents</Feature>
               <Feature>Unlimited AI questions</Feature>
@@ -197,7 +257,7 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
         <section className='pricing__faq' aria-labelledby='pricing-faq'>
           <h2 id='pricing-faq'>Questions</h2>
           <dl>
-            {FAQ({ plan, supportEmail: plan.support_email }).map((item) => (
+            {FAQ({ plan, supportEmail: plan.support_email, online }).map((item) => (
               <div key={item.q}>
                 <dt>{item.q}</dt>
                 <dd>{item.a}</dd>

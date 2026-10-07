@@ -54,7 +54,8 @@ export const AuthProvider = ({ children }) => {
   const returnToRef = useRef(null);
   const rememberPlace = useCallback(() => {
     const { pathname } = locationRef.current;
-    returnToRef.current = pathname.startsWith('/app/') ? pathname : null;
+    // Back to the tool (or the pricing page) after signing in
+    returnToRef.current = pathname.startsWith('/app/') || pathname === '/pricing' ? pathname : null;
   }, []);
   // Also used by the /login and /signup pages to redirect once someone is logged in
   const pathAfterAuth = useCallback(() => returnToRef.current || HOME_AFTER_LOGIN, []);

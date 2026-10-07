@@ -15,7 +15,9 @@ import tempfile
 import uuid
 import zipfile
 from auth import init_auth, current_user_id
+from billing import billing_bp
 from werkzeug.middleware.proxy_fix import ProxyFix
+import config
 from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES, TRUSTED_PROXY_COUNT
 from plans import (
     document_limit_error,
@@ -104,6 +106,11 @@ app.config["ON_FIRST_USER"] = lambda user_id: manager.claim_unowned_documents(us
 # A guest who signs up or logs in keeps the document they were trying
 app.config["ON_GUEST_CLAIM"] = lambda guest_id, user_id: manager.claim_guest_documents(guest_id, user_id)._getvalue()
 init_auth(app)
+app.register_blueprint(billing_bp)
+if config.STRIPE_CONFIG_ERROR:
+    app.logger.error("Stripe: %s", config.STRIPE_CONFIG_ERROR)
+elif config.STRIPE_SECRET_KEY:
+    app.logger.info("Stripe payments on (%s mode)", config.STRIPE_MODE)
 
 
 @app.errorhandler(413)

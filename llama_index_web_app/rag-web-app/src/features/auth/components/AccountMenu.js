@@ -7,11 +7,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ChangePasswordDialog from './ChangePasswordDialog';
+import { openBillingPortal } from '../../pricing/billing';
 
 const AccountMenu = () => {
   const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [billingError, setBillingError] = useState('');
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
 
@@ -58,6 +60,18 @@ const AccountMenu = () => {
           <p className='account-menu__signed-in'>
             Signed in as <strong>{user.email}</strong>
           </p>
+          {/* Accounts that have paid through Stripe: cancel, change card, invoices */}
+          {user.plan?.billing && (
+            <button
+              type='button'
+              role='menuitem'
+              className='account-menu__item'
+              onClick={() => openBillingPortal().catch((err) => setBillingError(err.message))}
+            >
+              Manage billing
+            </button>
+          )}
+          {billingError && <p className='account-menu__error' role='alert'>{billingError}</p>}
           {/* Google accounts have no password here */}
           {user.has_password && (
             <button

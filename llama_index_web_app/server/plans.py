@@ -34,6 +34,7 @@ from config import (
     TRIAL_MAX_DOCUMENTS,
     TRIAL_MAX_QUESTIONS_PER_DAY,
 )
+import config
 from db import connect_db
 
 PLAN_TRIAL = "trial"
@@ -217,6 +218,8 @@ def public_plan_info():
         "pro_price_monthly": PRO_PRICE_MONTHLY,
         "pro_price_yearly": PRO_PRICE_YEARLY,
         "pro_fair_use_questions_per_day": PRO_FAIR_USE_QUESTIONS_PER_DAY,
+        # Pay online with Stripe; otherwise upgrades are by email
+        "online_payments": bool(config.STRIPE_SECRET_KEY),
         "guest_conversions_per_hour": GUEST_CONVERSIONS_PER_HOUR,
         "trial_max_documents": TRIAL_MAX_DOCUMENTS,
         "trial_max_questions_per_day": TRIAL_MAX_QUESTIONS_PER_DAY,

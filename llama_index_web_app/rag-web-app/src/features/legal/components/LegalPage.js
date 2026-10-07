@@ -120,6 +120,13 @@ const PrivacyPolicy = ({ plan }) => (
         <li>
           <strong>Our hosting provider</strong> runs the servers where your account and documents are stored.
         </li>
+        {plan.online_payments && (
+          <li>
+            <strong>Stripe</strong> processes Pro payments. You enter your card or wallet details on
+            Stripe&apos;s page, never on ours. We keep only your Stripe customer ID and your subscription&apos;s
+            status, billing period and end date, never card numbers.
+          </li>
+        )}
       </ul>
       <p>
         We may also disclose information if the law requires it, or to protect the safety of our users or the
@@ -227,11 +234,21 @@ const TermsOfService = ({ plan }) => (
         {plan.free_conversions_per_day} file conversions a day. Pro removes these limits; see{' '}
         <Link to='/pricing'>Pricing</Link>.
       </p>
-      <p>
-        Pro is paid for a month or a year at a time and doesn&apos;t renew automatically. When the period you
-        paid for ends, your account moves to the Free plan unless you renew; nothing is deleted. Pro&apos;s
-        unlimited use is subject to fair use: up to {plan.pro_fair_use_questions_per_day} AI questions a day.
-      </p>
+      {plan.online_payments ? (
+        <p>
+          Pro is a subscription that renews automatically every month or year, at the price shown when you
+          subscribe, until you cancel. You can cancel at any time from &quot;Manage billing&quot; in your account
+          menu; you keep Pro until the end of the period you&apos;ve already paid for, then your account moves to
+          the Free plan and nothing is deleted. Payments are processed by Stripe. Pro&apos;s unlimited use is
+          subject to fair use: up to {plan.pro_fair_use_questions_per_day} AI questions a day.
+        </p>
+      ) : (
+        <p>
+          Pro is paid for a month or a year at a time and doesn&apos;t renew automatically. When the period you
+          paid for ends, your account moves to the Free plan unless you renew; nothing is deleted. Pro&apos;s
+          unlimited use is subject to fair use: up to {plan.pro_fair_use_questions_per_day} AI questions a day.
+        </p>
+      )}
       <p>
         We may change plans, limits and prices; changes apply from your next paid period, and we&apos;ll tell
         you before they do.

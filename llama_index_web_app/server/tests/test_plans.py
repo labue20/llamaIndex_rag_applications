@@ -61,6 +61,7 @@ def test_public_plan_terms(client):
         "pro_price_monthly": config.PRO_PRICE_MONTHLY,
         "pro_price_yearly": config.PRO_PRICE_YEARLY,
         "pro_fair_use_questions_per_day": config.PRO_FAIR_USE_QUESTIONS_PER_DAY,
+        "online_payments": bool(config.STRIPE_SECRET_KEY),
     }
 
 

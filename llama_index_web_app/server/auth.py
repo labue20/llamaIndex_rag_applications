@@ -20,6 +20,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import config
 import db
+from billing import billing_info, init_billing
 from auth_limits import (
     KIND_LOGIN_ACCOUNT,
     KIND_LOGIN_ADDRESS,
@@ -49,8 +50,9 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_hex(16))
 
 # Requests that don't need a logged-in user
+# /billing/webhook is called by Stripe (it proves itself with a signature instead)
 PUBLIC_PATHS = {"/", "/auth/config", "/auth/google", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me",
-                "/plans", "/health"}
+                "/plans", "/health", "/billing/webhook"}
 
 # Accounts that sign in with Google have no password (an empty hash)
 NO_PASSWORD = ""
@@ -139,6 +141,7 @@ def init_db():
     init_plans()
     init_signature_log()
     init_auth_limits()
+    init_billing()
 
 
 def _require_login():
@@ -191,7 +194,8 @@ def _user_payload(user):
     """User fields sent to the browser, including trial/plan status."""
     with connect_db() as conn:
         row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
-    return {**user, "plan": plan_status(user["id"]), "has_password": bool(row and row["password_hash"])}
+    plan = {**plan_status(user["id"]), "billing": billing_info(user["id"])}
+    return {**user, "plan": plan, "has_password": bool(row and row["password_hash"])}
 
 
 def _session_version(user_id):

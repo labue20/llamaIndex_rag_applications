@@ -27,6 +27,11 @@ os.environ.update(
     GOOGLE_CLIENT_ID="test-client.apps.googleusercontent.com",
     # Most tests create accounts with email + password; test_google_sign_in.py covers the default
     PASSWORD_LOGIN_ENABLED="true",
+    # Billing tests switch Stripe on with fake keys; the real API is never called
+    STRIPE_MODE="test",
+    STRIPE_SECRET_KEY="",
+    STRIPE_SECRET_TEST_KEY="",
+    STRIPE_WEBHOOK_SECRET="",
 )
 
 

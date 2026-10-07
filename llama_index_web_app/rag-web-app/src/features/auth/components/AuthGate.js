@@ -15,6 +15,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthPage from './AuthPage';
 import UpgradeDialog from './UpgradeDialog';
+import UpgradeReturnNotice from './UpgradeReturnNotice';
 import { HomePage } from '../../home';
 import { LegalPage } from '../../legal';
 import { PricingPage } from '../../pricing';
@@ -79,6 +80,7 @@ const AuthGate = ({ children }) => {
           // Keyed by user (or guest) so switching accounts starts from a clean app state
           <React.Fragment key={user ? user.id : 'guest'}>
             {children}
+            <UpgradeReturnNotice />
             <UpgradeDialog />
           </React.Fragment>
         }

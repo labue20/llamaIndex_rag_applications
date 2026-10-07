@@ -3,12 +3,13 @@
  * Explains the trial / Pro plan and how to upgrade (manual until payments exist)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Icon from '../../../shared/components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { usePlanInfo } from '../hooks/usePlanInfo';
 import { formatPrice, proUpgradeMailto } from '../../pricing/pricing';
+import { startCheckout } from '../../pricing/billing';
 
 // '1 question', '10 questions'
 const count = (number, word) => `${number} ${word}${number === 1 ? '' : 's'}`;
@@ -23,6 +24,19 @@ const PRO_BENEFITS = [
 const UpgradeDialog = () => {
   const { user, isUpgradeOpen, closeUpgrade, showAuth } = useAuth();
   const planInfo = usePlanInfo();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+
+  const upgradeOnline = async () => {
+    setCheckoutError('');
+    setIsRedirecting(true);
+    try {
+      await startCheckout('monthly');
+    } catch (err) {
+      setCheckoutError(err.message);
+      setIsRedirecting(false);
+    }
+  };
 
   // Close on Escape
   useEffect(() => {
@@ -151,7 +165,22 @@ const UpgradeDialog = () => {
               <Link to='/pricing' onClick={closeUpgrade}>Compare plans</Link>
             </p>
 
-            {mailto ? (
+            {planInfo.online_payments ? (
+              <>
+                <button
+                  type='button'
+                  className='upgrade-dialog__cta'
+                  onClick={upgradeOnline}
+                  disabled={isRedirecting}
+                  autoFocus
+                >
+                  {isRedirecting
+                    ? 'Opening secure checkout…'
+                    : `Upgrade to Pro · ${formatPrice(planInfo.pro_price_monthly)}/month`}
+                </button>
+                {checkoutError && <p className='upgrade-dialog__error' role='alert'>{checkoutError}</p>}
+              </>
+            ) : mailto ? (
               <a className='upgrade-dialog__cta' href={mailto} autoFocus>
                 Contact us to upgrade
               </a>

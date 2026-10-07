@@ -138,6 +138,16 @@
   }
 }
 
+.pricing__notice {
+  max-width: 480px;
+  margin: 1.25rem auto 0;
+  padding: 0.625rem 1rem;
+  border-radius: 10px;
+  background: theme-color(secondary);
+  font-size: 0.875rem;
+  color: theme-color(text-secondary);
+}
+
 .pricing-card {
   position: relative;
   display: flex;
@@ -209,6 +219,23 @@
     text-decoration: none;
 
     &:disabled { opacity: 0.55; cursor: not-allowed; }
+  }
+
+  &__secure {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    margin-top: 0.625rem;
+    font-size: 0.75rem;
+    color: theme-color(text-muted);
+  }
+
+  &__error {
+    margin-top: 0.625rem;
+    font-size: 0.8125rem;
+    color: darken(theme-color(error), 8%);
+    text-align: center;
   }
 
   &__current {

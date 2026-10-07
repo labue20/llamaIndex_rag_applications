@@ -12,9 +12,12 @@ const TrialBadge = () => {
   if (!plan) return null;
 
   if (plan.state === 'pro') {
-    const until = plan.pro_until
-      ? `Pro until ${new Date(plan.pro_until).toLocaleDateString(undefined, { dateStyle: 'long' })}`
-      : undefined;
+    // A subscription's own period end; otherwise when Pro given by hand ends
+    const end = plan.billing?.period_end || plan.pro_until;
+    const date = end ? new Date(end).toLocaleDateString(undefined, { dateStyle: 'long' }) : null;
+    const renews = plan.billing?.has_subscription && !plan.billing.cancel_at_period_end;
+    let until;
+    if (date) until = renews ? `Pro · renews on ${date}` : `Pro until ${date}`;
     return <span className='trial-badge trial-badge--pro' title={until}>Pro</span>;
   }
 

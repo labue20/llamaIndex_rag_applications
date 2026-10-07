@@ -110,6 +110,30 @@ Google OAuth client ID (free):
 5. Copy the **Client ID** (ends in `.apps.googleusercontent.com`) into
    `GOOGLE_CLIENT_ID=` in `server/.env` and run `deploy.sh` again.
 
+### Set up payments with Stripe (optional)
+
+Without Stripe, "Upgrade to Pro" emails you and you upgrade people with
+`manage_users.py`. To take payments online:
+
+1. In the Stripe Dashboard (live mode), create a **restricted key** with:
+   Customers *write*, Checkout Sessions *write*, Customer portal *write*,
+   Subscriptions *read*, Prices *write*, Products *write*, Webhook Endpoints *write*.
+   (After setup you can lower Prices, Products and Webhook Endpoints to *read*.)
+2. Put it in `server/.env` as `STRIPE_SECRET_KEY=rk_live_...` with
+   `STRIPE_MODE=live`, and set `PUBLIC_APP_URL=https://yourdomain.com`.
+   (Without `STRIPE_MODE=live` the app uses `STRIPE_SECRET_TEST_KEY`, so a
+   development machine never charges real cards.)
+3. Run the one-time setup, which creates the Pro product and prices, the
+   customer portal settings and the webhook:
+   ```bash
+   cd /opt/rag/app/llama_index_web_app/server
+   sudo -u rag .venv/bin/python stripe_setup.py --webhook-url https://yourdomain.com/api/billing/webhook
+   ```
+4. Copy the `STRIPE_PORTAL_CONFIGURATION=` and `STRIPE_WEBHOOK_SECRET=` lines it
+   prints into `server/.env`, then run `deploy.sh`.
+5. Consider [Stripe Tax](https://docs.stripe.com/billing/taxes/collect-taxes) if
+   you'll charge customers in places where you must collect sales tax or VAT.
+
 ## 7. Create your account and make it Pro
 
 Sign in on the site with Google, then give your account unlimited access:
@@ -168,6 +192,7 @@ sudo -u rag .venv/bin/python manage_users.py list
 | HTTPS certificate error | DNS must resolve first; `journalctl -u caddy -n 50` |
 | "Can't reach the server" in the app | `curl http://127.0.0.1:5601/health`; `journalctl -u rag-api -u rag-index -n 50` |
 | AI answers fail | `OPENAI_API_KEY` in `server/.env`, OpenAI billing and limits |
+| Pro doesn't switch on after paying | Stripe Dashboard → Developers → Webhooks: the endpoint's recent deliveries; `STRIPE_WEBHOOK_SECRET` must match that endpoint |
 | "Sign-in isn't available right now" | `GOOGLE_CLIENT_ID` is empty in `server/.env` |
 | Google button says the origin isn't allowed | Add `https://yourdomain.com` to the client's Authorized JavaScript origins (changes can take a few minutes) |
 | Word to PDF fails | `soffice --version` (LibreOffice installed by setup) |
