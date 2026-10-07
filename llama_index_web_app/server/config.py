@@ -7,10 +7,22 @@ MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "50"))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
 # Free trial: every new account gets full access for TRIAL_DAYS, within these caps.
-# When the trial ends the account is read-only until it is upgraded to "pro".
 TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "7"))
 TRIAL_MAX_DOCUMENTS = int(os.environ.get("TRIAL_MAX_DOCUMENTS", "10"))
 TRIAL_MAX_QUESTIONS_PER_DAY = int(os.environ.get("TRIAL_MAX_QUESTIONS_PER_DAY", "50"))
+
+# Free plan: where accounts go when the trial ends (unless upgraded to Pro)
+FREE_MAX_DOCUMENTS = int(os.environ.get("FREE_MAX_DOCUMENTS", "3"))
+FREE_MAX_QUESTIONS_PER_DAY = int(os.environ.get("FREE_MAX_QUESTIONS_PER_DAY", "10"))
+# Fair use of PDF to Word, Word to PDF, Split PDF and Sign PDF on the Free plan
+FREE_CONVERSIONS_PER_DAY = int(os.environ.get("FREE_CONVERSIONS_PER_DAY", "20"))
+
+# Pro plan prices shown on the pricing page (US dollars)
+PRO_PRICE_MONTHLY = float(os.environ.get("PRO_PRICE_MONTHLY", "9"))
+PRO_PRICE_YEARLY = float(os.environ.get("PRO_PRICE_YEARLY", "90"))
+# Pro's "unlimited" questions are subject to fair use, so one very heavy
+# account can't cost more in OpenAI usage than the plan earns (see the Terms)
+PRO_FAIR_USE_QUESTIONS_PER_DAY = int(os.environ.get("PRO_FAIR_USE_QUESTIONS_PER_DAY", "150"))
 
 # Shown to users whose trial has ended (optional)
 SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "")
@@ -29,3 +41,44 @@ GUEST_FILE_HOURS = int(os.environ.get("GUEST_FILE_HOURS", "24"))
 # Number of reverse proxies in front of the API (Caddy in production = 1), so
 # the real visitor address is used for rate limits instead of the proxy's.
 TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))
+
+# Sign-in with Google: the OAuth client ID from Google Cloud Console
+# (APIs & Services > Credentials). Leave empty to turn Google sign-in off.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+
+# Accounts are created and signed in with Google. Set to true to also allow
+# email + password (handy for local development without a Google client ID).
+PASSWORD_LOGIN_ENABLED = os.environ.get("PASSWORD_LOGIN_ENABLED", "false").lower() == "true"
+
+# Online payments with Stripe. Without a key, "Upgrade to Pro" emails you instead.
+# Use restricted keys (rk_...) where possible; never commit keys.
+#   STRIPE_MODE=test (default) uses STRIPE_SECRET_TEST_KEY  (sk_test_/rk_test_)
+#   STRIPE_MODE=live           uses STRIPE_SECRET_KEY       (sk_live_/rk_live_)
+# Defaulting to test means a development machine can't charge real cards.
+STRIPE_MODE = os.environ.get("STRIPE_MODE", "test").strip().lower()
+STRIPE_CONFIG_ERROR = ""
+
+
+def _stripe_key():
+    """The key for STRIPE_MODE, or "" (payments off) if it's missing or the wrong kind."""
+    global STRIPE_CONFIG_ERROR
+    if STRIPE_MODE not in ("test", "live"):
+        STRIPE_CONFIG_ERROR = f"STRIPE_MODE must be test or live, not {STRIPE_MODE!r}"
+        return ""
+    name = "STRIPE_SECRET_TEST_KEY" if STRIPE_MODE == "test" else "STRIPE_SECRET_KEY"
+    key = os.environ.get(name, "").strip()
+    if key and f"_{STRIPE_MODE}_" not in key:
+        STRIPE_CONFIG_ERROR = f"{name} isn't a {STRIPE_MODE}-mode key; online payments are off"
+        return ""
+    return key
+
+
+# The key actually used (the rest of the app reads only this)
+STRIPE_SECRET_KEY = _stripe_key()
+# Signing secret of the webhook endpoint (whsec_...): from `stripe listen` when
+# testing locally, or from the endpoint created by stripe_setup.py in production
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+# Customer portal settings created by stripe_setup.py (empty = account default)
+STRIPE_PORTAL_CONFIGURATION = os.environ.get("STRIPE_PORTAL_CONFIGURATION", "").strip()
+# Where the React app is, for Stripe's return links
+PUBLIC_APP_URL = os.environ.get("PUBLIC_APP_URL", "http://localhost:3000").rstrip("/")

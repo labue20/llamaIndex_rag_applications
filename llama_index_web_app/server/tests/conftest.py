@@ -24,6 +24,14 @@ os.environ.update(
     INDEX_SERVER_AUTHKEY="test-authkey",
     ALLOWED_ORIGINS="http://localhost:3000",
     OPENAI_API_KEY="sk-test-not-used",
+    GOOGLE_CLIENT_ID="test-client.apps.googleusercontent.com",
+    # Most tests create accounts with email + password; test_google_sign_in.py covers the default
+    PASSWORD_LOGIN_ENABLED="true",
+    # Billing tests switch Stripe on with fake keys; the real API is never called
+    STRIPE_MODE="test",
+    STRIPE_SECRET_KEY="",
+    STRIPE_SECRET_TEST_KEY="",
+    STRIPE_WEBHOOK_SECRET="",
 )
 
 
@@ -139,7 +147,6 @@ def fresh_db(tmp_path, monkeypatch):
 
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "instance" / "users.db"))
     auth.init_db()
-    auth._failed_logins.clear()
     return db.DB_PATH
 
 

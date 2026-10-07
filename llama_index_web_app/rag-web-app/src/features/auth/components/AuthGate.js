@@ -5,6 +5,9 @@
  *   /login         sign in
  *   /signup        create an account
  *   /app/<tool>    the app (the tools work for guests too; see routes.js)
+ *   /pricing       Free and Pro plans
+ *   /privacy       Privacy Policy
+ *   /terms         Terms of Service
  */
 
 import React from 'react';
@@ -12,11 +15,14 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthPage from './AuthPage';
 import UpgradeDialog from './UpgradeDialog';
+import UpgradeReturnNotice from './UpgradeReturnNotice';
 import { HomePage } from '../../home';
+import { LegalPage } from '../../legal';
+import { PricingPage } from '../../pricing';
 import { HOME_AFTER_LOGIN } from '../../../routes';
 
 const AuthGate = ({ children }) => {
-  const { user, isCheckingSession, showHome, showAuth, tryTool } = useAuth();
+  const { user, isCheckingSession, showHome, showAuth, tryTool, pathAfterAuth } = useAuth();
   const navigate = useNavigate();
 
   if (isCheckingSession) {
@@ -29,7 +35,7 @@ const AuthGate = ({ children }) => {
 
   const authPage = (mode) =>
     user ? (
-      <Navigate to={HOME_AFTER_LOGIN} replace />
+      <Navigate to={pathAfterAuth()} replace />
     ) : (
       <AuthPage
         initialMode={mode}
@@ -53,6 +59,19 @@ const AuthGate = ({ children }) => {
           />
         }
       />
+      <Route
+        path='/pricing'
+        element={
+          <PricingPage
+            onLogin={() => showAuth('login')}
+            onSignup={() => showAuth('signup')}
+            onTryTool={tryTool}
+            onOpenApp={() => navigate(HOME_AFTER_LOGIN)}
+          />
+        }
+      />
+      <Route path='/privacy' element={<LegalPage doc='privacy' />} />
+      <Route path='/terms' element={<LegalPage doc='terms' />} />
       <Route path='/login' element={authPage('login')} />
       <Route path='/signup' element={authPage('signup')} />
       <Route
@@ -61,6 +80,7 @@ const AuthGate = ({ children }) => {
           // Keyed by user (or guest) so switching accounts starts from a clean app state
           <React.Fragment key={user ? user.id : 'guest'}>
             {children}
+            <UpgradeReturnNotice />
             <UpgradeDialog />
           </React.Fragment>
         }

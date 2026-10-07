@@ -12,13 +12,19 @@ const TrialBadge = () => {
   if (!plan) return null;
 
   if (plan.state === 'pro') {
-    return <span className='trial-badge trial-badge--pro'>Pro</span>;
+    // A subscription's own period end; otherwise when Pro given by hand ends
+    const end = plan.billing?.period_end || plan.pro_until;
+    const date = end ? new Date(end).toLocaleDateString(undefined, { dateStyle: 'long' }) : null;
+    const renews = plan.billing?.has_subscription && !plan.billing.cancel_at_period_end;
+    let until;
+    if (date) until = renews ? `Pro · renews on ${date}` : `Pro until ${date}`;
+    return <span className='trial-badge trial-badge--pro' title={until}>Pro</span>;
   }
 
-  const isExpired = plan.state === 'expired';
+  const isFree = plan.state === 'free';
   const daysLeft = plan.trial_days_left;
-  const label = isExpired
-    ? 'Free trial ended'
+  const label = isFree
+    ? 'Free plan'
     : `Free trial · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`;
   const usage = plan.usage && plan.limits
     ? `${plan.usage.questions_today} of ${plan.limits.max_questions_per_day} questions used today`
@@ -27,7 +33,7 @@ const TrialBadge = () => {
   return (
     <div className='trial-badge-group'>
       <span
-        className={`trial-badge ${isExpired ? 'trial-badge--expired' : ''}`}
+        className={`trial-badge ${isFree ? 'trial-badge--free' : ''}`}
         title={usage}
       >
         {label}

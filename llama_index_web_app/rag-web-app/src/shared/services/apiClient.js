@@ -13,7 +13,7 @@ export const setUnauthorizedHandler = (handler) => {
   unauthorizedHandler = handler;
 };
 
-// Called whenever the API answers 402 (free trial ended, upgrade needed)
+// Called whenever the API answers 402 (a plan limit was reached, upgrade needed)
 let planRequiredHandler = null;
 export const setPlanRequiredHandler = (handler) => {
   planRequiredHandler = handler;

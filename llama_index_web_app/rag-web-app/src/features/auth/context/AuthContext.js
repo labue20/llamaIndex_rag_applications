@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { HOME_AFTER_LOGIN, TOOL_PATHS } from '../../../routes';
 import {
   apiFetch,
@@ -14,21 +14,26 @@ import {
 
 const AuthContext = createContext(null);
 
-const postCredentials = async (path, email, password) => {
+// POST JSON to an auth route and return the user it answers with. Errors carry
+// the server's message and, when given, its code (e.g. 'email_taken').
+const postAuth = async (path, body) => {
   let response;
   try {
     response = await apiFetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(body),
     });
   } catch (err) {
-    throw new Error("Can't reach the server. Make sure the backend is running.");
+    throw new Error("Can't reach the server. Check your connection and try again.");
   }
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || 'Something went wrong. Please try again.');
+    const error = new Error(data.error || 'Something went wrong. Please try again.');
+    error.code = data.code;
+    error.status = response.status;
+    throw error;
   }
   return data.user;
 };
@@ -42,6 +47,19 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
+  // Where to go back to after logging in (the tool the visitor was using)
+  const location = useLocation();
+  const locationRef = useRef(location);
+  locationRef.current = location;
+  const returnToRef = useRef(null);
+  const rememberPlace = useCallback(() => {
+    const { pathname } = locationRef.current;
+    // Back to the tool (or the pricing page) after signing in
+    returnToRef.current = pathname.startsWith('/app/') || pathname === '/pricing' ? pathname : null;
+  }, []);
+  // Also used by the /login and /signup pages to redirect once someone is logged in
+  const pathAfterAuth = useCallback(() => returnToRef.current || HOME_AFTER_LOGIN, []);
+  const goAfterAuth = useCallback(() => navigateRef.current(pathAfterAuth()), [pathAfterAuth]);
   // Whether someone was logged in, to tell an expired session from a guest
   const userRef = useRef(null);
   useEffect(() => {
@@ -64,10 +82,11 @@ export const AuthProvider = ({ children }) => {
     setUnauthorizedHandler(() => {
       if (userRef.current) {
         setUser(null);
+        rememberPlace();
         navigateRef.current('/login');
       }
     });
-    // A 402 means the free trial has ended: refresh the plan and offer an upgrade
+    // A 402 means a plan limit was reached: refresh the plan and offer an upgrade
     setPlanRequiredHandler(() => {
       refreshUser();
       setIsUpgradeOpen(true);
@@ -79,16 +98,30 @@ export const AuthProvider = ({ children }) => {
       setUnauthorizedHandler(null);
       setPlanRequiredHandler(null);
     };
-  }, [refreshUser]);
+  }, [refreshUser, rememberPlace]);
 
   const login = useCallback(async (email, password) => {
-    setUser(await postCredentials('/auth/login', email, password));
-    navigateRef.current(HOME_AFTER_LOGIN);
-  }, []);
+    setUser(await postAuth('/auth/login', { email, password }));
+    goAfterAuth();
+  }, [goAfterAuth]);
 
   const signup = useCallback(async (email, password) => {
-    setUser(await postCredentials('/auth/signup', email, password));
-    navigateRef.current(HOME_AFTER_LOGIN);
+    setUser(await postAuth('/auth/signup', { email, password }));
+    goAfterAuth();
+  }, [goAfterAuth]);
+
+  // Sign in (or sign up, starting the free trial) with the ID token from Google's button
+  const loginWithGoogle = useCallback(async (credential) => {
+    setUser(await postAuth('/auth/google', { credential }));
+    goAfterAuth();
+  }, [goAfterAuth]);
+
+  // Other devices are signed out; this one stays signed in
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    setUser(await postAuth('/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    }));
   }, []);
 
   const logout = useCallback(async () => {
@@ -97,6 +130,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setIsUpgradeOpen(false);
+      returnToRef.current = null;
       navigateRef.current('/');
     }
   }, []);
@@ -108,8 +142,9 @@ export const AuthProvider = ({ children }) => {
   // mode: 'login' | 'signup'
   const showAuth = useCallback((mode) => {
     setIsUpgradeOpen(false);
+    rememberPlace();
     navigateRef.current(`/${mode}`);
-  }, []);
+  }, [rememberPlace]);
   // Open a tool from the homepage ('chat' | 'pdf-word' | 'word-pdf' | 'split' | 'manager');
   // visitors without an account use it as guests
   const tryTool = useCallback((tool) => navigateRef.current(TOOL_PATHS[tool] || TOOL_PATHS.chat), []);
@@ -120,7 +155,9 @@ export const AuthProvider = ({ children }) => {
       isCheckingSession,
       login,
       signup,
+      loginWithGoogle,
       logout,
+      changePassword,
       refreshUser,
       isUpgradeOpen,
       openUpgrade,
@@ -128,9 +165,10 @@ export const AuthProvider = ({ children }) => {
       showHome,
       showAuth,
       tryTool,
+      pathAfterAuth,
     }),
-    [user, isCheckingSession, login, signup, logout, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade,
-      showHome, showAuth, tryTool]
+    [user, isCheckingSession, login, signup, loginWithGoogle, logout, changePassword, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade,
+      showHome, showAuth, tryTool, pathAfterAuth]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -3,21 +3,40 @@
  * Explains the trial / Pro plan and how to upgrade (manual until payments exist)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Icon from '../../../shared/components/Icon';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 import { usePlanInfo } from '../hooks/usePlanInfo';
+import { formatPrice, proUpgradeMailto } from '../../pricing/pricing';
+import { startCheckout } from '../../pricing/billing';
+
+// '1 question', '10 questions'
+const count = (number, word) => `${number} ${word}${number === 1 ? '' : 's'}`;
 
 const PRO_BENEFITS = [
   'Unlimited documents',
   'Unlimited questions every day',
-  'Chat with PDF, converters and Split PDF',
+  'Unlimited conversions, splits and signatures',
   'Keep access to everything you upload',
 ];
 
 const UpgradeDialog = () => {
   const { user, isUpgradeOpen, closeUpgrade, showAuth } = useAuth();
   const planInfo = usePlanInfo();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+
+  const upgradeOnline = async () => {
+    setCheckoutError('');
+    setIsRedirecting(true);
+    try {
+      await startCheckout('monthly');
+    } catch (err) {
+      setCheckoutError(err.message);
+      setIsRedirecting(false);
+    }
+  };
 
   // Close on Escape
   useEffect(() => {
@@ -76,23 +95,29 @@ const UpgradeDialog = () => {
   }
 
   const plan = user.plan || {};
-  const isExpired = plan.state === 'expired';
+  const isFree = plan.state === 'free';
   const isPro = plan.state === 'pro';
   const supportEmail = plan.support_email;
 
   let title = 'Upgrade to Pro';
-  let intro = `You're on the free trial with ${plan.trial_days_left} ${plan.trial_days_left === 1 ? 'day' : 'days'} left. Pro removes the trial limits.`;
-  if (isExpired) {
-    title = 'Your free trial has ended';
-    intro = 'Your documents are safe: you can still view and delete them. Upgrade to Pro to keep uploading, chatting and converting.';
+  let intro = `You're on the free trial with ${plan.trial_days_left} ${plan.trial_days_left === 1 ? 'day' : 'days'} left. Pro removes the limits.`;
+  if (isFree) {
+    title = "You're on the Free plan";
+    intro = 'Your free trial has ended, and your account is on the Free plan. Upgrade to Pro to remove the limits.';
   } else if (isPro) {
     title = "You're on Pro";
-    intro = 'Your account has no limits. Thanks for upgrading!';
+    intro = plan.pro_until
+      ? `Thanks for upgrading! Your Pro plan is paid until ${new Date(plan.pro_until).toLocaleDateString(undefined, { dateStyle: 'long' })}. After that your account moves to the Free plan unless you renew.`
+      : 'Your account has no limits. Thanks for upgrading!';
   }
 
-  const mailto = supportEmail
-    ? `mailto:${supportEmail}?subject=${encodeURIComponent('Upgrade to Pro')}&body=${encodeURIComponent(`Please upgrade my account: ${user.email}`)}`
-    : null;
+  const mailto = proUpgradeMailto({
+    supportEmail,
+    billing: 'monthly',
+    monthly: planInfo.pro_price_monthly,
+    yearly: planInfo.pro_price_yearly,
+    accountEmail: user.email,
+  });
 
   return (
     <div className='upgrade-overlay' onClick={closeUpgrade} data-testid='upgrade-overlay'>
@@ -106,8 +131,8 @@ const UpgradeDialog = () => {
         <button type='button' className='upgrade-dialog__close' onClick={closeUpgrade} aria-label='Close'>
           ×
         </button>
-        <span className={`upgrade-dialog__icon ${isExpired ? 'upgrade-dialog__icon--expired' : ''}`}>
-          <Icon name={isExpired ? 'lock' : 'sparkle'} size={22} />
+        <span className='upgrade-dialog__icon'>
+          <Icon name='sparkle' size={22} />
         </span>
         <h2 id='upgrade-title' className='upgrade-dialog__title'>{title}</h2>
         <p className='upgrade-dialog__intro'>{intro}</p>
@@ -123,15 +148,39 @@ const UpgradeDialog = () => {
               ))}
             </ul>
 
-            {plan.limits && !isExpired && (
+            {plan.limits && (
               <p className='upgrade-dialog__limits'>
-                Trial limits: {plan.limits.max_documents} documents and{' '}
-                {plan.limits.max_questions_per_day} questions a day
-                {plan.usage ? ` (${plan.usage.questions_today} used today)` : ''}.
+                {isFree ? 'Free plan' : 'Trial'} limits: {count(plan.limits.max_documents, 'document')} and{' '}
+                {count(plan.limits.max_questions_per_day, 'question')} a day
+                {plan.usage ? ` (${plan.usage.questions_today} used today)` : ''}
+                {plan.limits.max_conversions_per_day
+                  ? `, ${count(plan.limits.max_conversions_per_day, 'file conversion')} a day`
+                  : ''}.
               </p>
             )}
 
-            {mailto ? (
+            <p className='upgrade-dialog__price'>
+              Pro is {formatPrice(planInfo.pro_price_monthly)} a month, or {formatPrice(planInfo.pro_price_yearly)} a
+              year.{' '}
+              <Link to='/pricing' onClick={closeUpgrade}>Compare plans</Link>
+            </p>
+
+            {planInfo.online_payments ? (
+              <>
+                <button
+                  type='button'
+                  className='upgrade-dialog__cta'
+                  onClick={upgradeOnline}
+                  disabled={isRedirecting}
+                  autoFocus
+                >
+                  {isRedirecting
+                    ? 'Opening secure checkout…'
+                    : `Upgrade to Pro · ${formatPrice(planInfo.pro_price_monthly)}/month`}
+                </button>
+                {checkoutError && <p className='upgrade-dialog__error' role='alert'>{checkoutError}</p>}
+              </>
+            ) : mailto ? (
               <a className='upgrade-dialog__cta' href={mailto} autoFocus>
                 Contact us to upgrade
               </a>
