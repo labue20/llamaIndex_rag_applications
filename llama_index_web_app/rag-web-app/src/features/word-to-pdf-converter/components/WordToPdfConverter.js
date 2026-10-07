@@ -7,7 +7,7 @@ const formatSize = (bytes) => {
   return (bytes / 1024 / 1024).toFixed(2) + ' MB';
 };
 
-const WordToPdfConverter = forwardRef(({ onStatusChange }, ref) => {
+const WordToPdfConverter = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref) => {
   const [file, setFile] = useState(null);
   const [isConverting, setIsConverting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -91,11 +91,13 @@ const WordToPdfConverter = forwardRef(({ onStatusChange }, ref) => {
             <label htmlFor="word-file-input" className="upload-label">
               {file ? 'Change Word Doc' : 'Choose Word Doc'}
             </label>
-            <DocumentPicker
-              acceptedExtensions={['.docx']}
-              onSelect={(pickedFile) => pickedFile && loadFile(pickedFile)}
-              disabled={isConverting}
-            />
+            {allowDocumentManager && (
+              <DocumentPicker
+                acceptedExtensions={['.docx']}
+                onSelect={(pickedFile) => pickedFile && loadFile(pickedFile)}
+                disabled={isConverting}
+              />
+            )}
           </div>
           <p className="upload-hint">Drop your Word document (.docx) here or click to browse</p>
         </div>

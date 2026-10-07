@@ -1,4 +1,5 @@
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
+import { renderAt } from './test-utils/router';
 import App from './App';
 import { AuthGate, AuthProvider } from './features/auth';
 import { makeUser, mockFetch } from './test-utils/mockFetch';
@@ -9,12 +10,13 @@ test('logged-in users get the full app with their account in the header', async 
     '/getDocuments': { body: [{ id: 'doc-1', filename: 'transcript.pdf', text: '' }] },
   });
 
-  render(
+  renderAt(
     <AuthProvider>
       <AuthGate>
         <App />
       </AuthGate>
-    </AuthProvider>
+    </AuthProvider>,
+    '/app/documents'
   );
 
   const header = await screen.findByRole('banner');

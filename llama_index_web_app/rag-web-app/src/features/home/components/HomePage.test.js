@@ -5,8 +5,9 @@ import { mockFetch } from '../../../test-utils/mockFetch';
 const renderHome = () => {
   const onLogin = jest.fn();
   const onSignup = jest.fn();
-  render(<HomePage onLogin={onLogin} onSignup={onSignup} />);
-  return { onLogin, onSignup };
+  const onTryTool = jest.fn();
+  render(<HomePage onLogin={onLogin} onSignup={onSignup} onTryTool={onTryTool} />);
+  return { onLogin, onSignup, onTryTool };
 };
 
 const toolCards = () => within(screen.getByRole('region', { name: 'Our tools' })).getAllByRole('button');
@@ -15,8 +16,8 @@ test('lists every tool', () => {
   mockFetch({});
   renderHome();
   const cards = toolCards();
-  expect(cards).toHaveLength(5);
-  ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Document Manager'].forEach((title, i) => {
+  expect(cards).toHaveLength(6);
+  ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Sign PDF', 'Document Manager'].forEach((title, i) => {
     expect(cards[i]).toHaveTextContent(title);
   });
 });
@@ -39,16 +40,25 @@ test('log in and trial buttons call the right handlers', () => {
   expect(onLogin).toHaveBeenCalledTimes(1);
 
   fireEvent.click(within(nav).getByRole('button', { name: 'Start free trial' }));
-  fireEvent.click(toolCards()[0]);
-  expect(onSignup).toHaveBeenCalledTimes(2);
+  expect(onSignup).toHaveBeenCalledTimes(1);
 });
 
-test('explore the tools scrolls to the tool grid', () => {
+test('tools can be tried without signing up; the Document Manager needs an account', () => {
   mockFetch({});
-  renderHome();
-  const scrollIntoView = jest.fn();
-  Element.prototype.scrollIntoView = scrollIntoView;
+  const { onSignup, onTryTool } = renderHome();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Explore the tools' }));
-  expect(scrollIntoView).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Try it now, no sign-up' }));
+  expect(onTryTool).toHaveBeenLastCalledWith('chat');
+
+  const cards = toolCards();
+  fireEvent.click(cards[1]); // PDF to Word
+  expect(onTryTool).toHaveBeenLastCalledWith('pdf-word');
+  fireEvent.click(cards[3]); // Split PDF
+  expect(onTryTool).toHaveBeenLastCalledWith('split');
+
+  fireEvent.click(cards[4]); // Sign PDF
+  expect(onTryTool).toHaveBeenLastCalledWith('sign');
+
+  fireEvent.click(cards[5]); // Document Manager
+  expect(onSignup).toHaveBeenCalledTimes(1);
 });

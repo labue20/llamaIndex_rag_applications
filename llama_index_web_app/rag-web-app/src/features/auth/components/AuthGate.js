@@ -1,24 +1,23 @@
 /**
  * Auth Gate
- * Renders the app only for a logged-in user; otherwise the homepage,
- * which leads to the sign-in / create-account page
+ * The site's routes:
+ *   /              homepage
+ *   /login         sign in
+ *   /signup        create an account
+ *   /app/<tool>    the app (the tools work for guests too; see routes.js)
  */
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthPage from './AuthPage';
 import UpgradeDialog from './UpgradeDialog';
 import { HomePage } from '../../home';
+import { HOME_AFTER_LOGIN } from '../../../routes';
 
 const AuthGate = ({ children }) => {
-  const { user, isCheckingSession } = useAuth();
-  // 'home' | 'login' | 'signup'
-  const [view, setView] = useState('home');
-
-  // After logging out (or the session expiring) start again from the homepage
-  useEffect(() => {
-    if (user) setView('home');
-  }, [user]);
+  const { user, isCheckingSession, showHome, showAuth, tryTool } = useAuth();
+  const navigate = useNavigate();
 
   if (isCheckingSession) {
     return (
@@ -28,19 +27,46 @@ const AuthGate = ({ children }) => {
     );
   }
 
-  if (!user) {
-    if (view === 'home') {
-      return <HomePage onLogin={() => setView('login')} onSignup={() => setView('signup')} />;
-    }
-    return <AuthPage key={view} initialMode={view} onBack={() => setView('home')} />;
-  }
+  const authPage = (mode) =>
+    user ? (
+      <Navigate to={HOME_AFTER_LOGIN} replace />
+    ) : (
+      <AuthPage
+        initialMode={mode}
+        onBack={showHome}
+        // Keep the address in step with the Sign in / Create account tabs
+        onModeChange={(nextMode) => navigate(`/${nextMode}`, { replace: true })}
+      />
+    );
 
-  // Keyed by user so switching accounts starts from a clean app state
   return (
-    <React.Fragment key={user.id}>
-      {children}
-      <UpgradeDialog />
-    </React.Fragment>
+    <Routes>
+      <Route
+        path='/'
+        element={
+          <HomePage
+            onLogin={() => showAuth('login')}
+            onSignup={() => showAuth('signup')}
+            onTryTool={tryTool}
+            isLoggedIn={!!user}
+            onOpenApp={() => navigate(HOME_AFTER_LOGIN)}
+          />
+        }
+      />
+      <Route path='/login' element={authPage('login')} />
+      <Route path='/signup' element={authPage('signup')} />
+      <Route
+        path='/app/*'
+        element={
+          // Keyed by user (or guest) so switching accounts starts from a clean app state
+          <React.Fragment key={user ? user.id : 'guest'}>
+            {children}
+            <UpgradeDialog />
+          </React.Fragment>
+        }
+      />
+      <Route path='*' element={<Navigate to='/' replace />} />
+    </Routes>
   );
 };
 

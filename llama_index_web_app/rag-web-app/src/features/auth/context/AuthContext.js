@@ -3,7 +3,9 @@
  * Holds the logged-in user and exposes login / signup / logout
  */
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { HOME_AFTER_LOGIN, TOOL_PATHS } from '../../../routes';
 import {
   apiFetch,
   setPlanRequiredHandler,
@@ -35,6 +37,16 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  // useNavigate() returns a new function after every navigation; keep the latest
+  // in a ref so the callbacks below (and the session check) stay stable
+  const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  // Whether someone was logged in, to tell an expired session from a guest
+  const userRef = useRef(null);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Re-read the user (including plan status and usage) from the server
   const refreshUser = useCallback(async () => {
@@ -48,8 +60,13 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Any 401 from the API means the session is gone: show the login page
-    setUnauthorizedHandler(() => setUser(null));
+    // A 401 for a logged-in user means their session expired: ask them to sign in again
+    setUnauthorizedHandler(() => {
+      if (userRef.current) {
+        setUser(null);
+        navigateRef.current('/login');
+      }
+    });
     // A 402 means the free trial has ended: refresh the plan and offer an upgrade
     setPlanRequiredHandler(() => {
       refreshUser();
@@ -66,10 +83,12 @@ export const AuthProvider = ({ children }) => {
 
   const login = useCallback(async (email, password) => {
     setUser(await postCredentials('/auth/login', email, password));
+    navigateRef.current(HOME_AFTER_LOGIN);
   }, []);
 
   const signup = useCallback(async (email, password) => {
     setUser(await postCredentials('/auth/signup', email, password));
+    navigateRef.current(HOME_AFTER_LOGIN);
   }, []);
 
   const logout = useCallback(async () => {
@@ -78,11 +97,22 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setIsUpgradeOpen(false);
+      navigateRef.current('/');
     }
   }, []);
 
   const openUpgrade = useCallback(() => setIsUpgradeOpen(true), []);
   const closeUpgrade = useCallback(() => setIsUpgradeOpen(false), []);
+
+  const showHome = useCallback(() => navigateRef.current('/'), []);
+  // mode: 'login' | 'signup'
+  const showAuth = useCallback((mode) => {
+    setIsUpgradeOpen(false);
+    navigateRef.current(`/${mode}`);
+  }, []);
+  // Open a tool from the homepage ('chat' | 'pdf-word' | 'word-pdf' | 'split' | 'manager');
+  // visitors without an account use it as guests
+  const tryTool = useCallback((tool) => navigateRef.current(TOOL_PATHS[tool] || TOOL_PATHS.chat), []);
 
   const value = useMemo(
     () => ({
@@ -95,8 +125,12 @@ export const AuthProvider = ({ children }) => {
       isUpgradeOpen,
       openUpgrade,
       closeUpgrade,
+      showHome,
+      showAuth,
+      tryTool,
     }),
-    [user, isCheckingSession, login, signup, logout, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade]
+    [user, isCheckingSession, login, signup, logout, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade,
+      showHome, showAuth, tryTool]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

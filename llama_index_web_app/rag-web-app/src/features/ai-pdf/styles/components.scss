@@ -561,6 +561,16 @@ $chat-column: 760px;
     color: theme-color(text-primary);
   }
 
+  &__guest-note {
+    margin: 0.75rem 0 0;
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    background: theme-color(accent-light);
+    color: theme-color(accent);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
   &__intro-text {
     margin: 0;
     font-size: 0.9375rem;

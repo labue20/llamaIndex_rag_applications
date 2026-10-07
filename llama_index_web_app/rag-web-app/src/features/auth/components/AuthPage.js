@@ -11,7 +11,7 @@ import '../styles/auth.scss';
 
 const MIN_PASSWORD_LENGTH = 8;
 
-const AuthPage = ({ initialMode = 'login', onBack }) => {
+const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
   const { login, signup } = useAuth();
   const { trial_days: trialDays } = usePlanInfo();
   const [mode, setMode] = useState(initialMode);
@@ -26,6 +26,7 @@ const AuthPage = ({ initialMode = 'login', onBack }) => {
   const switchMode = (nextMode) => {
     setMode(nextMode);
     setError('');
+    onModeChange?.(nextMode);
   };
 
   const handleSubmit = async (e) => {
@@ -93,9 +94,10 @@ const AuthPage = ({ initialMode = 'login', onBack }) => {
         </div>
 
         <form className='auth-form' onSubmit={handleSubmit} noValidate>
-          <label className='auth-form__field'>
-            <span className='auth-form__label'>Email</span>
+          <div className='auth-form__field'>
+            <label className='auth-form__label' htmlFor='auth-email'>Email</label>
             <input
+              id='auth-email'
               type='email'
               className='auth-form__input'
               value={email}
@@ -105,12 +107,14 @@ const AuthPage = ({ initialMode = 'login', onBack }) => {
               required
               autoFocus
             />
-          </label>
+          </div>
 
-          <label className='auth-form__field'>
-            <span className='auth-form__label'>Password</span>
+          <div className='auth-form__field'>
+            {/* The Show/Hide button sits outside the label so the field is announced as just "Password" */}
+            <label className='auth-form__label' htmlFor='auth-password'>Password</label>
             <div className='auth-form__password'>
               <input
+                id='auth-password'
                 type={showPassword ? 'text' : 'password'}
                 className='auth-form__input'
                 value={password}
@@ -128,7 +132,7 @@ const AuthPage = ({ initialMode = 'login', onBack }) => {
                 {showPassword ? 'Hide' : 'Show'}
               </button>
             </div>
-          </label>
+          </div>
 
           {error && (
             <div className='auth-form__error' role='alert'>

@@ -4,7 +4,7 @@ import '../../../shared/styles/converter.scss';
 
 const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-const PdfToWordConverter = forwardRef(({ onStatusChange }, ref) => {
+const PdfToWordConverter = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref) => {
   const [file, setFile] = useState(null);
   const [isConverting, setIsConverting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -115,11 +115,13 @@ const PdfToWordConverter = forwardRef(({ onStatusChange }, ref) => {
             <label htmlFor="pdf-file-input" className="upload-label">
               {file ? 'Change PDF File' : 'Choose PDF File'}
             </label>
-            <DocumentPicker
-              acceptedExtensions={['.pdf']}
-              onSelect={(pickedFile) => pickedFile && loadFile(pickedFile)}
-              disabled={isConverting}
-            />
+            {allowDocumentManager && (
+              <DocumentPicker
+                acceptedExtensions={['.pdf']}
+                onSelect={(pickedFile) => pickedFile && loadFile(pickedFile)}
+                disabled={isConverting}
+              />
+            )}
           </div>
           <p className="upload-hint">Drop your PDF here or click to browse • Max 50MB</p>
         </div>

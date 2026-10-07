@@ -7,12 +7,19 @@ until it is moved to the "pro" plan, which has no caps.
 """
 
 import math
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
-from flask import g, jsonify
+from flask import g, jsonify, request
 
 from config import (
+    GUEST_CONVERSIONS_PER_HOUR,
+    GUEST_IP_MAX_DOCUMENTS_PER_DAY,
+    GUEST_IP_MAX_QUESTIONS_PER_DAY,
+    GUEST_MAX_DOCUMENTS,
+    GUEST_MAX_QUESTIONS,
     SUPPORT_EMAIL,
     TRIAL_DAYS,
     TRIAL_MAX_DOCUMENTS,
@@ -62,6 +69,9 @@ def init_plans():
                 PRIMARY KEY (user_id, day)
             )"""
         )
+        usage_columns = {row["name"] for row in conn.execute("PRAGMA table_info(daily_usage)")}
+        if "documents" not in usage_columns:
+            conn.execute("ALTER TABLE daily_usage ADD COLUMN documents INTEGER NOT NULL DEFAULT 0")
 
 
 def questions_today(user_id):
@@ -72,13 +82,51 @@ def questions_today(user_id):
     return row["questions"] if row else 0
 
 
-def record_question(user_id):
+def _increment(key, column):
     with connect_db() as conn:
         conn.execute(
-            """INSERT INTO daily_usage (user_id, day, questions) VALUES (?, ?, 1)
-               ON CONFLICT(user_id, day) DO UPDATE SET questions = questions + 1""",
-            (user_id, _today()),
+            f"""INSERT INTO daily_usage (user_id, day, {column}) VALUES (?, ?, 1)
+               ON CONFLICT(user_id, day) DO UPDATE SET {column} = {column} + 1""",
+            (key, _today()),
         )
+
+
+def _guest_address_key():
+    """Usage key for the visitor's network address (guests can clear cookies)."""
+    return f"ip:{request.remote_addr}"
+
+
+def _is_guest():
+    return bool(getattr(g, "user", None) and g.user.get("guest"))
+
+
+def record_question(user_id):
+    _increment(user_id, "questions")
+    if _is_guest():
+        _increment(_guest_address_key(), "questions")
+
+
+def record_document(user_id):
+    """Count a guest upload against their network address (accounts are capped by
+    how many documents they currently have instead)."""
+    if _is_guest():
+        _increment(_guest_address_key(), "documents")
+
+
+def _total_questions(key):
+    with connect_db() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(questions), 0) AS total FROM daily_usage WHERE user_id = ?", (key,)
+        ).fetchone()
+    return row["total"]
+
+
+def _today_usage(key, column):
+    with connect_db() as conn:
+        row = conn.execute(
+            f"SELECT {column} FROM daily_usage WHERE user_id = ? AND day = ?", (key, _today())
+        ).fetchone()
+    return row[column] if row else 0
 
 
 def plan_status(user_id):
@@ -116,6 +164,8 @@ def public_plan_info():
         "trial_days": TRIAL_DAYS,
         "trial_max_documents": TRIAL_MAX_DOCUMENTS,
         "trial_max_questions_per_day": TRIAL_MAX_QUESTIONS_PER_DAY,
+        "guest_max_documents": GUEST_MAX_DOCUMENTS,
+        "guest_max_questions": GUEST_MAX_QUESTIONS,
     }
 
 
@@ -127,7 +177,8 @@ def requires_active_plan(view):
     """Reject the request with 402 if the user's trial has ended."""
     @wraps(view)
     def wrapper(*args, **kwargs):
-        if plan_status(g.user["id"])["state"] == STATE_EXPIRED:
+        # Guests have no trial; their limits are checked separately
+        if not _is_guest() and plan_status(g.user["id"])["state"] == STATE_EXPIRED:
             return _limit_error(
                 "Your free trial has ended. Upgrade to keep uploading, chatting and converting.",
                 "trial_expired",
@@ -137,8 +188,21 @@ def requires_active_plan(view):
     return wrapper
 
 
+GUEST_SIGNUP_HINT = "Create a free account to keep going. Your document comes with you."
+
+
 def question_limit_error(user_id):
     """Error response if the user has used today's trial questions, else None."""
+    if _is_guest():
+        if (_total_questions(user_id) >= GUEST_MAX_QUESTIONS
+                or _today_usage(_guest_address_key(), "questions") >= GUEST_IP_MAX_QUESTIONS_PER_DAY):
+            return _limit_error(
+                f"You've used the {GUEST_MAX_QUESTIONS} free guest questions. {GUEST_SIGNUP_HINT}",
+                "guest_limit",
+                402,
+            )
+        return None
+
     status = plan_status(user_id)
     if status["state"] == STATE_TRIAL and status["usage"]["questions_today"] >= TRIAL_MAX_QUESTIONS_PER_DAY:
         return _limit_error(
@@ -152,6 +216,17 @@ def question_limit_error(user_id):
 
 def document_limit_error(user_id, document_count):
     """Error response if the user already has the trial's maximum documents, else None."""
+    if _is_guest():
+        if (document_count >= GUEST_MAX_DOCUMENTS
+                or _today_usage(_guest_address_key(), "documents") >= GUEST_IP_MAX_DOCUMENTS_PER_DAY):
+            return _limit_error(
+                f"Guests can chat with {GUEST_MAX_DOCUMENTS} "
+                f"{'document' if GUEST_MAX_DOCUMENTS == 1 else 'documents'}. {GUEST_SIGNUP_HINT}",
+                "guest_limit",
+                402,
+            )
+        return None
+
     if plan_status(user_id)["state"] == STATE_TRIAL and document_count >= TRIAL_MAX_DOCUMENTS:
         return _limit_error(
             f"The free trial allows up to {TRIAL_MAX_DOCUMENTS} documents. "
@@ -160,3 +235,32 @@ def document_limit_error(user_id, document_count):
             403,
         )
     return None
+
+
+# --- guest conversions -----------------------------------------------------------
+
+_guest_conversions = {}
+_guest_conversions_lock = threading.Lock()
+
+
+def limit_guest_conversions(view):
+    """Rate-limit converter routes for guests: GUEST_CONVERSIONS_PER_HOUR per address."""
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if _is_guest():
+            now = time.time()
+            key = request.remote_addr
+            with _guest_conversions_lock:
+                recent = [t for t in _guest_conversions.get(key, []) if now - t < 3600]
+                if len(recent) >= GUEST_CONVERSIONS_PER_HOUR:
+                    _guest_conversions[key] = recent
+                    return _limit_error(
+                        "You've reached the guest limit for conversions this hour. "
+                        "Try again later, or create a free account.",
+                        "guest_rate_limit",
+                        429,
+                    )
+                recent.append(now)
+                _guest_conversions[key] = recent
+        return view(*args, **kwargs)
+    return wrapper

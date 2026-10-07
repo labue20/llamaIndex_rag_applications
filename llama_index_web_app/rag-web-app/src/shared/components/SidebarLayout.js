@@ -5,8 +5,20 @@
 
 import React, { useState } from 'react';
 
-const SidebarLayout = ({ sections, defaultSection = 0, footer = null }) => {
-  const [activeSection, setActiveSection] = useState(defaultSection);
+const SidebarLayout = ({
+  sections,
+  defaultSection = 0,
+  footer = null,
+  // Optional: control the active section from outside (e.g. from the URL)
+  activeSection: controlledSection,
+  onSectionChange,
+}) => {
+  const [uncontrolledSection, setUncontrolledSection] = useState(defaultSection);
+  const activeSection = controlledSection ?? uncontrolledSection;
+  const setActiveSection = (index) => {
+    setUncontrolledSection(index);
+    onSectionChange?.(index);
+  };
   const [hoveredSection, setHoveredSection] = useState(null);
 
   const handleSectionClick = (index, subIndex = null) => {

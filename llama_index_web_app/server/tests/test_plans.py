@@ -49,6 +49,8 @@ def test_public_plan_terms(client):
         "trial_days": config.TRIAL_DAYS,
         "trial_max_documents": config.TRIAL_MAX_DOCUMENTS,
         "trial_max_questions_per_day": config.TRIAL_MAX_QUESTIONS_PER_DAY,
+        "guest_max_documents": config.GUEST_MAX_DOCUMENTS,
+        "guest_max_questions": config.GUEST_MAX_QUESTIONS,
     }
 
 
@@ -121,6 +123,7 @@ def test_query_route_shares_the_question_cap(signup, monkeypatch):
     ("post", "/convertPdfToWord", {"data": {"file": (io.BytesIO(b"x"), "a.pdf")}, "content_type": "multipart/form-data"}),
     ("post", "/convertWordToPdf", {"data": {"file": (io.BytesIO(b"x"), "a.docx")}, "content_type": "multipart/form-data"}),
     ("post", "/splitPdf", {"data": {"file": (io.BytesIO(b"x"), "a.pdf")}, "content_type": "multipart/form-data"}),
+    ("post", "/signPdf", {"data": {"file": (io.BytesIO(b"x"), "a.pdf")}, "content_type": "multipart/form-data"}),
 ])
 def test_expired_trial_blocks_product_features(signup, fresh_db, method, path, kwargs):
     user_client = signup()

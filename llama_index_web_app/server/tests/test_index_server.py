@@ -322,3 +322,38 @@ def test_preview_text_before_indexing_uses_the_extracted_text(make_pdf):
     _insert(make_pdf, pages=2, mode="ultra-fast")
     text = srv.get_full_document_content("doc-1", OWNER)["preview_text"]
     assert "This is page 2." in text
+
+
+# --- guest documents --------------------------------------------------------------
+
+def test_claim_guest_documents_moves_only_that_guests_documents(make_pdf):
+    _insert(make_pdf, "doc-g1", owner="guest_abc")
+    _insert(make_pdf, "doc-g2", owner="guest_other")
+    assert srv.claim_guest_documents("guest_abc", OWNER) == 1
+    assert srv.stored_docs["doc-g1"]["owner_id"] == OWNER
+    assert srv.stored_docs["doc-g2"]["owner_id"] == "guest_other"
+    assert srv.claim_guest_documents("not-a-guest", OWNER) == 0
+
+
+def test_first_account_does_not_claim_guest_documents(make_pdf):
+    _insert(make_pdf, "doc-g", owner="guest_abc")
+    srv.claim_unowned_documents(OWNER)
+    assert srv.stored_docs["doc-g"]["owner_id"] == "guest_abc"
+
+
+def test_expired_guest_documents_are_deleted(make_pdf):
+    import datetime
+
+    old_path = _insert(make_pdf, "doc-old", owner="guest_a")
+    _insert(make_pdf, "doc-new", owner="guest_b")
+    _insert(make_pdf, "doc-account", owner=OWNER)
+    two_days_ago = (datetime.datetime.now() - datetime.timedelta(hours=48)).isoformat()
+    srv.stored_docs["doc-old"]["processing_timestamp"] = two_days_ago
+    srv.stored_docs["doc-account"]["processing_timestamp"] = two_days_ago
+
+    assert srv.purge_expired_guest_documents(24) == 1
+
+    assert "doc-old" not in srv.stored_docs and _chunks("doc-old") == []
+    assert not old_path.exists()
+    assert "doc-new" in srv.stored_docs  # still within 24 hours
+    assert "doc-account" in srv.stored_docs  # accounts' documents never expire

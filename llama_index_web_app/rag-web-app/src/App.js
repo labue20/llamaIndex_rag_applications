@@ -1,4 +1,5 @@
-import React, { useMemo, useCallback, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Header, Footer, SidebarLayout, Icon, ConverterHeaderActions } from './shared';
 import { DocumentTools, CompactUploadButton } from './features/document-management';
 import { AiPdfTools, ChatHeaderActions } from './features/ai-pdf';
@@ -6,6 +7,9 @@ import { useDocuments } from './features/document-management';
 import { PdfToWordConverter } from './features/pdf-to-word-converter';
 import { WordToPdfConverter } from './features/word-to-pdf-converter';
 import { SplitPdf } from './features/split-pdf';
+import { SignPdf } from './features/sign-pdf';
+import { useAuth, GuestAccountPrompt } from './features/auth';
+import { APP_SECTION_SLUGS, appPath } from './routes';
 import './shared/styles/base.scss';
 import './shared/styles/components.scss';
 import './features/document-management/styles/components.scss';
@@ -14,7 +18,12 @@ import './features/ai-pdf/styles/components.scss';
 import './shared/styles/responsive.scss';
 
 function App() {
-  const { documents, refreshDocuments } = useDocuments();
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Visitors without an account can try the tools as guests
+  const isGuest = !user;
+  const { documents, refreshDocuments } = useDocuments({ enabled: !isGuest });
   const chatRef = useRef(null);
   const [chatStatus, setChatStatus] = useState({ hasDocument: false, hasMessages: false, isBusy: false });
   const pdfToWordRef = useRef(null);
@@ -23,6 +32,8 @@ function App() {
   const [wordToPdfStatus, setWordToPdfStatus] = useState({ hasFile: false, isBusy: false });
   const splitPdfRef = useRef(null);
   const [splitPdfStatus, setSplitPdfStatus] = useState({ hasFile: false, isBusy: false });
+  const signPdfRef = useRef(null);
+  const [signPdfStatus, setSignPdfStatus] = useState({ hasFile: false, isBusy: false });
 
   const handleUploadSuccess = useCallback(async (result) => {
     console.log('Upload successful, refreshing documents...', result);
@@ -44,15 +55,24 @@ function App() {
       shortLabel: 'Documents',
       title: 'My Documents',
       icon: <Icon name='folder' />,
-      content: <DocumentTools documents={documents} refreshDocuments={refreshDocuments} />,
-      headerAction: <CompactUploadButton onUploadSuccess={handleUploadSuccess} />
+      content: isGuest
+        ? <GuestAccountPrompt />
+        : <DocumentTools documents={documents} refreshDocuments={refreshDocuments} />,
+      headerAction: isGuest ? null : <CompactUploadButton onUploadSuccess={handleUploadSuccess} />
     },
     {
       label: 'AI PDF',
       shortLabel: 'Chat',
       icon: <Icon name='chat' />,
       title: 'Chat with PDF',
-      content: <AiPdfTools ref={chatRef} onStatusChange={setChatStatus} onDocumentUploaded={handleUploadSuccess} />,
+      content: (
+        <AiPdfTools
+          ref={chatRef}
+          onStatusChange={setChatStatus}
+          onDocumentUploaded={isGuest ? undefined : handleUploadSuccess}
+          isGuest={isGuest}
+        />
+      ),
       headerAction: <ChatHeaderActions chatRef={chatRef} status={chatStatus} />
     },
     {
@@ -60,7 +80,7 @@ function App() {
       shortLabel: 'To Word',
       icon: <Icon name='fileToWord' />,
       title: 'PDF to Word Converter',
-      content: <PdfToWordConverter ref={pdfToWordRef} onStatusChange={setPdfToWordStatus} />,
+      content: <PdfToWordConverter ref={pdfToWordRef} onStatusChange={setPdfToWordStatus} allowDocumentManager={!isGuest} />,
       headerAction: (
         <ConverterHeaderActions converterRef={pdfToWordRef} status={pdfToWordStatus} acceptedTypes='.pdf' />
       )
@@ -71,7 +91,7 @@ function App() {
       shortLabel: 'To PDF',
       icon: <Icon name='fileToPdf' />,
       title: 'Word to PDF Converter',
-      content: <WordToPdfConverter ref={wordToPdfRef} onStatusChange={setWordToPdfStatus} />,
+      content: <WordToPdfConverter ref={wordToPdfRef} onStatusChange={setWordToPdfStatus} allowDocumentManager={!isGuest} />,
       headerAction: (
         <ConverterHeaderActions converterRef={wordToPdfRef} status={wordToPdfStatus} acceptedTypes='.docx' />
       )
@@ -81,19 +101,50 @@ function App() {
       shortLabel: 'Split',
       icon: <Icon name='scissors' />,
       title: 'Split PDF Converter',
-      content: <SplitPdf ref={splitPdfRef} onStatusChange={setSplitPdfStatus} />,
+      content: <SplitPdf ref={splitPdfRef} onStatusChange={setSplitPdfStatus} allowDocumentManager={!isGuest} />,
       headerAction: (
         <ConverterHeaderActions converterRef={splitPdfRef} status={splitPdfStatus} acceptedTypes='.pdf' />
       )
+    },
+    {
+      label: 'Sign PDF',
+      shortLabel: 'Sign',
+      icon: <Icon name='pen' />,
+      title: 'Sign PDF',
+      content: <SignPdf ref={signPdfRef} onStatusChange={setSignPdfStatus} allowDocumentManager={!isGuest} />,
+      headerAction: (
+        <ConverterHeaderActions converterRef={signPdfRef} status={signPdfStatus} acceptedTypes='.pdf' />
+      )
     }
 
-  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus]);
+  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, signPdfStatus, isGuest]);
+
+  // The section shown comes from the address: /app/<slug>
+  const activeIndex = APP_SECTION_SLUGS.indexOf(location.pathname.split('/')[2] || '');
+
+  // /app or an unknown /app/... address: go to the default section
+  useEffect(() => {
+    if (activeIndex === -1) {
+      navigate(appPath(isGuest ? 'chat' : 'documents'), { replace: true });
+    }
+  }, [activeIndex, isGuest, navigate]);
+
+  // Name the browser tab after the current tool
+  const activeTitle = sections[Math.max(activeIndex, 0)].title;
+  useEffect(() => {
+    document.title = `${activeTitle} · RAG Web Application`;
+  }, [activeTitle]);
 
   return (
     <div className='app'>
       <Header />
       <div className='app-container'>
-        <SidebarLayout sections={sections} defaultSection={0} footer={<Footer />} />
+        <SidebarLayout
+          sections={sections}
+          activeSection={Math.max(activeIndex, 0)}
+          onSectionChange={(index) => navigate(appPath(APP_SECTION_SLUGS[index]))}
+          footer={<Footer />}
+        />
       </div>
     </div>
   );

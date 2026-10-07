@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import AuthPage from './AuthPage';
 import { makeUser, mockFetch } from '../../../test-utils/mockFetch';
+import { renderAt } from '../../../test-utils/router';
 
 const LoggedInAs = () => {
   const { user } = useAuth();
@@ -9,11 +10,12 @@ const LoggedInAs = () => {
 };
 
 const renderAuthPage = (props = {}) =>
-  render(
+  renderAt(
     <AuthProvider>
       <AuthPage {...props} />
       <LoggedInAs />
-    </AuthProvider>
+    </AuthProvider>,
+    '/login'
   );
 
 const fillIn = (email, password) => {
