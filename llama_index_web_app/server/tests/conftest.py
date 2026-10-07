@@ -139,7 +139,6 @@ def fresh_db(tmp_path, monkeypatch):
 
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "instance" / "users.db"))
     auth.init_db()
-    auth._failed_logins.clear()
     return db.DB_PATH
 
 

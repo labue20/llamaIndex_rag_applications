@@ -51,6 +51,7 @@ def test_public_plan_terms(client):
         "trial_max_questions_per_day": config.TRIAL_MAX_QUESTIONS_PER_DAY,
         "guest_max_documents": config.GUEST_MAX_DOCUMENTS,
         "guest_max_questions": config.GUEST_MAX_QUESTIONS,
+        "support_email": config.SUPPORT_EMAIL,
     }
 
 

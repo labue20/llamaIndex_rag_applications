@@ -16,7 +16,7 @@ import { HomePage } from '../../home';
 import { HOME_AFTER_LOGIN } from '../../../routes';
 
 const AuthGate = ({ children }) => {
-  const { user, isCheckingSession, showHome, showAuth, tryTool } = useAuth();
+  const { user, isCheckingSession, showHome, showAuth, tryTool, pathAfterAuth } = useAuth();
   const navigate = useNavigate();
 
   if (isCheckingSession) {
@@ -29,7 +29,7 @@ const AuthGate = ({ children }) => {
 
   const authPage = (mode) =>
     user ? (
-      <Navigate to={HOME_AFTER_LOGIN} replace />
+      <Navigate to={pathAfterAuth()} replace />
     ) : (
       <AuthPage
         initialMode={mode}

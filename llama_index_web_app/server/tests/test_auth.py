@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-import auth
+import auth_limits
 
 # Account-only routes (guests can use the tools; see test_guests.py)
 PROTECTED_ROUTES = [
@@ -88,7 +88,7 @@ def test_failed_logins_are_throttled_per_email(client, signup):
     signup("me@example.com", "password-123")
     signup("other@example.com", "password-123")
 
-    for _ in range(auth.MAX_FAILED_LOGINS):
+    for _ in range(auth_limits.MAX_FAILED_LOGINS_PER_ACCOUNT):
         client.post("/auth/login", json={"email": "me@example.com", "password": "wrong-pass"})
 
     # Even the right password is refused while throttled

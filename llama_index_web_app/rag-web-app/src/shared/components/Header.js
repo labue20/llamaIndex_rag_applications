@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import Icon from './Icon';
-import { useAuth, TrialBadge } from '../../features/auth';
+import { AccountMenu, useAuth, TrialBadge } from '../../features/auth';
 
 const Header = () => {
-  const { user, logout, showAuth } = useAuth();
+  const { user, showAuth } = useAuth();
 
   return (
     <header className='app-header'>
@@ -17,17 +17,7 @@ const Header = () => {
         </Link>
         <div className='app-header__actions'>
           <TrialBadge />
-          {user && (
-            <div className='user-menu'>
-              <span className='user-menu__avatar' aria-hidden='true'>
-                {user.email.charAt(0)}
-              </span>
-              <span className='user-menu__email' title={user.email}>{user.email}</span>
-              <button type='button' className='user-menu__logout' onClick={logout}>
-                Log out
-              </button>
-            </div>
-          )}
+          {user && <AccountMenu />}
           {!user && (
             <div className='user-menu'>
               <button type='button' className='user-menu__logout' onClick={() => showAuth('login')}>

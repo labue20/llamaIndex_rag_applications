@@ -166,6 +166,8 @@ def public_plan_info():
         "trial_max_questions_per_day": TRIAL_MAX_QUESTIONS_PER_DAY,
         "guest_max_documents": GUEST_MAX_DOCUMENTS,
         "guest_max_questions": GUEST_MAX_QUESTIONS,
+        # For "Forgot password?" help until password reset emails exist
+        "support_email": SUPPORT_EMAIL,
     }
 
 

@@ -6,16 +6,22 @@ Run from the server/ folder:
     .venv/bin/python manage_users.py upgrade someone@example.com
     .venv/bin/python manage_users.py downgrade someone@example.com
     .venv/bin/python manage_users.py extend-trial someone@example.com 7
+    .venv/bin/python manage_users.py reset-password someone@example.com
+
+reset-password prints a temporary password to give the person (there's no
+email sending yet); they should change it from the account menu after logging in.
 
 Changes apply on the user's next request; no restart needed.
 """
 
 import argparse
+import secrets
 import sys
 from datetime import datetime, timedelta, timezone
 
 from db import connect_db
-from plans import PLAN_PRO, PLAN_TRIAL, init_plans, plan_status
+from auth import init_db, set_password
+from plans import PLAN_PRO, PLAN_TRIAL, plan_status
 
 
 def _find_user(conn, email):
@@ -62,6 +68,15 @@ def extend_trial(args):
     print(f"{user['email']}'s trial now ends {new_end:%Y-%m-%d %H:%M} UTC.")
 
 
+def reset_password(args):
+    with connect_db() as conn:
+        user = _find_user(conn, args.email)
+    temporary = secrets.token_urlsafe(9)
+    set_password(user["id"], temporary)
+    print(f"{user['email']}'s password was reset and they were signed out everywhere.")
+    print(f"Temporary password: {temporary}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -74,9 +89,11 @@ def main():
     extend = commands.add_parser("extend-trial", help="Add days to an account's trial")
     extend.add_argument("email")
     extend.add_argument("days", type=int)
+    reset = commands.add_parser("reset-password", help="Set a temporary password and sign the account out")
+    reset.add_argument("email")
 
     args = parser.parse_args()
-    init_plans()
+    init_db()
     if args.command == "list":
         list_users(args)
     elif args.command == "upgrade":
@@ -85,6 +102,8 @@ def main():
         set_plan(args, PLAN_TRIAL)
     elif args.command == "extend-trial":
         extend_trial(args)
+    elif args.command == "reset-password":
+        reset_password(args)
 
 
 if __name__ == "__main__":

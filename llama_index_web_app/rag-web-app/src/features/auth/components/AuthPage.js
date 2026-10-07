@@ -3,46 +3,77 @@
  * Sign in / create account screen shown when nobody is logged in
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Icon from '../../../shared/components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { usePlanInfo } from '../hooks/usePlanInfo';
+import PasswordInput, { PasswordChecklist } from './PasswordInput';
+import { MIN_PASSWORD_LENGTH, passwordProblem } from '../passwordRules';
 import '../styles/auth.scss';
 
-const MIN_PASSWORD_LENGTH = 8;
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+const ForgotPasswordHelp = ({ supportEmail }) => (
+  <div className='auth-form__help' role='note'>
+    {supportEmail ? (
+      <>
+        Email <a href={`mailto:${supportEmail}?subject=Password%20reset`}>{supportEmail}</a> from the address
+        you signed up with, and we&apos;ll send you a temporary password.
+      </>
+    ) : (
+      <>Contact the person who runs this site and they can give you a temporary password.</>
+    )}
+  </div>
+);
 
 const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
   const { login, signup } = useAuth();
-  const { trial_days: trialDays } = usePlanInfo();
+  const { trial_days: trialDays, support_email: supportEmail } = usePlanInfo();
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null); // { message, code }
+  const [showForgot, setShowForgot] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordRef = useRef(null);
 
   const isSignup = mode === 'signup';
 
   const switchMode = (nextMode) => {
     setMode(nextMode);
-    setError('');
+    setError(null);
+    setShowForgot(false);
     onModeChange?.(nextMode);
+  };
+
+  // "This email already has an account": keep the email and move to Sign in
+  const signInInstead = () => {
+    switchMode('login');
+    setPassword('');
+    passwordRef.current?.focus();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    if (isSubmitting) return;
+    setError(null);
 
-    if (isSignup && password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    const trimmedEmail = email.trim();
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      setError({ message: 'Enter a valid email address, like you@example.com.' });
+      return;
+    }
+    const problem = isSignup && passwordProblem(password, trimmedEmail);
+    if (problem) {
+      setError({ message: problem });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await (isSignup ? signup : login)(email.trim(), password);
+      await (isSignup ? signup : login)(trimmedEmail, password);
     } catch (err) {
-      setError(err.message);
+      setError({ message: err.message, code: err.code });
       setIsSubmitting(false);
     }
   };
@@ -102,42 +133,55 @@ const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
               className='auth-form__input'
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete='email'
+              autoComplete={isSignup ? 'email' : 'username'}
               placeholder='you@example.com'
+              maxLength={254}
               required
               autoFocus
             />
           </div>
 
           <div className='auth-form__field'>
-            {/* The Show/Hide button sits outside the label so the field is announced as just "Password" */}
-            <label className='auth-form__label' htmlFor='auth-password'>Password</label>
-            <div className='auth-form__password'>
-              <input
-                id='auth-password'
-                type={showPassword ? 'text' : 'password'}
-                className='auth-form__input'
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete={isSignup ? 'new-password' : 'current-password'}
-                placeholder={isSignup ? `At least ${MIN_PASSWORD_LENGTH} characters` : 'Your password'}
-                required
-              />
-              <button
-                type='button'
-                className='auth-form__toggle'
-                onClick={() => setShowPassword((shown) => !shown)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? 'Hide' : 'Show'}
-              </button>
+            <div className='auth-form__label-row'>
+              <label className='auth-form__label' htmlFor='auth-password'>Password</label>
+              {!isSignup && (
+                <button
+                  type='button'
+                  className='auth-form__link'
+                  aria-expanded={showForgot}
+                  onClick={() => setShowForgot((shown) => !shown)}
+                >
+                  Forgot password?
+                </button>
+              )}
             </div>
+            <PasswordInput
+              id='auth-password'
+              inputRef={passwordRef}
+              value={password}
+              onChange={setPassword}
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
+              placeholder={isSignup ? `At least ${MIN_PASSWORD_LENGTH} characters` : 'Your password'}
+              describedBy={isSignup ? 'auth-password-checks' : undefined}
+            />
+            {isSignup && <PasswordChecklist id='auth-password-checks' password={password} email={email} />}
+            {!isSignup && showForgot && <ForgotPasswordHelp supportEmail={supportEmail} />}
           </div>
 
           {error && (
             <div className='auth-form__error' role='alert'>
               <Icon name='alert' size={16} />
-              <span>{error}</span>
+              <span>
+                {error.message}
+                {error.code === 'email_taken' && (
+                  <>
+                    {' '}
+                    <button type='button' className='auth-form__inline-link' onClick={signInInstead}>
+                      Sign in instead
+                    </button>
+                  </>
+                )}
+              </span>
             </div>
           )}
 
