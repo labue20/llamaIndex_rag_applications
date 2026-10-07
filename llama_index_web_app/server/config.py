@@ -29,3 +29,11 @@ GUEST_FILE_HOURS = int(os.environ.get("GUEST_FILE_HOURS", "24"))
 # Number of reverse proxies in front of the API (Caddy in production = 1), so
 # the real visitor address is used for rate limits instead of the proxy's.
 TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))
+
+# Sign-in with Google: the OAuth client ID from Google Cloud Console
+# (APIs & Services > Credentials). Leave empty to turn Google sign-in off.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+
+# Accounts are created and signed in with Google. Set to true to also allow
+# email + password (handy for local development without a Google client ID).
+PASSWORD_LOGIN_ENABLED = os.environ.get("PASSWORD_LOGIN_ENABLED", "false").lower() == "true"

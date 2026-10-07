@@ -1,6 +1,7 @@
 /**
  * Account Menu
- * The signed-in user's avatar and email; opens a menu with Change password and Log out
+ * The signed-in user's avatar and email; opens a menu with Log out (and Change password
+ * for accounts that have a password)
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -57,17 +58,20 @@ const AccountMenu = () => {
           <p className='account-menu__signed-in'>
             Signed in as <strong>{user.email}</strong>
           </p>
-          <button
-            type='button'
-            role='menuitem'
-            className='account-menu__item'
-            onClick={() => {
-              setIsOpen(false);
-              setIsChangingPassword(true);
-            }}
-          >
-            Change password
-          </button>
+          {/* Google accounts have no password here */}
+          {user.has_password && (
+            <button
+              type='button'
+              role='menuitem'
+              className='account-menu__item'
+              onClick={() => {
+                setIsOpen(false);
+                setIsChangingPassword(true);
+              }}
+            >
+              Change password
+            </button>
+          )}
           <button type='button' role='menuitem' className='account-menu__item' onClick={logout}>
             Log out
           </button>

@@ -14,10 +14,17 @@ export const jsonResponse = (status, body) => ({
   headers: { get: () => 'application/json' },
 });
 
+// Sign-in options when a test doesn't say: email + password (as in local
+// development), so most tests can fill in the form. Google tests override it.
+const DEFAULT_ROUTES = {
+  '/auth/config': { body: { google_client_id: '', password_login: true } },
+};
+
 export const mockFetch = (routes) => {
+  const allRoutes = { ...DEFAULT_ROUTES, ...routes };
   const fetchMock = jest.fn((url, options = {}) => {
     const path = new URL(url, 'http://localhost').pathname;
-    const route = routes[path];
+    const route = allRoutes[path];
     const spec = typeof route === 'function' ? route(url, options) : route;
     if (!spec) return Promise.resolve(jsonResponse(404, { error: 'Not found' }));
     if (spec.file) {
@@ -30,9 +37,11 @@ export const mockFetch = (routes) => {
   return fetchMock;
 };
 
-export const makeUser = (planOverrides = {}) => ({
+export const makeUser = (planOverrides = {}, userOverrides = {}) => ({
   id: 'user-1',
   email: 'me@example.com',
+  has_password: true,
+  ...userOverrides,
   plan: {
     plan: 'trial',
     state: 'trial',

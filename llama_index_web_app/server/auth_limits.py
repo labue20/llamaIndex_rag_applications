@@ -84,6 +84,11 @@ def login_blocked(email, address):
     )
 
 
+def address_blocked(address):
+    """Too many failed sign-ins from this network address (any account or provider)."""
+    return recent_attempts(KIND_LOGIN_ADDRESS, address, FAILED_LOGIN_WINDOW_SECONDS) >= MAX_FAILED_LOGINS_PER_ADDRESS
+
+
 def record_failed_login(email, address):
     record_attempt(KIND_LOGIN_ACCOUNT, email)
     record_attempt(KIND_LOGIN_ADDRESS, address)

@@ -40,7 +40,7 @@ test('sign-in pages have their own addresses, and the tabs keep the address in s
   expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
   expect(path()).toBe('/signup');
 
-  fireEvent.click(screen.getByRole('tab', { name: 'Sign in' }));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Sign in' }));
   expect(path()).toBe('/login');
 
   fireEvent.click(screen.getByRole('button', { name: /Back to home/ }));

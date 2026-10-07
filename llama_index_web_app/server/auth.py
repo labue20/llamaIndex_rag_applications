@@ -1,8 +1,11 @@
 """
 User accounts and session authentication for the Flask API.
 
-Users live in a small SQLite database; passwords are hashed with werkzeug.
-Logged-in state is kept in Flask's signed, HTTP-only session cookie.
+Accounts are created and signed in with Google (sign-in with Apple can be
+added the same way). Email + password is kept for local development behind
+PASSWORD_LOGIN_ENABLED; those passwords are hashed with werkzeug.
+Users live in a small SQLite database, and logged-in state is kept in
+Flask's signed, HTTP-only session cookie.
 """
 
 import os
@@ -15,12 +18,15 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, current_app, g, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import config
 import db
 from auth_limits import (
     KIND_LOGIN_ACCOUNT,
+    KIND_LOGIN_ADDRESS,
     KIND_SIGNUP_ADDRESS,
     MAX_EMAIL_LENGTH,
     MAX_PASSWORD_LENGTH,
+    address_blocked,
     clear_attempts,
     init_auth_limits,
     login_blocked,
@@ -32,6 +38,7 @@ from auth_limits import (
 from db import connect_db, enable_wal
 from plans import init_plans, new_trial_end, plan_status
 from signature_log import init_signature_log
+from sso import SsoError, verify_google_credential
 
 SECRET_KEY_PATH = "instance/secret_key"
 
@@ -42,7 +49,11 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_hex(16))
 
 # Requests that don't need a logged-in user
-PUBLIC_PATHS = {"/", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me", "/plans", "/health"}
+PUBLIC_PATHS = {"/", "/auth/config", "/auth/google", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me",
+                "/plans", "/health"}
+
+# Accounts that sign in with Google have no password (an empty hash)
+NO_PASSWORD = ""
 
 # Routes guests (no account) may use to try the tools. Guests get an anonymous
 # ID in their session; their usage limits are enforced in plans.py.
@@ -111,6 +122,17 @@ def init_db():
         # Bumped when the password changes: sessions from before are signed out
         if "session_version" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0")
+        # Sign-in providers linked to an account (Google now; Apple later)
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS user_identities (
+                provider TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                email TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (provider, subject)
+            )"""
+        )
     # The database holds password hashes: keep it readable by this user only
     os.chmod(db.DB_PATH, 0o600)
     enable_wal()
@@ -167,7 +189,9 @@ def current_user_id():
 
 def _user_payload(user):
     """User fields sent to the browser, including trial/plan status."""
-    return {**user, "plan": plan_status(user["id"])}
+    with connect_db() as conn:
+        row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
+    return {**user, "plan": plan_status(user["id"]), "has_password": bool(row and row["password_hash"])}
 
 
 def _session_version(user_id):
@@ -195,15 +219,120 @@ def _credentials_from_request():
     return email, password
 
 
-def _error(message, status):
-    return jsonify({"error": message}), status
+def _error(message, status, code=None):
+    body = {"error": message}
+    if code:
+        body["code"] = code
+    return jsonify(body), status
+
+
+def _password_login_disabled():
+    return _error("Sign in with Google instead.", 403, "password_login_disabled")
+
+
+SIGNUPS_BLOCKED = "Too many accounts were created from your network today. Try again tomorrow."
+
+
+def _create_user(email, password_hash):
+    """Insert a new account on a fresh free trial. Raises sqlite3.IntegrityError
+    if the email is taken. Returns the user."""
+    user = {"id": uuid.uuid4().hex, "email": email}
+    with connect_db() as conn:
+        is_first_user = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+        conn.execute(
+            "INSERT INTO users (id, email, password_hash, created_at, plan, trial_ends_at)"
+            " VALUES (?, ?, ?, ?, 'trial', ?)",
+            (user["id"], email, password_hash, datetime.now(timezone.utc).isoformat(), new_trial_end()),
+        )
+    record_attempt(KIND_SIGNUP_ADDRESS, request.remote_addr)
+
+    # Documents uploaded before accounts existed belong to the first account
+    if is_first_user:
+        on_first_user = current_app.config.get("ON_FIRST_USER")
+        if on_first_user:
+            on_first_user(user["id"])
+    return user
 
 
 TOO_MANY_LOGINS = "Too many failed attempts. Wait 15 minutes and try again."
 
 
+@auth_bp.route("/config", methods=["GET"])
+def auth_config():
+    """How people can sign in, for the login page."""
+    return jsonify({
+        "google_client_id": config.GOOGLE_CLIENT_ID,
+        "password_login": config.PASSWORD_LOGIN_ENABLED,
+    })
+
+
+def _user_for_identity(provider, identity):
+    """The account for a verified sign-in, linking or creating one if needed.
+    Returns (user, created) or raises SsoError."""
+    with connect_db() as conn:
+        row = conn.execute(
+            "SELECT u.id, u.email FROM user_identities i JOIN users u ON u.id = i.user_id"
+            " WHERE i.provider = ? AND i.subject = ?",
+            (provider, identity["subject"]),
+        ).fetchone()
+        if row:
+            return {"id": row["id"], "email": row["email"]}, False
+        # The provider has verified this email, so an account with it is theirs
+        row = conn.execute("SELECT id, email FROM users WHERE email = ?", (identity["email"],)).fetchone()
+
+    created = False
+    if row:
+        user = {"id": row["id"], "email": row["email"]}
+    else:
+        if signup_blocked(request.remote_addr):
+            raise SsoError(SIGNUPS_BLOCKED)
+        try:
+            user = _create_user(identity["email"], NO_PASSWORD)
+            created = True
+        except sqlite3.IntegrityError:
+            # Created by a simultaneous request: use that account
+            with connect_db() as conn:
+                row = conn.execute("SELECT id, email FROM users WHERE email = ?", (identity["email"],)).fetchone()
+            user = {"id": row["id"], "email": row["email"]}
+
+    with connect_db() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO user_identities (provider, subject, user_id, email, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (provider, identity["subject"], user["id"], identity["email"], datetime.now(timezone.utc).isoformat()),
+        )
+    return user, created
+
+
+@auth_bp.route("/google", methods=["POST"])
+def google_sign_in():
+    """Sign in (or sign up, starting the free trial) with a Google ID token."""
+    if not config.GOOGLE_CLIENT_ID:
+        return _error("Google sign-in isn't set up on this server yet.", 503)
+    address = request.remote_addr
+    if address_blocked(address):
+        return _error(TOO_MANY_LOGINS, 429)
+
+    credential = str((request.get_json(silent=True) or {}).get("credential", ""))
+    try:
+        identity = verify_google_credential(credential, config.GOOGLE_CLIENT_ID)
+    except SsoError as err:
+        record_attempt(KIND_LOGIN_ADDRESS, address)
+        return _error(str(err), 401)
+
+    try:
+        user, created = _user_for_identity("google", identity)
+    except SsoError as err:
+        return _error(str(err), 429)
+
+    _start_session(user)
+    return jsonify({"user": _user_payload(user), "created": created}), 201 if created else 200
+
+
 @auth_bp.route("/signup", methods=["POST"])
 def signup():
+    if not config.PASSWORD_LOGIN_ENABLED:
+        return _password_login_disabled()
     email, password = _credentials_from_request()
 
     if len(email) > MAX_EMAIL_LENGTH or not EMAIL_RE.match(email):
@@ -213,27 +342,12 @@ def signup():
         return _error(problem, 400)
     # Limits free trials: only so many new accounts per network address per day
     if signup_blocked(request.remote_addr):
-        return _error("Too many accounts were created from your network today. Try again tomorrow.", 429)
+        return _error(SIGNUPS_BLOCKED, 429)
 
-    user = {"id": uuid.uuid4().hex, "email": email}
     try:
-        with connect_db() as conn:
-            is_first_user = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
-            conn.execute(
-                "INSERT INTO users (id, email, password_hash, created_at, plan, trial_ends_at)"
-                " VALUES (?, ?, ?, ?, 'trial', ?)",
-                (user["id"], email, generate_password_hash(password),
-                 datetime.now(timezone.utc).isoformat(), new_trial_end()),
-            )
+        user = _create_user(email, generate_password_hash(password))
     except sqlite3.IntegrityError:
-        return jsonify({"error": "An account with this email already exists.", "code": "email_taken"}), 409
-    record_attempt(KIND_SIGNUP_ADDRESS, request.remote_addr)
-
-    # Documents uploaded before accounts existed belong to the first account
-    if is_first_user:
-        on_first_user = current_app.config.get("ON_FIRST_USER")
-        if on_first_user:
-            on_first_user(user["id"])
+        return _error("An account with this email already exists.", 409, "email_taken")
 
     _start_session(user)
     return jsonify({"user": _user_payload(user)}), 201
@@ -241,6 +355,8 @@ def signup():
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
+    if not config.PASSWORD_LOGIN_ENABLED:
+        return _password_login_disabled()
     email, password = _credentials_from_request()
     if not email or not password or len(password) > MAX_PASSWORD_LENGTH:
         return _error("Incorrect email or password.", 401)
@@ -253,8 +369,9 @@ def login():
             "SELECT id, email, password_hash FROM users WHERE email = ?", (email,)
         ).fetchone()
 
-    # Always check a hash, so unknown emails take as long as wrong passwords
-    password_ok = check_password_hash(row["password_hash"] if row else _DUMMY_PASSWORD_HASH, password)
+    # Always check a hash, so unknown emails (and Google-only accounts) take as long as wrong passwords
+    stored_hash = row["password_hash"] if row and row["password_hash"] else _DUMMY_PASSWORD_HASH
+    password_ok = check_password_hash(stored_hash, password) and stored_hash != _DUMMY_PASSWORD_HASH
     if row is None or not password_ok:
         record_failed_login(email, request.remote_addr)
         return _error("Incorrect email or password.", 401)
@@ -282,6 +399,8 @@ def me():
 
 @auth_bp.route("/change-password", methods=["POST"])
 def change_password():
+    if not config.PASSWORD_LOGIN_ENABLED:
+        return _password_login_disabled()
     user = _session_user()
     if user is None:
         return _error("Not logged in", 401)
@@ -293,6 +412,8 @@ def change_password():
         return _error(TOO_MANY_LOGINS, 429)
     with connect_db() as conn:
         row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
+    if not row["password_hash"]:
+        return _error("This account signs in with Google, so it has no password to change.", 400)
     if len(current) > MAX_PASSWORD_LENGTH or not check_password_hash(row["password_hash"], current):
         record_failed_login(user["email"], request.remote_addr)
         return _error("Your current password is incorrect.", 400)

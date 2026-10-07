@@ -80,8 +80,9 @@ Setup stops and asks for your key. First set a **monthly spending limit** at
 nano /opt/rag/app/llama_index_web_app/server/.env
 ```
 
-Set `OPENAI_API_KEY=...` (and `SUPPORT_EMAIL=` for the Upgrade dialog). Save
-with Ctrl+O, exit with Ctrl+X, then deploy:
+Set `OPENAI_API_KEY=...`, `GOOGLE_CLIENT_ID=...` (from the next section) and
+`SUPPORT_EMAIL=` for the Upgrade dialog. Save with Ctrl+O, exit with Ctrl+X,
+then deploy:
 
 ```bash
 bash /opt/rag/app/llama_index_web_app/deploy/deploy.sh
@@ -90,9 +91,28 @@ bash /opt/rag/app/llama_index_web_app/deploy/deploy.sh
 It ends with `Healthy: {"index_server":true,"status":"ok"}`. Open
 `https://yourdomain.com`; Caddy gets the HTTPS certificate on the first visit.
 
+### Set up Google sign-in
+
+People create their account and sign in with Google, so the site needs a
+Google OAuth client ID (free):
+
+1. Open <https://console.cloud.google.com>, create a project (e.g. "RAG Web App").
+2. **Google Auth Platform → Branding**: app name, support email, your logo
+   (optional), and links to your privacy policy and terms. Under **Authorized
+   domains** add `yourdomain.com`.
+3. **Audience**: choose **External**, then **Publish app**. The app only asks
+   for name and email (`openid`, `email`, `profile`), which don't need Google's
+   review.
+4. **Clients → Create client → Web application**. Under **Authorized JavaScript
+   origins** add `https://yourdomain.com` (and `http://localhost:3000` plus
+   `http://localhost` if you also test on your computer). No redirect URI is
+   needed.
+5. Copy the **Client ID** (ends in `.apps.googleusercontent.com`) into
+   `GOOGLE_CLIENT_ID=` in `server/.env` and run `deploy.sh` again.
+
 ## 7. Create your account and make it Pro
 
-Sign up on the site, then give your account unlimited access:
+Sign in on the site with Google, then give your account unlimited access:
 
 ```bash
 cd /opt/rag/app/llama_index_web_app/server
@@ -147,5 +167,7 @@ sudo -u rag .venv/bin/python manage_users.py list
 | HTTPS certificate error | DNS must resolve first; `journalctl -u caddy -n 50` |
 | "Can't reach the server" in the app | `curl http://127.0.0.1:5601/health`; `journalctl -u rag-api -u rag-index -n 50` |
 | AI answers fail | `OPENAI_API_KEY` in `server/.env`, OpenAI billing and limits |
+| "Sign-in isn't available right now" | `GOOGLE_CLIENT_ID` is empty in `server/.env` |
+| Google button says the origin isn't allowed | Add `https://yourdomain.com` to the client's Authorized JavaScript origins (changes can take a few minutes) |
 | Word to PDF fails | `soffice --version` (LibreOffice installed by setup) |
 | Deploy says "didn't become healthy" | It prints recent logs; most often a missing/invalid OpenAI key |

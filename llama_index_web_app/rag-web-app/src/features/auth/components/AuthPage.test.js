@@ -9,7 +9,8 @@ const LoggedInAs = () => {
   return user ? <p>Logged in as {user.email}</p> : null;
 };
 
-const renderAuthPage = (props = {}) =>
+// Renders the page and waits for the email form (shown once /auth/config answers)
+const renderAuthPage = async (props = {}) => {
   renderAt(
     <AuthProvider>
       <AuthPage {...props} />
@@ -17,6 +18,8 @@ const renderAuthPage = (props = {}) =>
     </AuthProvider>,
     '/login'
   );
+  await screen.findByLabelText('Email');
+};
 
 const fillIn = (email, password) => {
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: email } });
@@ -28,7 +31,7 @@ test('signs in with email and password', async () => {
     '/auth/me': { status: 401 },
     '/auth/login': { body: { user: makeUser() } },
   });
-  renderAuthPage();
+  await renderAuthPage();
 
   fillIn('me@example.com ', 'password-123');
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -43,7 +46,7 @@ test('shows the server error for a wrong password', async () => {
     '/auth/me': { status: 401 },
     '/auth/login': { status: 401, body: { error: 'Incorrect email or password.' } },
   });
-  renderAuthPage();
+  await renderAuthPage();
 
   fillIn('me@example.com', 'wrong-password');
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -54,7 +57,7 @@ test('shows the server error for a wrong password', async () => {
 
 test('sign-up checks the password length before calling the server', async () => {
   const fetchMock = mockFetch({ '/auth/me': { status: 401 } });
-  renderAuthPage({ initialMode: 'signup' });
+  await renderAuthPage({ initialMode: 'signup' });
 
   expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
   fillIn('new@example.com', 'short');
@@ -69,7 +72,7 @@ test('sign-up creates the account', async () => {
     '/auth/me': { status: 401 },
     '/auth/signup': { status: 201, body: { user: makeUser() } },
   });
-  renderAuthPage({ initialMode: 'signup' });
+  await renderAuthPage({ initialMode: 'signup' });
 
   fillIn('me@example.com', 'password-123');
   fireEvent.click(screen.getByRole('button', { name: 'Start free trial' }));
@@ -78,10 +81,23 @@ test('sign-up creates the account', async () => {
 });
 
 test('explains when the server is unreachable', async () => {
-  global.fetch = jest.fn((url) =>
-    url.endsWith('/auth/me') ? Promise.resolve({ ok: false, status: 401 }) : Promise.reject(new TypeError('Failed to fetch'))
+  global.fetch = jest.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+  renderAt(
+    <AuthProvider>
+      <AuthPage />
+    </AuthProvider>,
+    '/login'
   );
-  renderAuthPage();
+  expect(await screen.findByRole('alert')).toHaveTextContent("Can't reach the server");
+});
+
+test('explains when the connection drops while signing in', async () => {
+  const fetchMock = mockFetch({ '/auth/me': { status: 401 } });
+  const answer = fetchMock.getMockImplementation();
+  fetchMock.mockImplementation((url, options) =>
+    url.endsWith('/auth/login') ? Promise.reject(new TypeError('Failed to fetch')) : answer(url, options)
+  );
+  await renderAuthPage();
 
   fillIn('me@example.com', 'password-123');
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -92,7 +108,7 @@ test('explains when the server is unreachable', async () => {
 test('switches between tabs and toggles password visibility', async () => {
   mockFetch({ '/auth/me': { status: 401 } });
   const onBack = jest.fn();
-  renderAuthPage({ onBack });
+  await renderAuthPage({ onBack });
 
   fireEvent.click(screen.getByRole('tab', { name: 'Create account' }));
   expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();

@@ -11,20 +11,23 @@ const fillIn = (email, password) => {
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: password } });
 };
 
-const renderAuthPage = (props = {}) =>
+// Renders the page and waits for the email form (shown once /auth/config answers)
+const renderAuthPage = async (props = {}) => {
   renderAt(
     <AuthProvider>
       <AuthPage {...props} />
     </AuthProvider>,
     '/login'
   );
+  await screen.findByLabelText('Email');
+};
 
 const posted = (fetchMock, path) =>
   fetchMock.mock.calls.filter(([url]) => url.endsWith(path)).map(([, options]) => JSON.parse(options.body));
 
 test('checks the email format before calling the server', async () => {
   const fetchMock = mockFetch({ '/auth/me': { status: 401 } });
-  renderAuthPage();
+  await renderAuthPage();
 
   fillIn('me@example', 'password-123');
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -35,7 +38,7 @@ test('checks the email format before calling the server', async () => {
 
 test('the sign-up checklist follows what is typed', async () => {
   const fetchMock = mockFetch({ '/auth/me': { status: 401 } });
-  renderAuthPage({ initialMode: 'signup' });
+  await renderAuthPage({ initialMode: 'signup' });
 
   const checks = screen.getByRole('list', { name: 'Password requirements' });
   const item = (name) => within(checks).getAllByRole('listitem').find((li) => li.textContent.startsWith(name));
@@ -59,7 +62,7 @@ test('an email that already has an account offers to sign in instead', async () 
     '/auth/me': { status: 401 },
     '/auth/signup': { status: 409, body: { error: 'An account with this email already exists.', code: 'email_taken' } },
   });
-  renderAuthPage({ initialMode: 'signup' });
+  await renderAuthPage({ initialMode: 'signup' });
 
   fillIn('me@example.com', 'password-123');
   fireEvent.click(screen.getByRole('button', { name: 'Start free trial' }));
@@ -76,7 +79,7 @@ test('forgot password explains how to get a temporary password', async () => {
     '/auth/me': { status: 401 },
     '/plans': { body: { trial_days: 7, support_email: 'help@example.com' } },
   });
-  renderAuthPage();
+  await renderAuthPage();
 
   const toggle = screen.getByRole('button', { name: 'Forgot password?' });
   expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -86,9 +89,9 @@ test('forgot password explains how to get a temporary password', async () => {
   expect(note).toHaveTextContent('temporary password');
 });
 
-test('warns when Caps Lock is on', () => {
+test('warns when Caps Lock is on', async () => {
   mockFetch({ '/auth/me': { status: 401 } });
-  renderAuthPage();
+  await renderAuthPage();
 
   const password = screen.getByLabelText('Password');
   fireEvent.keyDown(password, { key: 'A', getModifierState: () => true });
@@ -126,6 +129,7 @@ test('logging in from a tool page returns to that tool', async () => {
 
   fireEvent.click(await screen.findByRole('button', { name: 'Header log in' }));
   expect(screen.getByTestId('current-path')).toHaveTextContent('/login');
+  await screen.findByLabelText('Email');
 
   fillIn('me@example.com', 'password-123');
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -146,6 +150,7 @@ test('logging in from the homepage goes to the documents', async () => {
   );
 
   fireEvent.click((await screen.findAllByRole('button', { name: 'Log in' }))[0]);
+  await screen.findByLabelText('Email');
   fillIn('me@example.com', 'password-123');
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
   await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/app/documents'));

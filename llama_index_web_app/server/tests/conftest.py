@@ -24,6 +24,9 @@ os.environ.update(
     INDEX_SERVER_AUTHKEY="test-authkey",
     ALLOWED_ORIGINS="http://localhost:3000",
     OPENAI_API_KEY="sk-test-not-used",
+    GOOGLE_CLIENT_ID="test-client.apps.googleusercontent.com",
+    # Most tests create accounts with email + password; test_google_sign_in.py covers the default
+    PASSWORD_LOGIN_ENABLED="true",
 )
 
 

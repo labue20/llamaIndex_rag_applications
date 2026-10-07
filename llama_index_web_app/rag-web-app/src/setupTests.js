@@ -28,6 +28,8 @@ jest.mock('pdfjs-dist/webpack', () => mockPdfjs(), { virtual: true });
 // The app logs a lot of debugging output with console.log; keep test output readable
 beforeEach(() => {
   jest.spyOn(console, 'log').mockImplementation(() => {});
+  // Each test's fake server says how sign-in works; don't reuse an earlier answer
+  require('./features/auth/hooks/useAuthConfig').resetAuthConfigCache();
 });
 afterEach(() => {
   jest.restoreAllMocks();

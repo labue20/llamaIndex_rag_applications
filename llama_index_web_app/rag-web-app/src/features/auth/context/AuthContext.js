@@ -109,6 +109,12 @@ export const AuthProvider = ({ children }) => {
     goAfterAuth();
   }, [goAfterAuth]);
 
+  // Sign in (or sign up, starting the free trial) with the ID token from Google's button
+  const loginWithGoogle = useCallback(async (credential) => {
+    setUser(await postAuth('/auth/google', { credential }));
+    goAfterAuth();
+  }, [goAfterAuth]);
+
   // Other devices are signed out; this one stays signed in
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     setUser(await postAuth('/auth/change-password', {
@@ -148,6 +154,7 @@ export const AuthProvider = ({ children }) => {
       isCheckingSession,
       login,
       signup,
+      loginWithGoogle,
       logout,
       changePassword,
       refreshUser,
@@ -159,7 +166,7 @@ export const AuthProvider = ({ children }) => {
       tryTool,
       pathAfterAuth,
     }),
-    [user, isCheckingSession, login, signup, logout, changePassword, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade,
+    [user, isCheckingSession, login, signup, loginWithGoogle, logout, changePassword, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade,
       showHome, showAuth, tryTool, pathAfterAuth]
   );
 
