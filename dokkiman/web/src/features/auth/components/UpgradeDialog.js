@@ -1,6 +1,7 @@
 /**
  * Upgrade Dialog
- * Explains the trial / Pro plan and how to upgrade (manual until payments exist)
+ * Explains the user's plan (trial, Free, Basic or Pro) and how to upgrade:
+ * Pro first, with Basic as the low-cost option (by email without online payments)
  */
 
 import React, { useEffect, useState } from 'react';
@@ -8,7 +9,7 @@ import Icon from '../../../shared/components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { usePlanInfo } from '../hooks/usePlanInfo';
-import { formatPrice, proUpgradeMailto } from '../../pricing/pricing';
+import { formatPrice, upgradeMailto } from '../../pricing/pricing';
 import { startCheckout } from '../../pricing/billing';
 
 // '1 question', '10 questions'
@@ -24,17 +25,18 @@ const PRO_BENEFITS = [
 const UpgradeDialog = () => {
   const { user, isUpgradeOpen, closeUpgrade, showAuth } = useAuth();
   const planInfo = usePlanInfo();
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  // Which plan's checkout is opening ('basic' | 'pro')
+  const [redirecting, setRedirecting] = useState(null);
   const [checkoutError, setCheckoutError] = useState('');
 
-  const upgradeOnline = async () => {
+  const upgradeOnline = async (planId) => {
     setCheckoutError('');
-    setIsRedirecting(true);
+    setRedirecting(planId);
     try {
-      await startCheckout('monthly');
+      await startCheckout('monthly', planId);
     } catch (err) {
       setCheckoutError(err.message);
-      setIsRedirecting(false);
+      setRedirecting(null);
     }
   };
 
@@ -96,28 +98,36 @@ const UpgradeDialog = () => {
 
   const plan = user.plan || {};
   const isFree = plan.state === 'free';
+  const isBasic = plan.state === 'basic';
   const isPro = plan.state === 'pro';
   const supportEmail = plan.support_email;
+  const paidUntil = plan.pro_until
+    ? new Date(plan.pro_until).toLocaleDateString(undefined, { dateStyle: 'long' })
+    : null;
 
   let title = 'Upgrade to Pro';
   let intro = `You're on the free trial with ${plan.trial_days_left} ${plan.trial_days_left === 1 ? 'day' : 'days'} left. Pro removes the limits.`;
   if (isFree) {
     title = "You're on the Free plan";
     intro = 'Your free trial has ended, and your account is on the Free plan. Upgrade to Pro to remove the limits.';
+  } else if (isBasic) {
+    title = "You're on Basic";
+    intro = 'Upgrade to Pro to remove the limits on documents and questions.';
   } else if (isPro) {
     title = "You're on Pro";
-    intro = plan.pro_until
-      ? `Thanks for upgrading! Your Pro plan is paid until ${new Date(plan.pro_until).toLocaleDateString(undefined, { dateStyle: 'long' })}. After that your account moves to the Free plan unless you renew.`
+    intro = paidUntil
+      ? `Thanks for upgrading! Your Pro plan is paid until ${paidUntil}. After that your account moves to the Free plan unless you renew.`
       : 'Your account has no limits. Thanks for upgrading!';
   }
+  const limitsLabel = isFree ? 'Free plan' : isBasic ? 'Basic' : 'Trial';
+  // Basic subscribers switch plan in Stripe's billing page (checkout sends them there)
+  const switchesInPortal = isBasic && Boolean(plan.billing);
 
-  const mailto = proUpgradeMailto({
-    supportEmail,
-    billing: 'monthly',
-    monthly: planInfo.pro_price_monthly,
-    yearly: planInfo.pro_price_yearly,
-    accountEmail: user.email,
+  const mailtoFor = (planName, monthly, yearly) => upgradeMailto({
+    supportEmail, planName, billing: 'monthly', monthly, yearly, accountEmail: user.email,
   });
+  const mailto = mailtoFor('Pro', planInfo.pro_price_monthly, planInfo.pro_price_yearly);
+  const basicMailto = mailtoFor('Basic', planInfo.basic_price_monthly, planInfo.basic_price_yearly);
 
   return (
     <div className='upgrade-overlay' onClick={closeUpgrade} data-testid='upgrade-overlay'>
@@ -150,7 +160,7 @@ const UpgradeDialog = () => {
 
             {plan.limits && (
               <p className='upgrade-dialog__limits'>
-                {isFree ? 'Free plan' : 'Trial'} limits: {count(plan.limits.max_documents, 'document')} and{' '}
+                {limitsLabel} limits: {count(plan.limits.max_documents, 'document')} and{' '}
                 {count(plan.limits.max_questions_per_day, 'question')} a day
                 {plan.usage ? ` (${plan.usage.questions_today} used today)` : ''}
                 {plan.limits.max_conversions_per_day
@@ -162,6 +172,13 @@ const UpgradeDialog = () => {
             <p className='upgrade-dialog__price'>
               Pro is {formatPrice(planInfo.pro_price_monthly)} a month, or {formatPrice(planInfo.pro_price_yearly)} a
               year.{' '}
+              {!isBasic && (
+                <>
+                  Or start smaller with Basic at {formatPrice(planInfo.basic_price_monthly)} a month:{' '}
+                  {count(planInfo.basic_max_documents, 'document')} and{' '}
+                  {count(planInfo.basic_max_questions_per_day, 'question')} a day.{' '}
+                </>
+              )}
               <Link to='/pricing' onClick={closeUpgrade}>Compare plans</Link>
             </p>
 
@@ -170,20 +187,41 @@ const UpgradeDialog = () => {
                 <button
                   type='button'
                   className='upgrade-dialog__cta'
-                  onClick={upgradeOnline}
-                  disabled={isRedirecting}
+                  onClick={() => upgradeOnline('pro')}
+                  disabled={Boolean(redirecting)}
                   autoFocus
                 >
-                  {isRedirecting
-                    ? 'Opening secure checkout…'
-                    : `Upgrade to Pro · ${formatPrice(planInfo.pro_price_monthly)}/month`}
+                  {redirecting === 'pro'
+                    ? (switchesInPortal ? 'Opening billing…' : 'Opening secure checkout…')
+                    : switchesInPortal
+                      ? 'Switch to Pro'
+                      : `Upgrade to Pro · ${formatPrice(planInfo.pro_price_monthly)}/month`}
                 </button>
+                {!isBasic && (
+                  <button
+                    type='button'
+                    className='upgrade-dialog__secondary'
+                    onClick={() => upgradeOnline('basic')}
+                    disabled={Boolean(redirecting)}
+                  >
+                    {redirecting === 'basic'
+                      ? 'Opening secure checkout…'
+                      : `Get Basic · ${formatPrice(planInfo.basic_price_monthly)}/month`}
+                  </button>
+                )}
                 {checkoutError && <p className='upgrade-dialog__error' role='alert'>{checkoutError}</p>}
               </>
             ) : mailto ? (
-              <a className='upgrade-dialog__cta' href={mailto} autoFocus>
-                Contact us to upgrade
-              </a>
+              <>
+                <a className='upgrade-dialog__cta' href={mailto} autoFocus>
+                  Contact us to upgrade
+                </a>
+                {!isBasic && basicMailto && (
+                  <a className='upgrade-dialog__secondary' href={basicMailto}>
+                    Ask about Basic · {formatPrice(planInfo.basic_price_monthly)}/month
+                  </a>
+                )}
+              </>
             ) : (
               <p className='upgrade-dialog__contact'>
                 To upgrade, contact the site administrator and mention your account email,{' '}

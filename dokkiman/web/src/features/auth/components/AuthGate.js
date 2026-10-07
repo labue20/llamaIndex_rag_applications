@@ -5,7 +5,7 @@
  *   /login         sign in
  *   /signup        create an account
  *   /app/<tool>    the app (the tools work for guests too; see routes.js)
- *   /pricing       Free and Pro plans
+ *   /pricing       Free, Basic and Pro plans
  *   /privacy       Privacy Policy
  *   /terms         Terms of Service
  */

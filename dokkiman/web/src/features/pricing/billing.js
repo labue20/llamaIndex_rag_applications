@@ -30,12 +30,12 @@ const postForUrl = async (path, body, fallbackMessage) => {
   browser.go(data.url);
 };
 
-// billing: 'monthly' | 'yearly'
-export const startCheckout = async (billing) => {
+// billing: 'monthly' | 'yearly'; plan: 'basic' | 'pro'
+export const startCheckout = async (billing, plan = 'pro') => {
   try {
-    await postForUrl('/billing/checkout', { billing }, "Couldn't start checkout. Please try again.");
+    await postForUrl('/billing/checkout', { plan, billing }, "Couldn't start checkout. Please try again.");
   } catch (err) {
-    // Already subscribed: open billing management instead
+    // Already subscribed: open billing management instead (where the plan can be changed)
     if (err.code === 'already_subscribed') return openBillingPortal();
     throw err;
   }

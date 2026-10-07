@@ -65,7 +65,7 @@ test('a plan limit (402) refreshes the plan and opens the dialog', async () => {
   expect(dialog).toHaveTextContent(
     'Free plan limits: 3 documents and 10 questions a day (4 used today), 20 file conversions a day.'
   );
-  expect(dialog).toHaveTextContent('Pro is $9 a month, or $90 a year.');
+  expect(dialog).toHaveTextContent('Pro is $9.99 a month, or $90 a year.');
   const contact = screen.getByRole('link', { name: 'Contact us to upgrade' });
   expect(contact.getAttribute('href')).toMatch(/^mailto:help@example\.com\?/);
   expect(decodeURIComponent(contact.getAttribute('href'))).toContain('Account email: me@example.com');

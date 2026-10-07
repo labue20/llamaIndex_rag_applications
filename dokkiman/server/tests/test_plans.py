@@ -1,4 +1,4 @@
-"""Free trial, caps, Pro plan and the manage_users admin tool."""
+"""Free trial, caps, Basic and Pro plans and the manage_users admin tool."""
 
 import io
 import sqlite3
@@ -58,6 +58,10 @@ def test_public_plan_terms(client):
         "free_max_documents": config.FREE_MAX_DOCUMENTS,
         "free_max_questions_per_day": config.FREE_MAX_QUESTIONS_PER_DAY,
         "free_conversions_per_day": config.FREE_CONVERSIONS_PER_DAY,
+        "basic_price_monthly": config.BASIC_PRICE_MONTHLY,
+        "basic_price_yearly": config.BASIC_PRICE_YEARLY,
+        "basic_max_documents": config.BASIC_MAX_DOCUMENTS,
+        "basic_max_questions_per_day": config.BASIC_MAX_QUESTIONS_PER_DAY,
         "pro_price_monthly": config.PRO_PRICE_MONTHLY,
         "pro_price_yearly": config.PRO_PRICE_YEARLY,
         "pro_fair_use_questions_per_day": config.PRO_FAIR_USE_QUESTIONS_PER_DAY,
@@ -236,8 +240,47 @@ def test_public_plan_terms_include_free_plan_and_prices(client):
     assert info["free_max_documents"] == config.FREE_MAX_DOCUMENTS
     assert info["free_max_questions_per_day"] == config.FREE_MAX_QUESTIONS_PER_DAY
     assert info["free_conversions_per_day"] == config.FREE_CONVERSIONS_PER_DAY
-    assert info["pro_price_monthly"] == 9
+    assert info["pro_price_monthly"] == 9.99
     assert info["pro_price_yearly"] == 90
+    assert info["basic_price_monthly"] == 1.99
+    assert info["basic_price_yearly"] == 19.99
+
+
+# --- Basic plan --------------------------------------------------------------
+
+def test_basic_has_its_own_caps_and_unlimited_conversions(signup, fresh_db, monkeypatch, make_pdf):
+    monkeypatch.setattr(plans, "BASIC_MAX_DOCUMENTS", 2)
+    monkeypatch.setattr(plans, "BASIC_MAX_QUESTIONS_PER_DAY", 1)
+    monkeypatch.setattr(plans, "FREE_CONVERSIONS_PER_DAY", 0)
+    user_client = signup()
+    _set_user(fresh_db, plan="basic", trial_ends_at=EXPIRED, pro_until="2099-01-01T00:00:00+00:00")
+
+    plan = user_client.get("/auth/me").get_json()["user"]["plan"]
+    assert plan["state"] == "basic"
+    assert plan["limits"] == {"max_documents": 2, "max_questions_per_day": 1, "max_conversions_per_day": None}
+    assert plan["usage"] == {"questions_today": 0, "conversions_today": 0}
+
+    doc_id = _upload(user_client, "a.pdf").get_json()["doc_id"]
+    assert _upload(user_client, "b.pdf").status_code == 200
+    blocked_upload = _upload(user_client, "c.pdf")
+    assert blocked_upload.status_code == 402
+    assert "Basic plan allows up to 2 documents" in blocked_upload.get_json()["error"]
+    assert "upgrade to Pro" in blocked_upload.get_json()["error"]
+
+    assert _chat(user_client, doc_id).status_code == 200
+    blocked_chat = _chat(user_client, doc_id)
+    assert blocked_chat.status_code == 402
+    assert blocked_chat.get_json()["code"] == "question_limit"
+    assert "Basic plan" in blocked_chat.get_json()["error"]
+
+    # Conversions aren't capped on Basic, even with the Free plan's cap at 0
+    assert _split(user_client, make_pdf()).status_code == 200
+
+
+def test_basic_ends_with_its_paid_period_and_the_account_moves_to_free(signup, fresh_db):
+    user_client = signup()
+    _set_user(fresh_db, plan="basic", trial_ends_at=EXPIRED, pro_until=EXPIRED)
+    assert user_client.get("/auth/me").get_json()["user"]["plan"]["state"] == "free"
 
 
 # --- Pro paid periods and fair use --------------------------------------------
@@ -348,6 +391,22 @@ def test_cli_upgrade_downgrade_and_list(signup, monkeypatch, capsys):
 
     _run_cli(monkeypatch, capsys, "downgrade", "me@example.com")
     assert plans.plan_status(user_id)["state"] == "trial"
+
+
+def test_cli_upgrade_to_basic_and_then_pro(signup, monkeypatch, capsys):
+    user_id = signup("me@example.com").user["id"]
+
+    out = _run_cli(monkeypatch, capsys, "upgrade", "me@example.com", "--plan", "basic", "--months", "1")
+    assert "is on Basic until" in out
+    basic_end = plans.plan_status(user_id)["pro_until"]
+    assert plans.plan_status(user_id)["state"] == "basic"
+    assert f"basic until {basic_end[:10]}" in _run_cli(monkeypatch, capsys, "list")
+
+    # Moving to Pro starts a new period today rather than adding to the Basic one
+    _run_cli(monkeypatch, capsys, "upgrade", "me@example.com", "--months", "1")
+    status = plans.plan_status(user_id)
+    assert status["state"] == "pro"
+    assert status["pro_until"][:10] == basic_end[:10]
 
 
 def test_cli_extend_trial_counts_from_today_when_expired(signup, fresh_db, monkeypatch, capsys):

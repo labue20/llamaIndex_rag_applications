@@ -1,15 +1,17 @@
 """
-Online payments for Pro with Stripe (subscriptions that renew automatically).
+Online payments for Basic and Pro with Stripe (subscriptions that renew automatically).
 
-- POST /billing/checkout  starts Stripe Checkout for the monthly or yearly price
+- POST /billing/checkout  starts Stripe Checkout for a plan's monthly or yearly price
 - POST /billing/portal    opens Stripe's customer portal (cancel, change card,
-                          switch monthly/yearly, invoices)
+                          switch monthly/yearly or Basic/Pro, invoices)
 - POST /billing/webhook   Stripe tells us about payments, renewals and
-                          cancellations; this is what actually grants Pro
+                          cancellations; this is what actually grants the plan
 
-Pro access is the users.pro_until date (see plans.py): each paid period sets
-it to the period's end plus a short grace, so a renewal that's a little late
-doesn't interrupt Pro, and a cancelled subscription simply runs out.
+Paid access is users.plan plus the users.pro_until date (see plans.py): each
+paid period sets it to the period's end plus a short grace, so a renewal that's
+a little late doesn't interrupt the plan, and a cancelled subscription simply
+runs out. The plan comes from the subscribed price, so switching between Basic
+and Pro in the portal applies itself.
 Events are mapped to accounts through the Stripe customer ID we store.
 """
 
@@ -22,13 +24,18 @@ from flask import Blueprint, g, jsonify, request
 
 import config
 from db import connect_db
-from plans import PLAN_PRO, STATE_PRO, plan_status
+from plans import PAID_PLANS, PLAN_BASIC, PLAN_PRO, plan_status
 
 log = logging.getLogger(__name__)
 
 billing_bp = Blueprint("billing", __name__, url_prefix="/billing")
 
-LOOKUP_KEYS = {"monthly": "pro_monthly", "yearly": "pro_yearly"}
+# Stripe price lookup keys, by plan and billing period (created by stripe_setup.py)
+LOOKUP_KEYS = {
+    PLAN_BASIC: {"monthly": "basic_monthly", "yearly": "basic_yearly"},
+    PLAN_PRO: {"monthly": "pro_monthly", "yearly": "pro_yearly"},
+}
+BILLING_PERIODS = ("monthly", "yearly")
 # Tags our Checkout sessions in the Stripe Dashboard
 INTEGRATION_IDENTIFIER = "dokkiman-pro-upgrade-vmvqlnrf"
 # A renewal's webhook can arrive a little after the period ends
@@ -103,14 +110,25 @@ def _error(message, status, code=None):
     return jsonify(body), status
 
 
-def _price_id(billing):
-    """The Stripe price for 'monthly' or 'yearly' (created by stripe_setup.py)."""
-    if billing not in _price_ids:
-        prices = _client().v1.prices.list({"lookup_keys": [LOOKUP_KEYS[billing]], "active": True, "limit": 1})
+def _price_id(plan, billing):
+    """The Stripe price for a plan's 'monthly' or 'yearly' billing (created by stripe_setup.py)."""
+    lookup_key = LOOKUP_KEYS[plan][billing]
+    if lookup_key not in _price_ids:
+        prices = _client().v1.prices.list({"lookup_keys": [lookup_key], "active": True, "limit": 1})
         if not prices.data:
             return None
-        _price_ids[billing] = prices.data[0].id
-    return _price_ids[billing]
+        _price_ids[lookup_key] = prices.data[0].id
+    return _price_ids[lookup_key]
+
+
+def _plan_of_price(price):
+    """The plan a subscribed price is for: its metadata (set by stripe_setup.py),
+    else its lookup key. Prices from before Basic existed have neither and are Pro."""
+    plan = (price.get("metadata") or {}).get("plan")
+    if plan in PAID_PLANS:
+        return plan
+    lookup_key = price.get("lookup_key") or ""
+    return PLAN_BASIC if lookup_key.startswith(f"{PLAN_BASIC}_") else PLAN_PRO
 
 
 def _customer_id_for(user):
@@ -140,18 +158,23 @@ def checkout():
     user = _signed_in_user()
     if user is None:
         return _error("Sign in to upgrade.", 401)
-    billing = (request.get_json(silent=True) or {}).get("billing", "monthly")
-    if billing not in LOOKUP_KEYS:
+    body = request.get_json(silent=True) or {}
+    plan = body.get("plan", PLAN_PRO)
+    billing = body.get("billing", "monthly")
+    if plan not in LOOKUP_KEYS:
+        return _error("Choose the Basic or Pro plan.", 400)
+    if billing not in BILLING_PERIODS:
         return _error("Choose monthly or yearly billing.", 400)
 
+    # One subscription per account: changing plan or period happens in the portal
     info = billing_info(user["id"])
-    if plan_status(user["id"])["state"] == STATE_PRO and info and info["has_subscription"]:
-        return _error("You already have Pro. Use Manage billing to change it.", 409, "already_subscribed")
+    if plan_status(user["id"])["state"] in PAID_PLANS and info and info["has_subscription"]:
+        return _error("You already have a paid plan. Use Manage billing to change it.", 409, "already_subscribed")
 
     try:
-        price_id = _price_id(billing)
+        price_id = _price_id(plan, billing)
         if not price_id:
-            log.error("No Stripe price with lookup key %s; run stripe_setup.py", LOOKUP_KEYS[billing])
+            log.error("No Stripe price with lookup key %s; run stripe_setup.py", LOOKUP_KEYS[plan][billing])
             return _error("Online payments aren't set up yet.", 503)
         session = _client().v1.checkout.sessions.create({
             "mode": "subscription",
@@ -235,11 +258,11 @@ def sync_subscription(subscription_id):
             "cancel_at_period_end": int(bool(subscription.get("cancel_at_period_end"))),
         }
         if status in ACTIVE_STATUSES and period_end:
-            fields["plan"] = PLAN_PRO
+            fields["plan"] = _plan_of_price(items[0]["price"])
             ends = datetime.fromtimestamp(period_end, timezone.utc) + RENEWAL_GRACE
             fields["pro_until"] = ends.isoformat()
         elif status in ENDED_STATUSES:
-            # Pro ends now: the account is back on its trial, or Free
+            # The paid plan ends now: the account is back on its trial, or Free
             fields["pro_until"] = datetime.now(timezone.utc).isoformat()
         assignments = ", ".join(f"{name} = ?" for name in fields)
         conn.execute(f"UPDATE users SET {assignments} WHERE id = ?", (*fields.values(), row["id"]))

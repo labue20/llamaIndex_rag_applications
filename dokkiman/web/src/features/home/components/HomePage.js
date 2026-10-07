@@ -249,7 +249,7 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
           <p>
             Full access to every tool, up to {planInfo.trial_max_documents} documents and{' '}
             {planInfo.trial_max_questions_per_day} questions a day. Then keep going on the Free plan, or
-            upgrade to Pro. No credit card needed.
+            upgrade to Basic or Pro. No credit card needed.
           </p>
           <button type='button' className='home-btn home-btn--light home-btn--large' onClick={onSignup}>
             Start free trial

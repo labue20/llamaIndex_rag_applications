@@ -112,7 +112,7 @@ Google OAuth client ID (free):
 
 ### Set up payments with Stripe (optional)
 
-Without Stripe, "Upgrade to Pro" emails you and you upgrade people with
+Without Stripe, "Upgrade to Basic/Pro" emails you and you upgrade people with
 `manage_users.py`. To take payments online:
 
 1. In the Stripe Dashboard (live mode), create a **restricted key** with:
@@ -123,8 +123,9 @@ Without Stripe, "Upgrade to Pro" emails you and you upgrade people with
    `STRIPE_MODE=live`, and set `PUBLIC_APP_URL=https://yourdomain.com`.
    (Without `STRIPE_MODE=live` the app uses `STRIPE_SECRET_TEST_KEY`, so a
    development machine never charges real cards.)
-3. Run the one-time setup, which creates the Pro product and prices, the
-   customer portal settings and the webhook:
+3. Run the one-time setup, which creates the Basic and Pro products and prices,
+   the customer portal settings (including switching between Basic and Pro) and
+   the webhook:
    ```bash
    cd /opt/dokkiman/app/dokkiman/server
    sudo -u dokkiman .venv/bin/python stripe_setup.py --webhook-url https://yourdomain.com/api/billing/webhook
@@ -155,6 +156,7 @@ sudo -u dokkiman .venv/bin/python manage_users.py list
 | Run a backup now | `systemctl start dokkiman-backup` |
 | Manage accounts | `cd .../server && sudo -u dokkiman .venv/bin/python manage_users.py --help` |
 | Someone paid for Pro | `manage_users.py upgrade them@example.com --months 1` (or `--years 1`). Renewing early adds to their current end date; when it passes, they move to Free automatically |
+| Someone paid for Basic | `manage_users.py upgrade them@example.com --plan basic --months 1` |
 
 ## Backups
 
@@ -192,7 +194,7 @@ sudo -u dokkiman .venv/bin/python manage_users.py list
 | HTTPS certificate error | DNS must resolve first; `journalctl -u caddy -n 50` |
 | "Can't reach the server" in the app | `curl http://127.0.0.1:5601/health`; `journalctl -u dokkiman-api -u dokkiman-index -n 50` |
 | AI answers fail | `OPENAI_API_KEY` in `server/.env`, OpenAI billing and limits |
-| Pro doesn't switch on after paying | Stripe Dashboard → Developers → Webhooks: the endpoint's recent deliveries; `STRIPE_WEBHOOK_SECRET` must match that endpoint |
+| Basic or Pro doesn't switch on after paying | Stripe Dashboard → Developers → Webhooks: the endpoint's recent deliveries; `STRIPE_WEBHOOK_SECRET` must match that endpoint |
 | "Sign-in isn't available right now" | `GOOGLE_CLIENT_ID` is empty in `server/.env` |
 | Google button says the origin isn't allowed | Add `https://yourdomain.com` to the client's Authorized JavaScript origins (changes can take a few minutes) |
 | Word to PDF fails | `soffice --version` (LibreOffice installed by setup) |
