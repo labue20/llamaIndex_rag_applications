@@ -387,7 +387,7 @@ def _run_cli(monkeypatch, capsys, *args):
 def test_cli_upgrade_downgrade_and_list(signup, monkeypatch, capsys):
     user_id = signup("me@example.com").user["id"]
 
-    assert "trial, 7 day(s) left" in _run_cli(monkeypatch, capsys, "list")
+    assert f"trial, {config.TRIAL_DAYS} day(s) left" in _run_cli(monkeypatch, capsys, "list")
 
     _run_cli(monkeypatch, capsys, "upgrade", "ME@example.com")
     assert plans.plan_status(user_id)["state"] == "pro"
