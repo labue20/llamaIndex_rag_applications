@@ -161,6 +161,11 @@ const PrivacyPolicy = ({ plan }) => (
         </li>
         <li><strong>Server access logs:</strong> rotated automatically, with older logs deleted.</li>
         <li>
+          <strong>Backups:</strong> we keep encrypted backups so your data isn&apos;t lost if something goes
+          wrong. When you delete something, it&apos;s removed from the service straight away and from all backups
+          within 40 days.
+        </li>
+        <li>
           <strong>E-Sign audit records:</strong> kept as evidence of the signing. You can ask us to delete
           them.
         </li>
