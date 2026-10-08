@@ -1,7 +1,8 @@
 """
 Online payments for Basic and Pro with Stripe (subscriptions that renew automatically).
 
-- POST /billing/checkout  starts Stripe Checkout for a plan's monthly or yearly price
+- POST /billing/checkout  starts Stripe Checkout for a plan's monthly price (or
+                          yearly, with YEARLY_BILLING)
 - POST /billing/portal    opens Stripe's customer portal (cancel, change card,
                           switch monthly/yearly or Basic/Pro, invoices)
 - POST /billing/webhook   Stripe tells us about payments, renewals and
@@ -35,7 +36,11 @@ LOOKUP_KEYS = {
     PLAN_BASIC: {"monthly": "basic_monthly", "yearly": "basic_yearly"},
     PLAN_PRO: {"monthly": "pro_monthly", "yearly": "pro_yearly"},
 }
-BILLING_PERIODS = ("monthly", "yearly")
+
+
+def billing_periods():
+    """The billing periods on offer: monthly, plus yearly with YEARLY_BILLING."""
+    return ("monthly", "yearly") if config.YEARLY_BILLING else ("monthly",)
 # Tags our Checkout sessions in the Stripe Dashboard
 INTEGRATION_IDENTIFIER = "dokkiman-pro-upgrade-vmvqlnrf"
 # A renewal's webhook can arrive a little after the period ends
@@ -163,8 +168,9 @@ def checkout():
     billing = body.get("billing", "monthly")
     if plan not in LOOKUP_KEYS:
         return _error("Choose the Basic or Pro plan.", 400)
-    if billing not in BILLING_PERIODS:
-        return _error("Choose monthly or yearly billing.", 400)
+    if billing not in billing_periods():
+        return _error("Choose monthly or yearly billing." if config.YEARLY_BILLING
+                      else "Only monthly billing is available.", 400)
 
     # One subscription per account: changing plan or period happens in the portal
     info = billing_info(user["id"])

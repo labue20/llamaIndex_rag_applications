@@ -20,6 +20,7 @@ const DEFAULT_PLAN_INFO = {
   pro_price_monthly: 9.99,
   pro_price_yearly: 90,
   pro_fair_use_questions_per_day: 150,
+  yearly_billing: false,
   trial_signature_requests_per_month: 3,
   free_signature_requests_per_month: 0,
   basic_signature_requests_per_month: 3,

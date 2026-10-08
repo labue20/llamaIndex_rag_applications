@@ -24,6 +24,10 @@ BASIC_PRICE_YEARLY = float(os.environ.get("BASIC_PRICE_YEARLY", "19.99"))
 BASIC_MAX_DOCUMENTS = int(os.environ.get("BASIC_MAX_DOCUMENTS", "25"))
 BASIC_MAX_QUESTIONS_PER_DAY = int(os.environ.get("BASIC_MAX_QUESTIONS_PER_DAY", "50"))
 
+# Yearly billing (Basic and Pro by the year, as well as by the month). Off:
+# monthly only, which keeps pricing simple; the yearly prices below are then unused.
+YEARLY_BILLING = os.environ.get("YEARLY_BILLING", "false").strip().lower() == "true"
+
 # Pro plan prices shown on the pricing page (US dollars)
 PRO_PRICE_MONTHLY = float(os.environ.get("PRO_PRICE_MONTHLY", "9.99"))
 PRO_PRICE_YEARLY = float(os.environ.get("PRO_PRICE_YEARLY", "90"))
