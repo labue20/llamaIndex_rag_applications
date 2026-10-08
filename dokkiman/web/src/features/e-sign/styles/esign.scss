@@ -630,3 +630,62 @@ button.esign-field.esign-field--current {
   padding: 0.25rem 0.5rem 0.25rem 1rem;
   clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
 }
+
+// --- Sent: search and filters ---------------------------------------------------------------------
+.esign-sent {
+  max-width: 760px;
+  margin: 0 auto;
+
+  &__tools {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-bottom: 1rem;
+  }
+
+  &__search { width: 100%; }
+
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+}
+
+.esign-chip--plain {
+  --signer: #{theme-color(text-secondary)};
+  border-color: theme-color(border);
+  color: theme-color(text-secondary);
+
+  &.esign-chip--active {
+    --signer: #{theme-color(accent)};
+    border-color: theme-color(accent);
+    background: theme-color(accent);
+    color: #fff;
+  }
+}
+
+.esign-chip__count {
+  margin-left: 0.25rem;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+.esign-card__folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.375rem 0 0;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(#f59e0b, 0.12);
+  color: #b45309;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.esign-hint {
+  margin: 0.375rem 0 0;
+  font-size: 0.75rem;
+  color: theme-color(text-secondary);
+}

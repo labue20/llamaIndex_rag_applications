@@ -1,18 +1,23 @@
 /**
  * Compact Upload Button Component
- * "Upload files" button for the Document Manager header; uploads as soon as a
- * file is chosen and reports the result next to the button.
+ * "Upload files" button for the Document Manager's folder bar; uploads as soon
+ * as a file is chosen and reports the result next to the button. With a folder
+ * open (?folder=<id>), the new document is filed in it.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FileSelector, Icon } from '../../../shared';
+import { folderApi } from '../services/folderApi';
 
 const MESSAGE_SECONDS = { success: 4, error: 10 };
 
-const CompactUploadButton = ({ onUploadSuccess }) => {
+const CompactUploadButton = ({ onUploadSuccess, label = 'Upload files' }) => {
   // A ref, not state: the upload starts in the same event the file is chosen
   const fileNameRef = useRef('');
   const [result, setResult] = useState(null); // { type: 'success' | 'error', text }
+  const [searchParams] = useSearchParams();
+  const folderId = searchParams.get('folder');
 
   // Hide the message after a while
   useEffect(() => {
@@ -28,8 +33,18 @@ const CompactUploadButton = ({ onUploadSuccess }) => {
           fileNameRef.current = file.name;
           setResult(null);
         }}
-        onUploadSuccess={(uploadResult) => {
-          setResult({ type: 'success', text: `Uploaded ${fileNameRef.current || 'your file'}` });
+        onUploadSuccess={async (uploadResult) => {
+          const name = fileNameRef.current || 'your file';
+          if (folderId && uploadResult?.doc_id) {
+            try {
+              await folderApi.move(folderId, { documentIds: [uploadResult.doc_id] });
+            } catch (err) {
+              setResult({ type: 'error', text: `Uploaded ${name}, but couldn’t put it in this folder: ${err.message}` });
+              onUploadSuccess?.(uploadResult);
+              return;
+            }
+          }
+          setResult({ type: 'success', text: `Uploaded ${name}` });
           onUploadSuccess?.(uploadResult);
         }}
         onUploadError={(error) => {
@@ -37,7 +52,7 @@ const CompactUploadButton = ({ onUploadSuccess }) => {
           setResult({ type: 'error', text: error.message || 'Upload failed. Please try again.' });
         }}
         acceptedTypes='.pdf,.txt,.json,.md,.docx'
-        label='Upload files'
+        label={label}
         variant='compact'
         autoUpload={true}
         className='page-actions__upload'

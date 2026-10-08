@@ -8,12 +8,15 @@ import { Icon } from '../../../shared';
 
 const MAX_TITLE_LENGTH = 45;
 
-const DocumentViewer = ({ documentList, onDeleteDocument }) => {
+const DocumentViewer = ({
+  documentList, onDeleteDocument, moveTargets, onMoveDocuments, emptyText = null, hideEmptyState = false,
+}) => {
   console.log('DocumentViewer received documentList:', documentList);
   
   const [selectedDocuments, setSelectedDocuments] = useState(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
   const [hoveredDocument, setHoveredDocument] = useState(null);
   // Touch screens have no hover, so always show the row checkboxes there
   const [isTouchScreen] = useState(
@@ -200,6 +203,20 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
     }
   };
 
+  // Move the selected documents to a folder ('' in the menu means no choice yet)
+  const moveSelected = async (value) => {
+    if (value === '' || !onMoveDocuments) return;
+    setIsMoving(true);
+    try {
+      await onMoveDocuments([...selectedDocuments], value === 'none' ? null : value);
+      setSelectedDocuments(new Set());
+    } catch (error) {
+      alert(error.message || 'Couldn’t move the documents. Please try again.');
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
   const cancelDelete = () => {
     setShowDeleteConfirm(false);
   };
@@ -256,6 +273,20 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
                 </label>
               </div>
               <div className='viewer__action-buttons'>
+                {moveTargets && onMoveDocuments && (
+                  <select
+                    className='viewer__move'
+                    aria-label='Move selected documents to'
+                    value=''
+                    disabled={isMoving || isDeleting}
+                    onChange={(e) => moveSelected(e.target.value)}
+                  >
+                    <option value=''>{isMoving ? 'Moving…' : 'Move to…'}</option>
+                    {moveTargets.map((target) => (
+                      <option key={target.id || 'none'} value={target.id || 'none'}>{target.label}</option>
+                    ))}
+                  </select>
+                )}
                 <button 
                   className='viewer__delete-btn'
                   onClick={handleDeleteSelected}
@@ -343,6 +374,8 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
             </tbody>
           </table>
         </div>
+      ) : hideEmptyState ? null : emptyText ? (
+        <p className='viewer__empty-folder'>{emptyText}</p>
       ) : (
         <div className='viewer__empty-state'>
           <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Header, Footer, SidebarLayout, Icon, ConverterHeaderActions } from './shared';
-import { DocumentTools, CompactUploadButton } from './features/document-management';
+import { DocumentTools } from './features/document-management';
 import { AiPdfTools, ChatHeaderActions } from './features/ai-pdf';
 import { useDocuments } from './features/document-management';
 import { PdfToWordConverter } from './features/pdf-to-word-converter';
@@ -57,8 +57,9 @@ function App() {
       icon: <Icon name='folder' />,
       content: isGuest
         ? <GuestAccountPrompt />
-        : <DocumentTools documents={documents} refreshDocuments={refreshDocuments} />,
-      headerAction: isGuest ? null : <CompactUploadButton onUploadSuccess={handleUploadSuccess} />
+        : <DocumentTools documents={documents} refreshDocuments={refreshDocuments} onUploadSuccess={handleUploadSuccess} />,
+      // Upload files is in the folder bar, next to New folder
+      headerAction: null
     },
     {
       label: 'AI PDF',

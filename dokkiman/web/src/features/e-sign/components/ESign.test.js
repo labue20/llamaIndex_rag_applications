@@ -168,3 +168,28 @@ test('a completed request offers the signed PDF, the certificate, or both', asyn
   expect(within(list).queryByRole('button', { name: 'Remind' })).toBeNull();
   expect(requests.filter((r) => r.path === '/signature-requests/r1/document')).toHaveLength(3);
 });
+
+test('Sent can be searched and filtered by status', async () => {
+  const completed = { ...REQUEST, id: 'r2', title: 'Purchase offer', status: 'completed', folder_id: 'f1',
+    signers: [{ id: 's3', name: 'Jordan Avery', email: 'jordan@example.com', position: 0, status: 'signed' }] };
+  renderESign({
+    'GET /signature-requests': { body: { requests: [REQUEST, completed] } },
+    'GET /folders': { body: { folders: [{ id: 'f1', name: '214 Willow Lane', parent_id: null }] } },
+  });
+  fireEvent.click(await screen.findByRole('tab', { name: 'Sent' }));
+  const list = await screen.findByRole('list', { name: 'Sent for signature' });
+  expect(within(list).getAllByRole('listitem').filter((li) => li.classList.contains('esign-card'))).toHaveLength(2);
+  expect(await within(list).findByText('214 Willow Lane')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: /^Completed/ }));
+  expect(within(screen.getByRole('list', { name: 'Sent for signature' })).queryByText('Lease')).toBeNull();
+  expect(screen.getByText('Purchase offer')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: /^All/ }));
+  fireEvent.change(screen.getByLabelText('Search sent requests'), { target: { value: 'sam@' } });
+  expect(screen.getByText('Lease')).toBeInTheDocument();
+  expect(screen.queryByText('Purchase offer')).toBeNull();
+
+  fireEvent.change(screen.getByLabelText('Search sent requests'), { target: { value: 'nobody' } });
+  expect(screen.getByText('No requests match.')).toBeInTheDocument();
+});
