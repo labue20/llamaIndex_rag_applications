@@ -52,7 +52,8 @@ SIGNATURE_REQUESTS_DIR = os.environ.get("SIGNATURE_REQUESTS_DIR", "signature_req
 # Without a key, emails are written to the server log instead of being sent.
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 # The sender; its domain must be verified in Resend (DNS records at your registrar)
-EMAIL_FROM = os.environ.get("EMAIL_FROM", "Dokkiman <sign@dokkiman.com>").strip()
+# (Quote it in .env: EMAIL_FROM="Dokkiman <sign@dokkiman.com>"; the < > would break shell scripts)
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "Dokkiman <sign@dokkiman.com>").strip().strip("\"'")
 
 # Guests (no account) can try the tools before signing up.
 # Converters are rate-limited per network address; chat is capped per guest
