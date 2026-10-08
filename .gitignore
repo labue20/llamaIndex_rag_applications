@@ -13,6 +13,7 @@ node_modules/
 
 # App data (index and document metadata from uploads)
 dokkiman/server/saved_index/
+dokkiman/server/signature_requests/
 dokkiman/server/stored_documents.pkl
 
 # Backend runtime data (user accounts, session secret, uploads)

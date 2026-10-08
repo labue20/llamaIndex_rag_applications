@@ -37,8 +37,9 @@ from auth_limits import (
     signup_blocked,
 )
 from db import connect_db, enable_wal
-from plans import init_plans, new_trial_end, plan_status
+from plans import init_plans, new_trial_end, plan_status, signature_request_usage
 from signature_log import init_signature_log
+from signature_requests import init_signature_requests
 from sso import SsoError, verify_google_credential
 
 SECRET_KEY_PATH = "instance/secret_key"
@@ -73,6 +74,9 @@ GUEST_PATHS = [
     )
 ]
 GUEST_ID_PREFIX = "guest_"
+
+# Paths under these need no account (people signing a document sent to them)
+PUBLIC_PREFIXES = ("/signing/",)
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -140,12 +144,16 @@ def init_db():
     enable_wal()
     init_plans()
     init_signature_log()
+    init_signature_requests()
     init_auth_limits()
     init_billing()
 
 
 def _require_login():
     if request.method == "OPTIONS" or request.path in PUBLIC_PATHS:
+        return None
+    # Signing links: the token in the address identifies the signer
+    if request.path.startswith(PUBLIC_PREFIXES):
         return None
     user = _session_user()
     if user is None and any(pattern.match(request.path) for pattern in GUEST_PATHS):
@@ -194,7 +202,9 @@ def _user_payload(user):
     """User fields sent to the browser, including trial/plan status."""
     with connect_db() as conn:
         row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
-    plan = {**plan_status(user["id"]), "billing": billing_info(user["id"])}
+    status = plan_status(user["id"])
+    plan = {**status, "billing": billing_info(user["id"]),
+            "signature_requests": signature_request_usage(user["id"], status["state"])}
     return {**user, "plan": plan, "has_password": bool(row and row["password_hash"])}
 
 

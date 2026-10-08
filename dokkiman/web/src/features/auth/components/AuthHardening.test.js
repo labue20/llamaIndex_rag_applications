@@ -124,7 +124,7 @@ test('logging in from a tool page returns to that tool', async () => {
       </AuthGate>
       <CurrentPath />
     </AuthProvider>,
-    '/app/sign-pdf'
+    '/app/e-sign'
   );
 
   fireEvent.click(await screen.findByRole('button', { name: 'Header log in' }));
@@ -133,7 +133,7 @@ test('logging in from a tool page returns to that tool', async () => {
 
   fillIn('me@example.com', 'password-123');
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-  await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/app/sign-pdf'));
+  await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/app/e-sign'));
 });
 
 test('logging in from the homepage goes to the documents', async () => {

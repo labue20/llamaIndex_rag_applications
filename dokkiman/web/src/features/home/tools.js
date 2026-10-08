@@ -32,8 +32,8 @@ export const TOOLS = [
   {
     id: 'sign',
     icon: 'pen',
-    title: 'Sign PDF',
-    text: 'Add your signature, initials and the date, with an audit trail.',
+    title: 'E-Sign',
+    text: 'Sign documents yourself, or send them to others to sign by email, with an audit trail.',
   },
   {
     id: 'manager',

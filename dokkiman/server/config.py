@@ -34,6 +34,26 @@ PRO_FAIR_USE_QUESTIONS_PER_DAY = int(os.environ.get("PRO_FAIR_USE_QUESTIONS_PER_
 # Shown to users whose trial has ended (optional)
 SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "")
 
+# Request signatures: send a PDF to other people to sign by email.
+# Requests each account can send per calendar month (UTC); -1 = unlimited.
+SIGNATURE_REQUESTS_PER_MONTH_TRIAL = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_TRIAL", "3"))
+SIGNATURE_REQUESTS_PER_MONTH_FREE = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_FREE", "0"))
+SIGNATURE_REQUESTS_PER_MONTH_BASIC = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_BASIC", "3"))
+SIGNATURE_REQUESTS_PER_MONTH_PRO = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_PRO", "-1"))
+# Pro's unlimited requests are subject to fair use (see the Terms)
+PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH = int(os.environ.get("PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH", "200"))
+SIGNATURE_REQUEST_MAX_SIGNERS = int(os.environ.get("SIGNATURE_REQUEST_MAX_SIGNERS", "10"))
+# Signing links stop working this many days after a request is sent
+SIGNATURE_REQUEST_DAYS = int(os.environ.get("SIGNATURE_REQUEST_DAYS", "30"))
+# Where request PDFs are kept (relative to server/)
+SIGNATURE_REQUESTS_DIR = os.environ.get("SIGNATURE_REQUESTS_DIR", "signature_requests")
+
+# Email (signing invitations and signed copies) through Resend (resend.com).
+# Without a key, emails are written to the server log instead of being sent.
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
+# The sender; its domain must be verified in Resend (DNS records at your registrar)
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "Dokkiman <sign@dokkiman.com>").strip()
+
 # Guests (no account) can try the tools before signing up.
 # Converters are rate-limited per network address; chat is capped per guest
 # and per address (so clearing cookies doesn't reset it). Guest files are

@@ -32,8 +32,13 @@ from config import (
     GUEST_MAX_DOCUMENTS,
     GUEST_MAX_QUESTIONS,
     PRO_FAIR_USE_QUESTIONS_PER_DAY,
+    PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH,
     PRO_PRICE_MONTHLY,
     PRO_PRICE_YEARLY,
+    SIGNATURE_REQUESTS_PER_MONTH_BASIC,
+    SIGNATURE_REQUESTS_PER_MONTH_FREE,
+    SIGNATURE_REQUESTS_PER_MONTH_PRO,
+    SIGNATURE_REQUESTS_PER_MONTH_TRIAL,
     SUPPORT_EMAIL,
     TRIAL_DAYS,
     TRIAL_MAX_DOCUMENTS,
@@ -223,6 +228,56 @@ def plan_status(user_id):
     }
 
 
+def _signature_request_cap(state):
+    """Requests per month for a plan state (None = unlimited)."""
+    cap = {
+        STATE_TRIAL: SIGNATURE_REQUESTS_PER_MONTH_TRIAL,
+        STATE_FREE: SIGNATURE_REQUESTS_PER_MONTH_FREE,
+        STATE_BASIC: SIGNATURE_REQUESTS_PER_MONTH_BASIC,
+        STATE_PRO: SIGNATURE_REQUESTS_PER_MONTH_PRO,
+    }[state]
+    return None if cap < 0 else cap
+
+
+def signature_requests_this_month(user_id):
+    month_start = _now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    with connect_db() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM signature_requests WHERE owner_id = ? AND created_at >= ?", (user_id, month_start)
+        ).fetchone()[0]
+
+
+def signature_request_usage(user_id, state=None):
+    """{"limit": n or None (unlimited), "used": requests sent this month}."""
+    state = state or plan_status(user_id)["state"]
+    return {"limit": _signature_request_cap(state), "used": signature_requests_this_month(user_id)}
+
+
+def signature_request_limit_error(user_id):
+    """Error response if the account can't send another signature request this month, else None."""
+    state = plan_status(user_id)["state"]
+    usage = signature_request_usage(user_id, state)
+    if usage["limit"] is None:
+        if usage["used"] >= PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH:
+            contact = f" If you need more, contact us at {SUPPORT_EMAIL}." if SUPPORT_EMAIL else ""
+            return _limit_error(
+                f"You've sent {_count(PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH, 'signature request')} this month, "
+                f"the fair-use limit for Pro.{contact}",
+                "fair_use_limit",
+                429,
+            )
+        return None
+    if usage["used"] >= usage["limit"]:
+        plan_name = PLAN_NAMES.get(state, "plan")
+        if usage["limit"] == 0:
+            message = f"Requesting signatures isn't included in the {plan_name}. Upgrade to send documents for signature."
+        else:
+            message = (f"You've sent this month's {_count(usage['limit'], 'signature request')} on the {plan_name}. "
+                       "Upgrade to Pro for unlimited requests.")
+        return _limit_error(message, "signature_request_limit", UPGRADE_STATUS)
+    return None
+
+
 def public_plan_info():
     """Plan terms and prices shown on the homepage and pricing page."""
     return {
@@ -237,6 +292,11 @@ def public_plan_info():
         "pro_price_monthly": PRO_PRICE_MONTHLY,
         "pro_price_yearly": PRO_PRICE_YEARLY,
         "pro_fair_use_questions_per_day": PRO_FAIR_USE_QUESTIONS_PER_DAY,
+        # Signature requests per month (-1 = unlimited)
+        "trial_signature_requests_per_month": SIGNATURE_REQUESTS_PER_MONTH_TRIAL,
+        "free_signature_requests_per_month": SIGNATURE_REQUESTS_PER_MONTH_FREE,
+        "basic_signature_requests_per_month": SIGNATURE_REQUESTS_PER_MONTH_BASIC,
+        "pro_signature_requests_per_month": SIGNATURE_REQUESTS_PER_MONTH_PRO,
         # Pay online with Stripe; otherwise upgrades are by email
         "online_payments": bool(config.STRIPE_SECRET_KEY),
         "guest_conversions_per_hour": GUEST_CONVERSIONS_PER_HOUR,

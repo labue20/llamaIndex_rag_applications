@@ -3,7 +3,10 @@
  */
 
 // /app/<slug> for each section of the app, in sidebar order
-export const APP_SECTION_SLUGS = ['documents', 'chat', 'pdf-to-word', 'word-to-pdf', 'split-pdf', 'sign-pdf'];
+export const APP_SECTION_SLUGS = ['documents', 'chat', 'pdf-to-word', 'word-to-pdf', 'split-pdf', 'e-sign'];
+
+// Old addresses that moved: /app/sign-pdf is now /app/e-sign
+export const RENAMED_SLUGS = { 'sign-pdf': 'e-sign' };
 
 export const appPath = (slug) => `/app/${slug}`;
 
@@ -14,7 +17,7 @@ export const TOOL_PATHS = {
   'pdf-word': appPath('pdf-to-word'),
   'word-pdf': appPath('word-to-pdf'),
   split: appPath('split-pdf'),
-  sign: appPath('sign-pdf'),
+  sign: appPath('e-sign'),
 };
 
 // Where people land after signing in or creating an account

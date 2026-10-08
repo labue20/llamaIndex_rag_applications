@@ -20,6 +20,7 @@ import { HomePage } from '../../home';
 import { LegalPage } from '../../legal';
 import { PricingPage } from '../../pricing';
 import { HOME_AFTER_LOGIN } from '../../../routes';
+import { SigningPage } from '../../e-sign';
 
 const AuthGate = ({ children }) => {
   const { user, isCheckingSession, showHome, showAuth, tryTool, pathAfterAuth } = useAuth();
@@ -72,6 +73,8 @@ const AuthGate = ({ children }) => {
       />
       <Route path='/privacy' element={<LegalPage doc='privacy' />} />
       <Route path='/terms' element={<LegalPage doc='terms' />} />
+      {/* Signing a document someone sent: no account needed */}
+      <Route path='/sign/:token' element={<SigningPage />} />
       <Route path='/login' element={authPage('login')} />
       <Route path='/signup' element={authPage('signup')} />
       <Route
