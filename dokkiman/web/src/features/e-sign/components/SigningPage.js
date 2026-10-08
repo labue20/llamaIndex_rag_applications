@@ -6,8 +6,9 @@
  * electronically, and finish; or decline with a reason.
  *
  * A guide bar (Start / Next, like DocuSign) takes them to each field they
- * need to fill, in page order, and then to Finish. Date and name fields fill
- * themselves, so the guide skips them.
+ * need to fill, in page order. Date and name fields fill themselves, so the
+ * guide skips them. Once every field is done, the bar asks for consent and its
+ * Finish button signs (the same as Finish signing at the bottom).
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -134,6 +135,9 @@ const SigningPage = () => {
     setCurrentId(field.id);
     scrollToElement(document.querySelector(`[data-field-id="${field.id}"]`));
   }, []);
+
+  // The guide bar is showing its consent box and Finish button
+  const readyToFinish = Boolean(pdf && todo.length > 0 && !nextField);
 
   const guideNext = () => {
     setStarted(true);
@@ -273,7 +277,7 @@ const SigningPage = () => {
 
       {pdf && todo.length > 0 && (
         // Sticks to the bottom of the screen while the pages scroll past
-        <div className='esign-guide' role='region' aria-label='Signing guide'>
+        <div className={`esign-guide ${readyToFinish ? 'esign-guide--ready' : ''}`} role='region' aria-label='Signing guide'>
           <div className='esign-guide__progress'>
             <span className='esign-guide__count'>{doneCount} of {todo.length}</span>
             <span className='esign-guide__text'>
@@ -285,9 +289,23 @@ const SigningPage = () => {
               <span style={{ width: `${(doneCount / todo.length) * 100}%` }} />
             </span>
           </div>
-          <button type='button' className='esign-guide__button' onClick={guideNext}>
-            {!nextField ? 'Finish' : started ? 'Next' : 'Start'}
-          </button>
+          {nextField ? (
+            <button type='button' className='esign-guide__button' onClick={guideNext}>
+              {started ? 'Next' : 'Start'}
+            </button>
+          ) : (
+            // Every field is done: agree and sign right here
+            <>
+              <label className='esign-guide__consent'>
+                <input type='checkbox' checked={consent} onChange={(e) => { setConsent(e.target.checked); setError(''); }} />
+                I agree to sign electronically
+              </label>
+              <button type='button' className='esign-guide__button' onClick={sign} disabled={isSigning}>
+                {isSigning ? 'Signing…' : 'Finish'}
+              </button>
+            </>
+          )}
+          {readyToFinish && error && <p className='esign-guide__error' role='alert'>{error}</p>}
         </div>
       )}
 
@@ -304,7 +322,8 @@ const SigningPage = () => {
           I agree to sign this document electronically, and that my electronic signature is as valid as one
           on paper. I’ve read the document.
         </label>
-        {error && (
+        {/* Shown in the guide bar instead once it's ready to finish */}
+        {error && !readyToFinish && (
           <div className='converter-message converter-message--error' role='alert'>
             <Icon name='alert' size={16} />
             <span>{error}</span>

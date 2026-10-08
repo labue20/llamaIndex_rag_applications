@@ -689,3 +689,35 @@ button.esign-field.esign-field--current {
   font-size: 0.75rem;
   color: theme-color(text-secondary);
 }
+
+.esign-guide {
+  flex-wrap: wrap;
+
+  &__consent {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+
+    input { width: 18px; height: 18px; accent-color: #facc15; flex-shrink: 0; }
+  }
+
+  &__button:disabled { opacity: 0.7; cursor: wait; }
+
+  &__error {
+    flex-basis: 100%;
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #fecaca;
+  }
+}
+
+// Ready to finish: progress on its own row, then "I agree" and Finish side by side
+.esign-guide--ready {
+  .esign-guide__progress { flex-basis: 100%; }
+  .esign-guide__consent { flex: 1; min-width: 0; }
+}
