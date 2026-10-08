@@ -48,6 +48,7 @@ from flask import Blueprint, g, jsonify, request, send_file
 import config
 from db import connect_db
 from email_service import EmailError, send_email
+from folders import owned_folder
 from pdf_to_word_service import validate_pdf_file
 from plans import signature_request_limit_error
 from sign_pdf_service import SignError, certificate_of_completion, load_image, open_pdf, sha256, stamp
@@ -435,6 +436,7 @@ def _request_json(req, signers, events=None):
         "page_count": req["page_count"], "sequential": bool(req["sequential"]), "status": _status(req),
         "created_at": req["created_at"], "expires_at": req["expires_at"], "completed_at": req["completed_at"],
         "final_sha256": req["final_sha256"],
+        "folder_id": req.get("folder_id"),
         "signers": [_signer_json(s) for s in signers],
     }
     if events is not None:
@@ -525,6 +527,11 @@ def create_request():
     title = str(data.get("title") or os.path.splitext(file_name)[0]).strip()[:MAX_TITLE] or "Document"
     message_text = str(data.get("message") or "").strip()[:MAX_MESSAGE]
     sequential = bool(data.get("sequential")) and len(signers) > 1
+    folder_id = data.get("folder_id") or None
+    if folder_id:
+        with connect_db() as conn:
+            if owned_folder(conn, g.user["id"], folder_id) is None:
+                return _error("That folder doesn't exist.", 400)
 
     request_id = uuid.uuid4().hex
     created = _now()
@@ -532,10 +539,11 @@ def create_request():
     with connect_db() as conn:
         conn.execute(
             "INSERT INTO signature_requests (id, owner_id, owner_email, title, message, file_name, page_count,"
-            " sequential, status, created_at, expires_at, original_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " sequential, status, created_at, expires_at, original_sha256, folder_id)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (request_id, g.user["id"], g.user["email"], title, message_text, file_name, page_count,
              int(sequential), SENT, created.isoformat(),
-             (created + timedelta(days=config.SIGNATURE_REQUEST_DAYS)).isoformat(), sha256(pdf_bytes)),
+             (created + timedelta(days=config.SIGNATURE_REQUEST_DAYS)).isoformat(), sha256(pdf_bytes), folder_id),
         )
         signer_ids = []
         for position, signer in enumerate(signers):

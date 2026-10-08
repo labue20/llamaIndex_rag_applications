@@ -4,8 +4,10 @@
  * downloading the signed PDF, and each request's history.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { apiFetch, downloadBlob, Icon, readApiError } from '../../../shared';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { apiFetch, Icon, readApiError } from '../../../shared';
+import { downloadRequestDocument } from '../requestsApi';
+import { folderApi, folderPath } from '../../document-management/services/folderApi';
 import { formatDate, REQUEST_STATUS, SIGNER_STATUS, signerColor } from '../fields';
 
 const EVENT_TEXT = {
@@ -20,7 +22,23 @@ const EVENT_TEXT = {
   email_failed: (e) => `An email to ${e.detail} couldn’t be sent`,
 };
 
-const RequestCard = ({ request, onChanged }) => {
+// Status filter: value -> the request statuses it shows
+const FILTERS = [
+  { value: 'all', label: 'All', statuses: null },
+  { value: 'waiting', label: 'Waiting', statuses: ['sent', 'completing'] },
+  { value: 'completed', label: 'Completed', statuses: ['completed'] },
+  { value: 'declined', label: 'Declined', statuses: ['declined'] },
+  { value: 'closed', label: 'Cancelled or expired', statuses: ['cancelled', 'expired'] },
+];
+
+const matchesSearch = (request, query) => {
+  if (!query) return true;
+  const text = [request.title, request.file_name, ...request.signers.flatMap((s) => [s.name, s.email])]
+    .join(' ').toLowerCase();
+  return query.toLowerCase().split(/\s+/).every((word) => text.includes(word));
+};
+
+const RequestCard = ({ request, folderName, onChanged }) => {
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -67,14 +85,7 @@ const RequestCard = ({ request, onChanged }) => {
   });
 
   // part: 'signed' (or the original before completion), 'certificate' or 'combined'
-  const download = (part = 'signed') => act(`download-${part}`, async () => {
-    const response = await call(`/signature-requests/${request.id}/document?part=${part}`, {},
-      'Couldn’t download the document.');
-    const stem = request.file_name.replace(/\.pdf$/i, '');
-    const names = { signed: `${stem}_signed.pdf`, certificate: `${stem}_certificate.pdf`,
-      combined: `${stem}_signed_with_certificate.pdf` };
-    downloadBlob(await response.blob(), status === 'completed' ? names[part] : request.file_name);
-  });
+  const download = (part = 'signed') => act(`download-${part}`, () => downloadRequestDocument(request, part));
 
   const toggleHistory = () => act('history', async () => {
     if (history) {
@@ -95,6 +106,9 @@ const RequestCard = ({ request, onChanged }) => {
             {status === 'sent' && ` · ${signed} of ${request.signers.length} signed`}
             {status === 'completed' && request.completed_at && ` · Completed ${formatDate(request.completed_at)}`}
           </p>
+          {folderName && (
+            <p className='esign-card__folder'><Icon name='folder' size={13} /> {folderName}</p>
+          )}
         </div>
         <span className={`esign-status esign-status--${status}`}>{REQUEST_STATUS[status] || status}</span>
       </div>
@@ -173,6 +187,9 @@ const RequestCard = ({ request, onChanged }) => {
 const SentRequests = ({ active, onNew }) => {
   const [requests, setRequests] = useState(null);
   const [error, setError] = useState('');
+  const [folders, setFolders] = useState([]);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
 
   const load = useCallback(async () => {
     try {
@@ -187,8 +204,16 @@ const SentRequests = ({ active, onNew }) => {
 
   // Refresh whenever the tab is shown
   useEffect(() => {
-    if (active) load();
+    if (!active) return;
+    load();
+    folderApi.list().then(setFolders).catch(() => setFolders([]));
   }, [active, load]);
+
+  const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [
+    f.value, (requests || []).filter((r) => !f.statuses || f.statuses.includes(r.status)).length,
+  ])), [requests]);
+  const statuses = FILTERS.find((f) => f.value === filter).statuses;
+  const shown = (requests || []).filter((r) => (!statuses || statuses.includes(r.status)) && matchesSearch(r, query));
 
   if (error) {
     return (
@@ -208,9 +233,45 @@ const SentRequests = ({ active, onNew }) => {
     );
   }
   return (
-    <ul className='esign-cards' aria-label='Sent for signature'>
-      {requests.map((request) => <RequestCard key={request.id} request={request} onChanged={load} />)}
-    </ul>
+    <div className='esign-sent'>
+      <div className='esign-sent__tools'>
+        <input
+          type='search'
+          className='esign-input esign-sent__search'
+          placeholder='Search by document, signer name or email'
+          aria-label='Search sent requests'
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <div className='esign-sent__filters' role='group' aria-label='Show'>
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type='button'
+              className={`esign-chip esign-chip--plain ${filter === f.value ? 'esign-chip--active' : ''}`}
+              aria-pressed={filter === f.value}
+              onClick={() => setFilter(f.value)}
+            >
+              {f.label} <span className='esign-chip__count'>{counts[f.value]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {shown.length === 0 ? (
+        <p className='esign-empty'>No requests match.</p>
+      ) : (
+        <ul className='esign-cards' aria-label='Sent for signature'>
+          {shown.map((request) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              folderName={request.folder_id ? folderPath(folders, request.folder_id) : ''}
+              onChanged={load}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 };
 

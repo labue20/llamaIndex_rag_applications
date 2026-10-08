@@ -4,9 +4,13 @@
  * token in the address (from their email) identifies them to the server.
  * They adopt a signature (and initials, if asked), agree to sign
  * electronically, and finish; or decline with a reason.
+ *
+ * A guide bar (Start / Next, like DocuSign) takes them to each field they
+ * need to fill, in page order, and then to Finish. Date and name fields fill
+ * themselves, so the guide skips them.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist/webpack';
 import { apiFetch, Icon, readApiError } from '../../../shared';
@@ -19,6 +23,13 @@ import '../../sign-pdf/styles/sign-pdf.scss';
 import '../styles/esign.scss';
 
 const dataUrlToBlob = async (dataUrl) => (await fetch(dataUrl)).blob();
+
+// Fields the signer has to fill themselves (date and name fill automatically)
+const needsSigner = (field) => field.kind === 'signature' || field.kind === 'initials';
+// Page by page, top to bottom, left to right: the order people read in
+const readingOrder = (a, b) => a.page - b.page || a.y - b.y || a.x - b.x;
+
+const scrollToElement = (element) => element?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
 
 const CLOSED = {
   signed: ['You’ve already signed', 'When everyone has signed, you’ll get the signed PDF by email.'],
@@ -67,6 +78,10 @@ const SigningPage = () => {
   const [isDeclining, setIsDeclining] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
   const [declined, setDeclined] = useState(false);
+  // The guide: whether the signer pressed Start, and the field it points at
+  const [started, setStarted] = useState(false);
+  const [currentId, setCurrentId] = useState(null);
+  const finishRef = useRef(null);
 
   useEffect(() => {
     document.title = 'Sign a document · Dokkiman';
@@ -98,6 +113,32 @@ const SigningPage = () => {
   );
   const missing = needed.filter((kind) => !images[kind]);
   const today = new Date().toLocaleDateString(undefined, { dateStyle: 'medium' });
+
+  // --- the guide --------------------------------------------------------------------------
+  const todo = useMemo(() => (info?.fields || []).filter(needsSigner).sort(readingOrder), [info]);
+  const isDone = useCallback((field) => Boolean(images[field.kind]), [images]);
+  const doneCount = todo.filter(isDone).length;
+  const nextField = todo.find((field) => !isDone(field)) || null;
+
+  // Point at the first field to fill as soon as the document is there
+  useEffect(() => {
+    if (pdf && currentId === null && nextField) setCurrentId(nextField.id);
+  }, [pdf, currentId, nextField]);
+
+  const goTo = useCallback((field) => {
+    if (!field) {
+      setCurrentId(null);
+      scrollToElement(finishRef.current);
+      return;
+    }
+    setCurrentId(field.id);
+    scrollToElement(document.querySelector(`[data-field-id="${field.id}"]`));
+  }, []);
+
+  const guideNext = () => {
+    setStarted(true);
+    goTo(nextField);
+  };
 
   const sign = async () => {
     if (missing.length) {
@@ -183,7 +224,7 @@ const SigningPage = () => {
         </p>
         {info.message && <blockquote className='esign-intro__message'>{info.message}</blockquote>}
         <p className='esign-intro__steps'>
-          Tap each highlighted field to add your {needed.join(' and ')}, then finish at the bottom.
+          Press <strong>Start</strong> below to go to each place you need to sign, then finish at the end.
           {info.expires_at && ` This link works until ${formatDate(info.expires_at)}.`}
         </p>
       </section>
@@ -197,13 +238,31 @@ const SigningPage = () => {
               pageIndex={page}
               fields={fieldsByPage(page)}
               describeField={(f) => `${fieldLabel(f.kind)}${images[f.kind] ? ' (added)' : ''}, page ${f.page + 1}`}
-              onActivate={(f) => (f.kind === 'signature' || f.kind === 'initials') && setDialogKind(f.kind)}
-              fieldStyle={(f) => ({ '--signer': '#2563eb', cursor: f.kind === 'date' || f.kind === 'name' ? 'default' : 'pointer' })}
+              onActivate={(f) => {
+                if (!needsSigner(f)) return;
+                setStarted(true);
+                setCurrentId(f.id);
+                setDialogKind(f.kind);
+              }}
+              fieldStyle={(f) => ({ '--signer': '#2563eb', cursor: needsSigner(f) ? 'pointer' : 'default' })}
+              fieldClassName={(f) => (f.id === currentId && !isDone(f) ? 'esign-field--current' : '')}
+              currentId={nextField && currentId && !isDone(info.fields.find((f) => f.id === currentId) || {}) ? currentId : null}
               renderField={(f) => {
+                const flag = f.id === currentId && !isDone(f) && (
+                  // Beside the field: on its left, or its right when it's near the page's left edge
+                  <span className={`esign-field__flag ${f.x < 0.22 ? 'esign-field__flag--right' : ''}`} aria-hidden='true'>
+                    {f.kind === 'initials' ? 'Initial' : 'Sign'}
+                  </span>
+                );
                 if (images[f.kind]) return <img src={images[f.kind].dataUrl} alt='' draggable={false} />;
                 if (f.kind === 'date') return <span className='esign-field__value'>{today}</span>;
                 if (f.kind === 'name') return <span className='esign-field__value'>{info.signer.name}</span>;
-                return <span className='esign-field__label esign-field__label--todo'>Tap to add {f.kind}</span>;
+                return (
+                  <>
+                    {flag}
+                    <span className='esign-field__label esign-field__label--todo'>Tap to add {f.kind}</span>
+                  </>
+                );
               }}
             />
           </div>
@@ -212,7 +271,28 @@ const SigningPage = () => {
         <p className='esign-empty'>Loading the document…</p>
       )}
 
-      <section className='esign-finish' aria-label='Finish signing'>
+      {pdf && todo.length > 0 && (
+        // Sticks to the bottom of the screen while the pages scroll past
+        <div className='esign-guide' role='region' aria-label='Signing guide'>
+          <div className='esign-guide__progress'>
+            <span className='esign-guide__count'>{doneCount} of {todo.length}</span>
+            <span className='esign-guide__text'>
+              {nextField
+                ? `${todo.length === 1 ? 'field' : 'fields'} done · next: ${nextField.kind} on page ${nextField.page + 1}`
+                : `${todo.length === 1 ? 'field' : 'fields'} done · ready to finish`}
+            </span>
+            <span className='esign-guide__bar' aria-hidden='true'>
+              <span style={{ width: `${(doneCount / todo.length) * 100}%` }} />
+            </span>
+          </div>
+          <button type='button' className='esign-guide__button' onClick={guideNext}>
+            {!nextField ? 'Finish' : started ? 'Next' : 'Start'}
+          </button>
+        </div>
+      )}
+
+      {/* file-converter: the shared button and message styles */}
+      <section className='file-converter esign-finish' aria-label='Finish signing' ref={finishRef}>
         {needed.map((kind) => (
           <button key={kind} type='button' className='sign-pdf__tool' onClick={() => setDialogKind(kind)}>
             <Icon name={images[kind] ? 'check' : 'pen'} size={16} />
@@ -265,9 +345,14 @@ const SigningPage = () => {
           kind={dialogKind}
           onClose={() => setDialogKind(null)}
           onDone={(image) => {
-            setImages((prev) => ({ ...prev, [dialogKind]: image }));
+            const kind = dialogKind;
+            const nextImages = { ...images, [kind]: image };
+            setImages(nextImages);
             setDialogKind(null);
             setError('');
+            // On to the next field still to fill, or to Finish
+            const following = todo.find((field) => !nextImages[field.kind]) || null;
+            setTimeout(() => goTo(following), 150);
           }}
         />
       )}

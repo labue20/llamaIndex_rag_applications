@@ -65,6 +65,7 @@ def test_public_plan_terms(client):
         "pro_price_monthly": config.PRO_PRICE_MONTHLY,
         "pro_price_yearly": config.PRO_PRICE_YEARLY,
         "pro_fair_use_questions_per_day": config.PRO_FAIR_USE_QUESTIONS_PER_DAY,
+        "yearly_billing": config.YEARLY_BILLING,
         "trial_signature_requests_per_month": config.SIGNATURE_REQUESTS_PER_MONTH_TRIAL,
         "free_signature_requests_per_month": config.SIGNATURE_REQUESTS_PER_MONTH_FREE,
         "basic_signature_requests_per_month": config.SIGNATURE_REQUESTS_PER_MONTH_BASIC,
@@ -387,7 +388,7 @@ def _run_cli(monkeypatch, capsys, *args):
 def test_cli_upgrade_downgrade_and_list(signup, monkeypatch, capsys):
     user_id = signup("me@example.com").user["id"]
 
-    assert "trial, 7 day(s) left" in _run_cli(monkeypatch, capsys, "list")
+    assert f"trial, {config.TRIAL_DAYS} day(s) left" in _run_cli(monkeypatch, capsys, "list")
 
     _run_cli(monkeypatch, capsys, "upgrade", "ME@example.com")
     assert plans.plan_status(user_id)["state"] == "pro"

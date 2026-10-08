@@ -7,7 +7,7 @@ MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "50"))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
 # Free trial: every new account gets full access for TRIAL_DAYS, within these caps.
-TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "7"))
+TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "30"))
 TRIAL_MAX_DOCUMENTS = int(os.environ.get("TRIAL_MAX_DOCUMENTS", "10"))
 TRIAL_MAX_QUESTIONS_PER_DAY = int(os.environ.get("TRIAL_MAX_QUESTIONS_PER_DAY", "50"))
 
@@ -23,6 +23,10 @@ BASIC_PRICE_MONTHLY = float(os.environ.get("BASIC_PRICE_MONTHLY", "1.99"))
 BASIC_PRICE_YEARLY = float(os.environ.get("BASIC_PRICE_YEARLY", "19.99"))
 BASIC_MAX_DOCUMENTS = int(os.environ.get("BASIC_MAX_DOCUMENTS", "25"))
 BASIC_MAX_QUESTIONS_PER_DAY = int(os.environ.get("BASIC_MAX_QUESTIONS_PER_DAY", "50"))
+
+# Yearly billing (Basic and Pro by the year, as well as by the month). Off:
+# monthly only, which keeps pricing simple; the yearly prices below are then unused.
+YEARLY_BILLING = os.environ.get("YEARLY_BILLING", "false").strip().lower() == "true"
 
 # Pro plan prices shown on the pricing page (US dollars)
 PRO_PRICE_MONTHLY = float(os.environ.get("PRO_PRICE_MONTHLY", "9.99"))

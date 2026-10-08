@@ -170,8 +170,8 @@ const UpgradeDialog = () => {
             )}
 
             <p className='upgrade-dialog__price'>
-              Pro is {formatPrice(planInfo.pro_price_monthly)} a month, or {formatPrice(planInfo.pro_price_yearly)} a
-              year.{' '}
+              Pro is {formatPrice(planInfo.pro_price_monthly)} a month
+              {planInfo.yearly_billing ? `, or ${formatPrice(planInfo.pro_price_yearly)} a year` : ''}.{' '}
               {!isBasic && (
                 <>
                   Or start smaller with Basic at {formatPrice(planInfo.basic_price_monthly)} a month:{' '}

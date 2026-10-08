@@ -1,6 +1,7 @@
 /**
  * Pricing Page (/pricing)
- * Free, Basic and Pro plans, with a Monthly / Yearly switch. Every number comes
+ * Free, Basic and Pro plans (with a Monthly / Yearly switch when the server
+ * offers yearly billing). Every number comes
  * from the server (GET /plans), so the page always matches the real limits.
  */
 
@@ -56,7 +57,7 @@ const FAQ = ({ plan, supportEmail, online }) => [
     }
     : {
       q: 'Do Basic and Pro renew automatically?',
-      a: 'No. You pay for a month or a year at a time. When that period ends, your account moves to the Free plan unless you renew, and nothing is deleted.',
+      a: `No. You pay for ${plan.yearly_billing ? 'a month or a year' : 'a month'} at a time. When that period ends, your account moves to the Free plan unless you renew, and nothing is deleted.`,
     },
   {
     q: 'How does sending a document for signature work?',
@@ -84,7 +85,7 @@ const FAQ = ({ plan, supportEmail, online }) => [
 // A paid plan's card: price for the chosen billing period, and the right button
 // for the visitor (sign up, checkout, switch plan, manage billing or email us)
 const PaidPlanCard = ({
-  id, name, tagline, badge, monthly, yearly, billing, features,
+  id, name, tagline, badge, monthly, yearly, billing, features, offersYearly = false,
   user, online, supportEmail, onSignup, redirecting, error, onStripe,
 }) => {
   const { perMonth, saved } = yearlySavings(monthly, yearly);
@@ -153,9 +154,11 @@ const PaidPlanCard = ({
         </p>
       )}
       <p className='pricing-card__note'>
-        {billing === 'monthly'
-          ? `Or ${formatPrice(yearly)} a year${months > 0 ? `, and get ${months} ${months === 1 ? 'month' : 'months'} free` : ''}.`
-          : `Just ${formatPrice(perMonth)} a month. You save ${formatPrice(saved)}.`}
+        {!offersYearly
+          ? 'Billed monthly. Cancel anytime.'
+          : billing === 'monthly'
+            ? `Or ${formatPrice(yearly)} a year${months > 0 ? `, and get ${months} ${months === 1 ? 'month' : 'months'} free` : ''}.`
+            : `Just ${formatPrice(perMonth)} a month. You save ${formatPrice(saved)}.`}
       </p>
       {cta}
       {online && !onPaidPlan && (
@@ -175,7 +178,10 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
   const { user } = useAuth();
   const plan = usePlanInfo();
   const { search } = useLocation();
-  const [billing, setBilling] = useState('monthly');
+  const [chosenBilling, setBilling] = useState('monthly');
+  const offersYearly = Boolean(plan.yearly_billing);
+  // Monthly only, unless the server offers yearly billing
+  const billing = offersYearly ? chosenBilling : 'monthly';
   // Which card is on its way to Stripe, and which card's request failed
   const [redirecting, setRedirecting] = useState(null);
   const [billingError, setBillingError] = useState({ plan: null, message: '' });
@@ -210,6 +216,7 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
     user,
     online,
     supportEmail: plan.support_email,
+    offersYearly,
     onSignup,
     redirecting,
     error: billingError.plan === id ? billingError.message : '',
@@ -240,6 +247,7 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
             </p>
           )}
 
+          {offersYearly && (
           <div className='pricing__billing' role='group' aria-label='Billing period'>
             <button type='button' aria-pressed={billing === 'monthly'} onClick={() => setBilling('monthly')}>
               Monthly
@@ -253,6 +261,7 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
               )}
             </button>
           </div>
+          )}
         </header>
 
         <div className='pricing__plans'>

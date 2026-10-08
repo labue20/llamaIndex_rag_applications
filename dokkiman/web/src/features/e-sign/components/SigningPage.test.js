@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { renderAt } from '../../../test-utils/router';
 import SigningPage from './SigningPage';
@@ -109,4 +109,63 @@ test('an unknown or replaced link says so', async () => {
   openLink({ 'GET /signing/tok123': { status: 404, body: { error: 'This signing link isn’t valid anymore.' } } });
   expect(await screen.findByRole('heading', { name: 'This link can’t be used' })).toBeInTheDocument();
   expect(screen.getByText('This signing link isn’t valid anymore.')).toBeInTheDocument();
+});
+
+describe('the signing guide', () => {
+  let scrolledTo;
+  beforeEach(() => {
+    scrolledTo = [];
+    Element.prototype.scrollIntoView = function scrollIntoView() {
+      scrolledTo.push(this);
+    };
+  });
+  afterEach(() => {
+    delete Element.prototype.scrollIntoView;
+  });
+
+  const guide = () => screen.getByRole('region', { name: 'Signing guide' });
+  const currentField = () => screen.queryByRole('button', { current: 'step' });
+
+  test('takes the signer to each field in page order, then to Finish', async () => {
+    jest.useFakeTimers();
+    openLink();
+    await screen.findByRole('button', { name: 'Signature, page 1' });
+
+    // Before starting: points at the first field and offers Start
+    expect(within(guide()).getByText('0 of 2')).toBeInTheDocument();
+    expect(within(guide()).getByText(/next: signature on page 1/)).toBeInTheDocument();
+    expect(currentField()).toHaveAttribute('data-field-id', '1');
+    expect(currentField()).toHaveTextContent('Sign');
+
+    fireEvent.click(within(guide()).getByRole('button', { name: 'Start' }));
+    expect(scrolledTo.at(-1)).toHaveAttribute('data-field-id', '1');
+    expect(within(guide()).getByRole('button', { name: 'Next' })).toBeInTheDocument();
+
+    // Adding the signature moves on to the initials on page 2 (the date fills itself)
+    await adopt('Signature, page 1');
+    act(() => { jest.advanceTimersByTime(200); });
+    expect(within(guide()).getByText('1 of 2')).toBeInTheDocument();
+    expect(scrolledTo.at(-1)).toHaveAttribute('data-field-id', '3');
+    expect(currentField()).toHaveAttribute('data-field-id', '3');
+    expect(currentField()).toHaveTextContent('Initial');
+
+    // After the last one: on to Finish
+    await adopt('Initials, page 2', 'SR');
+    act(() => { jest.advanceTimersByTime(200); });
+    expect(within(guide()).getByText('2 of 2')).toBeInTheDocument();
+    expect(within(guide()).getByText(/ready to finish/)).toBeInTheDocument();
+    expect(scrolledTo.at(-1)).toHaveAttribute('aria-label', 'Finish signing');
+    expect(currentField()).toBeNull();
+
+    fireEvent.click(within(guide()).getByRole('button', { name: 'Finish' }));
+    expect(scrolledTo.at(-1)).toHaveAttribute('aria-label', 'Finish signing');
+    jest.useRealTimers();
+  });
+
+  test('tapping a field directly makes it the current one', async () => {
+    openLink();
+    fireEvent.click(await screen.findByRole('button', { name: 'Initials, page 2' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(currentField()).toHaveAttribute('data-field-id', '3');
+  });
 });

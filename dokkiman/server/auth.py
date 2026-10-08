@@ -40,6 +40,7 @@ from db import connect_db, enable_wal
 from plans import init_plans, new_trial_end, plan_status, signature_request_usage
 from signature_log import init_signature_log
 from signature_requests import init_signature_requests
+from folders import init_folders
 from sso import SsoError, verify_google_credential
 
 SECRET_KEY_PATH = "instance/secret_key"
@@ -145,6 +146,7 @@ def init_db():
     init_plans()
     init_signature_log()
     init_signature_requests()
+    init_folders()
     init_auth_limits()
     init_billing()
 

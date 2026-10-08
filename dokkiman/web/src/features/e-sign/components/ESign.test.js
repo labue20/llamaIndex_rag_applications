@@ -17,7 +17,7 @@ const REQUEST = {
   ],
 };
 
-const renderESign = (routes = {}, { guest = false } = {}) => {
+const showESign = (routes = {}, { guest = false } = {}) => {
   const requests = mockServer({
     '/auth/me': guest ? { status: 401 } : { body: { user: USER } },
     '/auth/config': { body: { google_client_id: '', password_login: true } },
@@ -39,13 +39,13 @@ beforeEach(() => {
 });
 
 test('signing yourself is the first tab', async () => {
-  renderESign();
+  showESign();
   expect(await screen.findByRole('tab', { name: 'Sign yourself' })).toHaveAttribute('aria-selected', 'true');
   expect(screen.getByRole('tabpanel', { name: 'Sign yourself' })).toBeVisible();
 });
 
 test('guests are asked to create an account to request signatures', async () => {
-  renderESign({}, { guest: true });
+  showESign({}, { guest: true });
   fireEvent.click(await screen.findByRole('tab', { name: 'Request signatures' }));
   const panel = screen.getByRole('tabpanel', { name: 'Request signatures' });
   expect(within(panel).getByRole('heading', { name: 'Send documents for signature' })).toBeInTheDocument();
@@ -53,7 +53,7 @@ test('guests are asked to create an account to request signatures', async () => 
 });
 
 test('sending checks every signer has a name, email and signature field', async () => {
-  const requests = renderESign();
+  const requests = showESign();
   await openRequestTab();
   expect(screen.getByText('2 of 3 signature requests left this month')).toBeInTheDocument();
 
@@ -72,14 +72,14 @@ test('sending checks every signer has a name, email and signature field', async 
 });
 
 test('a request with two signers and their fields is sent', async () => {
-  const requests = renderESign({
+  const requests = showESign({
     'POST /signature-requests': { status: 201, body: { request: REQUEST } },
   });
   await openRequestTab();
 
   fireEvent.change(screen.getByLabelText('Signer 1 name'), { target: { value: 'Alex Lee' } });
   fireEvent.change(screen.getByLabelText('Signer 1 email'), { target: { value: 'alex@example.com' } });
-  fireEvent.click(screen.getByRole('toolbar', { name: 'Add a field' }).querySelector('button'));  // Signature
+  fireEvent.click(within(screen.getByRole('toolbar', { name: 'Add a field' })).getByRole('button', { name: /Signature/ }));
 
   fireEvent.click(screen.getByRole('button', { name: '+ Add signer' }));
   fireEvent.change(screen.getByLabelText('Signer 2 name'), { target: { value: 'Sam Ray' } });
@@ -111,7 +111,7 @@ test('a request with two signers and their fields is sent', async () => {
 });
 
 test('removing a signer removes their fields', async () => {
-  renderESign();
+  showESign();
   await openRequestTab();
   fireEvent.change(screen.getByLabelText('Signer 1 name'), { target: { value: 'Alex Lee' } });
   fireEvent.click(screen.getByRole('button', { name: '+ Add signer' }));
@@ -123,7 +123,7 @@ test('removing a signer removes their fields', async () => {
 });
 
 test('the Sent tab shows each signer’s progress and can send reminders', async () => {
-  const requests = renderESign({
+  const requests = showESign({
     'GET /signature-requests': { body: { requests: [REQUEST] } },
     'POST /signature-requests/r1/remind': { body: { reminded: ['sam@example.com'] } },
   });
@@ -141,7 +141,7 @@ test('the Sent tab shows each signer’s progress and can send reminders', async
 });
 
 test('an empty Sent tab offers to request signatures', async () => {
-  renderESign({ 'GET /signature-requests': { body: { requests: [] } } });
+  showESign({ 'GET /signature-requests': { body: { requests: [] } } });
   fireEvent.click(await screen.findByRole('tab', { name: 'Sent' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Request signatures' }));
   expect(screen.getByRole('tab', { name: 'Request signatures' })).toHaveAttribute('aria-selected', 'true');
@@ -153,7 +153,7 @@ test('a completed request offers the signed PDF, the certificate, or both', asyn
   jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   const completed = { ...REQUEST, status: 'completed', completed_at: '2026-10-08T11:00:00+00:00',
     signers: REQUEST.signers.map((s) => ({ ...s, status: 'signed' })) };
-  const requests = renderESign({
+  const requests = showESign({
     'GET /signature-requests': { body: { requests: [completed] } },
     '/signature-requests/r1/document': { pdf: true },
   });
@@ -167,4 +167,29 @@ test('a completed request offers the signed PDF, the certificate, or both', asyn
   }
   expect(within(list).queryByRole('button', { name: 'Remind' })).toBeNull();
   expect(requests.filter((r) => r.path === '/signature-requests/r1/document')).toHaveLength(3);
+});
+
+test('Sent can be searched and filtered by status', async () => {
+  const completed = { ...REQUEST, id: 'r2', title: 'Purchase offer', status: 'completed', folder_id: 'f1',
+    signers: [{ id: 's3', name: 'Jordan Avery', email: 'jordan@example.com', position: 0, status: 'signed' }] };
+  showESign({
+    'GET /signature-requests': { body: { requests: [REQUEST, completed] } },
+    'GET /folders': { body: { folders: [{ id: 'f1', name: '214 Willow Lane', parent_id: null }] } },
+  });
+  fireEvent.click(await screen.findByRole('tab', { name: 'Sent' }));
+  const list = await screen.findByRole('list', { name: 'Sent for signature' });
+  expect(within(list).getAllByRole('listitem').filter((li) => li.classList.contains('esign-card'))).toHaveLength(2);
+  expect(await within(list).findByText('214 Willow Lane')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: /^Completed/ }));
+  expect(within(screen.getByRole('list', { name: 'Sent for signature' })).queryByText('Lease')).toBeNull();
+  expect(screen.getByText('Purchase offer')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: /^All/ }));
+  fireEvent.change(screen.getByLabelText('Search sent requests'), { target: { value: 'sam@' } });
+  expect(screen.getByText('Lease')).toBeInTheDocument();
+  expect(screen.queryByText('Purchase offer')).toBeNull();
+
+  fireEvent.change(screen.getByLabelText('Search sent requests'), { target: { value: 'nobody' } });
+  expect(screen.getByText('No requests match.')).toBeInTheDocument();
 });

@@ -5,15 +5,19 @@
 
 import React, { useState } from 'react';
 import { Icon } from '../../../shared';
+import FolderPicker from './FolderPicker';
 
 const MAX_TITLE_LENGTH = 45;
 
-const DocumentViewer = ({ documentList, onDeleteDocument }) => {
+const DocumentViewer = ({
+  documentList, onDeleteDocument, moveTargets, onMoveDocuments, emptyText = null, hideEmptyState = false,
+}) => {
   console.log('DocumentViewer received documentList:', documentList);
   
   const [selectedDocuments, setSelectedDocuments] = useState(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
   const [hoveredDocument, setHoveredDocument] = useState(null);
   // Touch screens have no hover, so always show the row checkboxes there
   const [isTouchScreen] = useState(
@@ -200,6 +204,20 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
     }
   };
 
+  // Move the selected documents to a folder (null: out of any folder)
+  const moveSelected = async (folderId) => {
+    if (!onMoveDocuments) return;
+    setIsMoving(true);
+    try {
+      await onMoveDocuments([...selectedDocuments], folderId);
+      setSelectedDocuments(new Set());
+    } catch (error) {
+      alert(error.message || 'Couldn’t move the documents. Please try again.');
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
   const cancelDelete = () => {
     setShowDeleteConfirm(false);
   };
@@ -256,6 +274,15 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
                 </label>
               </div>
               <div className='viewer__action-buttons'>
+                {moveTargets && onMoveDocuments && (
+                  <FolderPicker
+                    options={moveTargets}
+                    onSelect={moveSelected}
+                    buttonLabel={isMoving ? 'Moving…' : 'Move to…'}
+                    buttonClassName='viewer__move'
+                    disabled={isMoving || isDeleting}
+                  />
+                )}
                 <button 
                   className='viewer__delete-btn'
                   onClick={handleDeleteSelected}
@@ -343,6 +370,8 @@ const DocumentViewer = ({ documentList, onDeleteDocument }) => {
             </tbody>
           </table>
         </div>
+      ) : hideEmptyState ? null : emptyText ? (
+        <p className='viewer__empty-folder'>{emptyText}</p>
       ) : (
         <div className='viewer__empty-state'>
           <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>

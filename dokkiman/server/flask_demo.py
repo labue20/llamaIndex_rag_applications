@@ -17,6 +17,7 @@ import zipfile
 from auth import init_auth, current_user_id
 from billing import billing_bp
 from signature_requests import requests_bp
+from folders import document_folder_map, folders_bp, forget_document
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config
 from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES, TRUSTED_PROXY_COUNT
@@ -109,6 +110,9 @@ app.config["ON_GUEST_CLAIM"] = lambda guest_id, user_id: manager.claim_guest_doc
 init_auth(app)
 app.register_blueprint(billing_bp)
 app.register_blueprint(requests_bp)
+app.register_blueprint(folders_bp)
+# Blueprints reach the index server through this (tests swap `manager`)
+app.config["INDEX_MANAGER"] = lambda: manager
 if config.STRIPE_CONFIG_ERROR:
     app.logger.error("Stripe: %s", config.STRIPE_CONFIG_ERROR)
 elif config.STRIPE_SECRET_KEY:
@@ -258,6 +262,10 @@ def chat_with_document():
 @app.route("/getDocuments", methods=["GET"])
 def get_documents():
     document_list = manager.get_documents_list(current_user_id())._getvalue()
+    # Which folder each document is in (None: not in a folder)
+    folder_of = {} if g.user.get("guest") else document_folder_map(current_user_id())
+    for document in document_list:
+        document["folder_id"] = folder_of.get(document.get("id"))
 
     return make_response(jsonify(document_list)), 200
 
@@ -307,6 +315,8 @@ def delete_document(doc_id):
         
         if result.get("error"):
             return make_response(jsonify(result)), 400
+        if not g.user.get("guest"):
+            forget_document(current_user_id(), doc_id)
             
         return make_response(jsonify(result)), 200
         

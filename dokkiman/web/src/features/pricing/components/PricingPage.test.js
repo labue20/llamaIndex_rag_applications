@@ -8,7 +8,7 @@ const PLAN = {
   trial_days: 7, trial_max_documents: 10, trial_max_questions_per_day: 50,
   free_max_documents: 3, free_max_questions_per_day: 10, free_conversions_per_day: 20,
   basic_price_monthly: 1.99, basic_price_yearly: 19.99, basic_max_documents: 25, basic_max_questions_per_day: 50,
-  pro_price_monthly: 9, pro_price_yearly: 90,
+  pro_price_monthly: 9, pro_price_yearly: 90, yearly_billing: true,
   guest_max_documents: 1, guest_max_questions: 5, guest_file_hours: 24, guest_conversions_per_hour: 20,
   support_email: 'help@example.com',
 };
@@ -125,6 +125,15 @@ test('the homepage links to the pricing page', async () => {
   fireEvent.click(within(await screen.findByRole('banner')).getByRole('link', { name: 'Pricing' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'PDF Tools That Fit Your Budget' })).toBeInTheDocument();
   expect(path()).toBe('/pricing');
+});
+
+test('monthly only: no Monthly / Yearly switch and no yearly prices', async () => {
+  renderPricing({ plan: { ...PLAN, yearly_billing: false } });
+  await waitFor(() => expect(card('Basic')).toHaveTextContent('$1.99/ month'));
+  expect(screen.queryByRole('group', { name: 'Billing period' })).toBeNull();
+  expect(card('Basic')).toHaveTextContent('Billed monthly. Cancel anytime.');
+  expect(card('Pro')).not.toHaveTextContent('a year');
+  expect(await screen.findByText(/You pay for a month at a time/)).toBeInTheDocument();
 });
 
 test('price helpers', () => {

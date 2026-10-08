@@ -7,9 +7,10 @@ Run from the server/ folder, with STRIPE_SECRET_KEY in .env:
     .venv/bin/python stripe_setup.py --webhook-url https://yourdomain.com/api/billing/webhook
 
 It creates (or reuses):
-- the "Basic" and "Pro" products, each with a monthly and a yearly price
-  (lookup keys basic_monthly, basic_yearly, pro_monthly and pro_yearly, which the
-  app uses to find them; each price's metadata says which plan it is for)
+- the "Basic" and "Pro" products, each with a monthly price (lookup keys
+  basic_monthly and pro_monthly, which the app uses to find them; each price's
+  metadata says which plan it is for), and a yearly price too with
+  YEARLY_BILLING=true (basic_yearly, pro_yearly)
 - customer portal settings: cancel at the end of the period, switch between
   monthly and yearly or Basic and Pro, update the card, see invoices
 - with --webhook-url: the production webhook endpoint (prints its signing
@@ -38,7 +39,7 @@ def _load_env_file(path=".env"):
 _load_env_file()
 
 import config  # noqa: E402  (reads the environment loaded above)
-from billing import HANDLED_EVENTS, LOOKUP_KEYS  # noqa: E402
+from billing import HANDLED_EVENTS, LOOKUP_KEYS, billing_periods  # noqa: E402
 from plans import PLAN_BASIC, PLAN_PRO  # noqa: E402
 
 INTERVALS = {"monthly": "month", "yearly": "year"}
@@ -68,7 +69,7 @@ def _cents(dollars):
 def ensure_prices(client, plan):
     """A plan's product and its two prices; returns (product_id, {billing: price_id})."""
     product_info = _products()[plan]
-    lookup_keys = LOOKUP_KEYS[plan]
+    lookup_keys = {billing: key for billing, key in LOOKUP_KEYS[plan].items() if billing in billing_periods()}
     existing = {p.lookup_key: p for p in client.v1.prices.list(
         {"lookup_keys": list(lookup_keys.values()), "active": True, "expand": ["data.product"]}).data}
 

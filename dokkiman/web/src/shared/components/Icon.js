@@ -6,6 +6,12 @@
 import React from 'react';
 
 const PATHS = {
+  search: (
+    <>
+      <circle cx='11' cy='11' r='7' />
+      <path d='M20 20l-3.5-3.5' />
+    </>
+  ),
   file: (
     <>
       <path d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z' />

@@ -8,7 +8,7 @@ const PLAN = {
   trial_days: 7, trial_max_documents: 10, trial_max_questions_per_day: 50,
   free_max_documents: 3, free_max_questions_per_day: 10, free_conversions_per_day: 20,
   basic_price_monthly: 1.99, basic_price_yearly: 19.99, basic_max_documents: 25, basic_max_questions_per_day: 50,
-  pro_price_monthly: 9, pro_price_yearly: 90, pro_fair_use_questions_per_day: 150,
+  pro_price_monthly: 9, pro_price_yearly: 90, pro_fair_use_questions_per_day: 150, yearly_billing: true,
   support_email: 'help@example.com', online_payments: true,
 };
 const CHECKOUT_URL = 'https://checkout.stripe.test/c';

@@ -10,6 +10,8 @@ import * as pdfjsLib from 'pdfjs-dist/webpack';
 import { apiFetch, DocumentPicker, Icon, readApiError } from '../../../shared';
 import { useAuth } from '../../auth/context/AuthContext';
 import FieldStage from './FieldStage';
+import { folderApi, folderPath } from '../../document-management/services/folderApi';
+import FolderPicker from '../../document-management/components/FolderPicker';
 import { FIELD_KINDS, fieldLabel, firstName, signerColor } from '../fields';
 
 const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -35,6 +37,13 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState(null);
+  const [folders, setFolders] = useState([]);
+  const [folderId, setFolderId] = useState('');
+
+  // Folders to file the request in (signed copies then show up there)
+  useEffect(() => {
+    folderApi.list().then(setFolders).catch(() => setFolders([]));
+  }, [file]);
 
   const reset = useCallback(() => {
     setFile(null);
@@ -50,6 +59,7 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
     setMessage('');
     setError('');
     setSent(null);
+    setFolderId('');
   }, []);
 
   const loadFile = useCallback(async (selected) => {
@@ -147,6 +157,7 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
         title: title.trim(),
         message: message.trim(),
         sequential,
+        folder_id: folderId || null,
         signers: signers.map((s) => ({ name: s.name.trim(), email: s.email.trim() })),
         fields: fields.map(({ signer, kind, page, x, y, width, height }) => ({ signer, kind, page, x, y, width, height })),
       }));
@@ -334,6 +345,25 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
         <label className='esign-label' htmlFor='esign-message'>Message (optional)</label>
         <textarea id='esign-message' className='esign-input esign-input--wide' rows={3} maxLength={2000}
           placeholder='Hi, please review and sign this.' value={message} onChange={(e) => setMessage(e.target.value)} />
+        <span className='esign-label' id='esign-folder-label'>Save in folder (optional)</span>
+        <div className='esign-folder' role='group' aria-labelledby='esign-folder-label'>
+          <FolderPicker
+            options={[
+              { id: null, label: 'No folder' },
+              ...folders
+                .map((f) => ({ id: f.id, label: folderPath(folders, f.id) }))
+                .sort((a, b) => a.label.localeCompare(b.label)),
+            ]}
+            onSelect={(id) => setFolderId(id || '')}
+            buttonLabel={folderId ? folderPath(folders, folderId) : 'No folder'}
+            buttonClassName='esign-input esign-folder__button'
+            align='left'
+          />
+        </div>
+        <p className='esign-hint'>
+          The request, and the signed PDF and certificate once everyone has signed, show up in that folder in your
+          Document Manager. Create folders there.
+        </p>
       </section>
 
       {error && (

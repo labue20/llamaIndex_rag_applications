@@ -131,7 +131,8 @@ def test_checkout_needs_an_account(client, fake_stripe):
     assert client.post("/billing/checkout", json={"billing": "monthly"}).status_code == 401
 
 
-def test_checkout_creates_one_customer_and_a_subscription_session(signup, fake_stripe):
+def test_checkout_creates_one_customer_and_a_subscription_session(signup, fake_stripe, monkeypatch):
+    monkeypatch.setattr(config, "YEARLY_BILLING", True)
     user_client = signup("me@example.com")
     response = user_client.post("/billing/checkout", json={"billing": "yearly"})
     assert response.status_code == 200
@@ -154,11 +155,23 @@ def test_checkout_creates_one_customer_and_a_subscription_session(signup, fake_s
     assert fake_stripe.customers_created == 1  # reused
 
 
+def test_billing_is_monthly_only_unless_yearly_is_turned_on(signup, fake_stripe, monkeypatch):
+    user_client = signup()
+    refused = user_client.post("/billing/checkout", json={"plan": "pro", "billing": "yearly"})
+    assert refused.status_code == 400
+    assert "Only monthly billing" in refused.get_json()["error"]
+    assert user_client.get("/plans").get_json()["yearly_billing"] is False
+
+    monkeypatch.setattr(config, "YEARLY_BILLING", True)
+    assert user_client.post("/billing/checkout", json={"plan": "pro", "billing": "yearly"}).status_code == 200
+
+
 def test_checkout_rejects_an_unknown_billing_period(signup, fake_stripe):
     assert signup().post("/billing/checkout", json={"billing": "weekly"}).status_code == 400
 
 
-def test_checkout_for_basic_uses_the_basic_price(signup, fake_stripe):
+def test_checkout_for_basic_uses_the_basic_price(signup, fake_stripe, monkeypatch):
+    monkeypatch.setattr(config, "YEARLY_BILLING", True)
     user_client = signup()
     assert user_client.post("/billing/checkout", json={"plan": "basic", "billing": "yearly"}).status_code == 200
     session = next(params for kind, params in fake_stripe.requests if kind == "checkout")
@@ -180,7 +193,7 @@ def test_checkout_without_stripe_or_prices_explains(signup, fake_stripe, monkeyp
 def test_subscribers_are_sent_to_manage_billing_instead(client, signup, fake_stripe):
     user_client = signup()
     subscribe(client, user_client, fake_stripe)
-    again = user_client.post("/billing/checkout", json={"billing": "yearly"})
+    again = user_client.post("/billing/checkout", json={"billing": "monthly"})
     assert again.status_code == 409
     assert again.get_json()["code"] == "already_subscribed"
 

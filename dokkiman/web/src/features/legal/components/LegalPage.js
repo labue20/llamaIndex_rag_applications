@@ -253,7 +253,7 @@ const TermsOfService = ({ plan }) => (
       </p>
       {plan.online_payments ? (
         <p>
-          Basic and Pro are subscriptions that renew automatically every month or year, at the price shown when
+          Basic and Pro are subscriptions that renew automatically every {plan.yearly_billing ? 'month or year' : 'month'}, at the price shown when
           you subscribe, until you cancel. You can switch between them or cancel at any time from &quot;Manage
           billing&quot; in your account menu; after cancelling, you keep your plan until the end of the period
           you&apos;ve already paid for, then your account moves to the Free plan and nothing is deleted. Payments
@@ -262,7 +262,8 @@ const TermsOfService = ({ plan }) => (
         </p>
       ) : (
         <p>
-          Basic and Pro are paid for a month or a year at a time and don&apos;t renew automatically. When the period you
+          Basic and Pro are paid for {plan.yearly_billing ? 'a month or a year' : 'a month'} at a time and don&apos;t
+          renew automatically. When the period you
           paid for ends, your account moves to the Free plan unless you renew; nothing is deleted. Pro&apos;s
           unlimited use is subject to fair use: up to {plan.pro_fair_use_questions_per_day} AI questions a day.
         </p>

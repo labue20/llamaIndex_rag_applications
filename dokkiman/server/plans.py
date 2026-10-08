@@ -292,6 +292,8 @@ def public_plan_info():
         "pro_price_monthly": PRO_PRICE_MONTHLY,
         "pro_price_yearly": PRO_PRICE_YEARLY,
         "pro_fair_use_questions_per_day": PRO_FAIR_USE_QUESTIONS_PER_DAY,
+        # Whether plans can also be paid by the year
+        "yearly_billing": config.YEARLY_BILLING,
         # Signature requests per month (-1 = unlimited)
         "trial_signature_requests_per_month": SIGNATURE_REQUESTS_PER_MONTH_TRIAL,
         "free_signature_requests_per_month": SIGNATURE_REQUESTS_PER_MONTH_FREE,

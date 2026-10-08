@@ -7,7 +7,7 @@ import { apiFetch } from '../../../shared/services/apiClient';
 
 // Shown until (or if) the server answers
 const DEFAULT_PLAN_INFO = {
-  trial_days: 7,
+  trial_days: 30,
   trial_max_documents: 10,
   trial_max_questions_per_day: 50,
   free_max_documents: 3,
@@ -20,6 +20,7 @@ const DEFAULT_PLAN_INFO = {
   pro_price_monthly: 9.99,
   pro_price_yearly: 90,
   pro_fair_use_questions_per_day: 150,
+  yearly_billing: false,
   trial_signature_requests_per_month: 3,
   free_signature_requests_per_month: 0,
   basic_signature_requests_per_month: 3,
