@@ -79,7 +79,7 @@ test('the last signer is told everyone has signed', async () => {
   await screen.findByRole('button', { name: 'Signature, page 1' });
   await adopt('Signature, page 1');
   await adopt('Initials, page 2', 'SR');
-  fireEvent.click(screen.getByLabelText(/I agree/));
+  fireEvent.click(screen.getByLabelText(/I agree to sign this document/));
   fireEvent.click(screen.getByRole('button', { name: 'Finish signing' }));
   expect(await screen.findByText(/The signed PDF is on its way to your email/)).toBeInTheDocument();
 });
@@ -126,9 +126,9 @@ describe('the signing guide', () => {
   const guide = () => screen.getByRole('region', { name: 'Signing guide' });
   const currentField = () => screen.queryByRole('button', { current: 'step' });
 
-  test('takes the signer to each field in page order, then to Finish', async () => {
+  test('takes the signer to each field in page order, then Finish signs', async () => {
     jest.useFakeTimers();
-    openLink();
+    const requests = openLink({ 'POST /signing/tok123': { body: { signed: true, completed: false } } });
     await screen.findByRole('button', { name: 'Signature, page 1' });
 
     // Before starting: points at the first field and offers Start
@@ -157,9 +157,17 @@ describe('the signing guide', () => {
     expect(scrolledTo.at(-1)).toHaveAttribute('aria-label', 'Finish signing');
     expect(currentField()).toBeNull();
 
+    // Finish signs right from the guide, once the signer agrees
     fireEvent.click(within(guide()).getByRole('button', { name: 'Finish' }));
-    expect(scrolledTo.at(-1)).toHaveAttribute('aria-label', 'Finish signing');
+    expect(within(guide()).getByRole('alert')).toHaveTextContent('agree to sign electronically');
+    expect(requests.some((r) => r.method === 'POST')).toBe(false);
+
+    fireEvent.click(within(guide()).getByLabelText('I agree to sign electronically'));
+    fireEvent.click(within(guide()).getByRole('button', { name: 'Finish' }));
     jest.useRealTimers();
+    expect(await screen.findByRole('heading', { name: 'You’ve signed!' })).toBeInTheDocument();
+    const post = requests.find((r) => r.method === 'POST');
+    expect(post.body.get('consent')).toBe('true');
   });
 
   test('tapping a field directly makes it the current one', async () => {
