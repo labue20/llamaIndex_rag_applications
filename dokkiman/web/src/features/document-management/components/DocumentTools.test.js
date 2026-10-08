@@ -60,7 +60,7 @@ test('opening a folder shows its subfolders, documents and signed copies', async
 
   // Back to the top through the path
   fireEvent.click(screen.getByRole('button', { name: /All documents/ }));
-  await waitFor(() => expect(screen.getByText('unfiled.pdf')).toBeInTheDocument());
+  expect(await screen.findByText('unfiled.pdf')).toBeInTheDocument();
 });
 
 test('subfolders can’t have folders of their own', async () => {
@@ -118,12 +118,15 @@ test('selected documents can be moved to a folder', async () => {
   const { fetchMock, refreshDocuments } = renderManager('/app/documents', {
     '/folders/move': { body: { moved: 1, folder_id: 'f2' } },
   });
-  const row = (await screen.findByText('unfiled.pdf')).closest('tr');
+  const row = await screen.findByRole('row', { name: /unfiled\.pdf/ });
   fireEvent.mouseEnter(row);
   fireEvent.click(within(row).getByRole('checkbox'));
-  const menu = screen.getByLabelText('Move selected documents to');
-  expect(within(menu).getByRole('option', { name: '214 Willow Lane › Leases' })).toBeInTheDocument();
-  fireEvent.change(menu, { target: { value: 'f2' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Move to…' }));
+  // The picker searches folders by path
+  fireEvent.change(screen.getByLabelText('Search folders'), { target: { value: 'leases' } });
+  const options = within(screen.getByRole('listbox', { name: 'Folders' })).getAllByRole('option');
+  expect(options.map((o) => o.textContent)).toEqual(['214 Willow Lane › Leases']);
+  fireEvent.click(screen.getByRole('button', { name: '214 Willow Lane › Leases' }));
   await waitFor(() => expect(calls(fetchMock, '/folders/move', 'POST')).toHaveLength(1));
   expect(JSON.parse(calls(fetchMock, '/folders/move', 'POST')[0][1].body))
     .toEqual({ folder_id: 'f2', document_ids: ['d2'], request_ids: [] });
@@ -138,10 +141,54 @@ test('a link to a folder that no longer exists goes back to the top', async () =
 
 test('Upload files sits next to New folder and says which folder it uploads to', async () => {
   renderManager();
-  const bar = (await screen.findByRole('navigation', { name: 'Folder path' })).parentElement;
-  expect(within(bar).getByRole('button', { name: '+ New folder' })).toBeInTheDocument();
-  expect(within(bar).getByLabelText('Upload files')).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: '+ New folder' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Upload files')).toBeInTheDocument();
 
   fireEvent.click(await screen.findByRole('button', { name: /^214 Willow Lane/ }));
-  expect(await within(bar).findByLabelText('Upload to 214 Willow Lane')).toBeInTheDocument();
+  expect(await screen.findByLabelText('Upload to 214 Willow Lane')).toBeInTheDocument();
+});
+
+test('search finds folders, documents and signature requests in every folder', async () => {
+  renderManager();
+  await screen.findByRole('list', { name: 'Folders' });
+  fireEvent.change(screen.getByLabelText('Search documents'), { target: { value: 'inspection' } });
+  const documents = screen.getByRole('region', { name: 'Matching documents' });
+  expect(within(documents).getByText('inspection.pdf')).toBeInTheDocument();
+  expect(within(documents).getByText('in 214 Willow Lane')).toBeInTheDocument();
+  expect(screen.getByText('1 result for “inspection”')).toBeInTheDocument();
+
+  // Signers are searchable too
+  fireEvent.change(screen.getByLabelText('Search documents'), { target: { value: 'alex' } });
+  expect(within(screen.getByRole('region', { name: 'Matching signature requests' })).getByText('Lease')).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText('Search documents'), { target: { value: 'leases' } });
+  expect(within(screen.getByRole('region', { name: 'Matching folders' })).getByText('in 214 Willow Lane')).toBeInTheDocument();
+  // Choosing a result opens its folder and clears the search
+  fireEvent.click(within(screen.getByRole('region', { name: 'Matching folders' })).getByRole('button'));
+  await waitFor(() => expect(screen.getByRole('navigation', { name: 'Folder path' })).toHaveTextContent('Leases'));
+  expect(screen.getByLabelText('Search documents')).toHaveValue('');
+
+  fireEvent.change(screen.getByLabelText('Search documents'), { target: { value: 'zzz' } });
+  expect(screen.getByText('Nothing matches “zzz”.')).toBeInTheDocument();
+});
+
+test('folders sort A–Z or by recent activity, and the choice is remembered', async () => {
+  const folders = [
+    { id: 'a', name: 'Alpha', parent_id: null, created_at: '2026-01-01T00:00:00+00:00', document_count: 0, request_count: 0 },
+    { id: 'b', name: 'Bravo', parent_id: null, created_at: '2026-01-02T00:00:00+00:00', document_count: 0, request_count: 1 },
+  ];
+  window.localStorage.removeItem('dokkiman.folderSort');
+  mockFetch({
+    '/folders': { body: { folders } },
+    // Recent signature activity in Bravo makes it the most recently used
+    '/signature-requests': { body: { requests: [{ ...REQUEST, folder_id: 'b', created_at: '2026-09-01T00:00:00+00:00' }] } },
+  });
+  renderAt(<DocumentTools documents={[]} />, '/app/documents');
+  const names = () => within(screen.getByRole('list', { name: 'Folders' }))
+    .getAllByRole('button', { name: /^(Alpha|Bravo)/ })
+    .map((button) => button.textContent.match(/^(Alpha|Bravo)/)[1]);
+  await waitFor(() => expect(names()).toEqual(['Alpha', 'Bravo']));
+  fireEvent.change(screen.getByLabelText('Sort folders'), { target: { value: 'recent' } });
+  expect(names()).toEqual(['Bravo', 'Alpha']);
+  expect(window.localStorage.getItem('dokkiman.folderSort')).toBe('recent');
 });

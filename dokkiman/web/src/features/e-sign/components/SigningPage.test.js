@@ -124,7 +124,7 @@ describe('the signing guide', () => {
   });
 
   const guide = () => screen.getByRole('region', { name: 'Signing guide' });
-  const currentField = () => document.querySelector('.esign-field--current');
+  const currentField = () => screen.queryByRole('button', { current: 'step' });
 
   test('takes the signer to each field in page order, then to Finish', async () => {
     jest.useFakeTimers();

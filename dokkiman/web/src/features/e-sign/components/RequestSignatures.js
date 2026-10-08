@@ -11,6 +11,7 @@ import { apiFetch, DocumentPicker, Icon, readApiError } from '../../../shared';
 import { useAuth } from '../../auth/context/AuthContext';
 import FieldStage from './FieldStage';
 import { folderApi, folderPath } from '../../document-management/services/folderApi';
+import FolderPicker from '../../document-management/components/FolderPicker';
 import { FIELD_KINDS, fieldLabel, firstName, signerColor } from '../fields';
 
 const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -344,15 +345,21 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
         <label className='esign-label' htmlFor='esign-message'>Message (optional)</label>
         <textarea id='esign-message' className='esign-input esign-input--wide' rows={3} maxLength={2000}
           placeholder='Hi, please review and sign this.' value={message} onChange={(e) => setMessage(e.target.value)} />
-        <label className='esign-label' htmlFor='esign-folder'>Save in folder (optional)</label>
-        <select id='esign-folder' className='esign-input esign-input--wide' value={folderId}
-          onChange={(e) => setFolderId(e.target.value)}>
-          <option value=''>No folder</option>
-          {folders
-            .map((f) => ({ id: f.id, label: folderPath(folders, f.id) }))
-            .sort((a, b) => a.label.localeCompare(b.label))
-            .map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </select>
+        <span className='esign-label' id='esign-folder-label'>Save in folder (optional)</span>
+        <div className='esign-folder' role='group' aria-labelledby='esign-folder-label'>
+          <FolderPicker
+            options={[
+              { id: null, label: 'No folder' },
+              ...folders
+                .map((f) => ({ id: f.id, label: folderPath(folders, f.id) }))
+                .sort((a, b) => a.label.localeCompare(b.label)),
+            ]}
+            onSelect={(id) => setFolderId(id || '')}
+            buttonLabel={folderId ? folderPath(folders, folderId) : 'No folder'}
+            buttonClassName='esign-input esign-folder__button'
+            align='left'
+          />
+        </div>
         <p className='esign-hint'>
           The request, and the signed PDF and certificate once everyone has signed, show up in that folder in your
           Document Manager. Create folders there.

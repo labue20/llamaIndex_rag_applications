@@ -98,6 +98,7 @@ const RequestRow = ({ request }) => {
 
 const FolderBrowser = ({
   folders, currentFolder, trail, subfolders, requests, onOpen, onCreate, onRename, onDelete, error, uploadButton,
+  sort = 'name', onSortChange,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   // One level of subfolders: new folders can be made at the top and inside a top folder
@@ -141,6 +142,16 @@ const FolderBrowser = ({
         />
       )}
       {error && <p className='folders__error' role='alert'>{error}</p>}
+
+      {subfolders.length > 1 && onSortChange && (
+        <div className='folders__sort'>
+          <label htmlFor='folder-sort'>Sort folders</label>
+          <select id='folder-sort' value={sort} onChange={(e) => onSortChange(e.target.value)}>
+            <option value='name'>A–Z</option>
+            <option value='recent'>Recently used</option>
+          </select>
+        </div>
+      )}
 
       {subfolders.length > 0 && (
         <ul className='folders__list' aria-label='Folders'>

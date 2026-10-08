@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { Icon } from '../../../shared';
+import FolderPicker from './FolderPicker';
 
 const MAX_TITLE_LENGTH = 45;
 
@@ -203,12 +204,12 @@ const DocumentViewer = ({
     }
   };
 
-  // Move the selected documents to a folder ('' in the menu means no choice yet)
-  const moveSelected = async (value) => {
-    if (value === '' || !onMoveDocuments) return;
+  // Move the selected documents to a folder (null: out of any folder)
+  const moveSelected = async (folderId) => {
+    if (!onMoveDocuments) return;
     setIsMoving(true);
     try {
-      await onMoveDocuments([...selectedDocuments], value === 'none' ? null : value);
+      await onMoveDocuments([...selectedDocuments], folderId);
       setSelectedDocuments(new Set());
     } catch (error) {
       alert(error.message || 'Couldn’t move the documents. Please try again.');
@@ -274,18 +275,13 @@ const DocumentViewer = ({
               </div>
               <div className='viewer__action-buttons'>
                 {moveTargets && onMoveDocuments && (
-                  <select
-                    className='viewer__move'
-                    aria-label='Move selected documents to'
-                    value=''
+                  <FolderPicker
+                    options={moveTargets}
+                    onSelect={moveSelected}
+                    buttonLabel={isMoving ? 'Moving…' : 'Move to…'}
+                    buttonClassName='viewer__move'
                     disabled={isMoving || isDeleting}
-                    onChange={(e) => moveSelected(e.target.value)}
-                  >
-                    <option value=''>{isMoving ? 'Moving…' : 'Move to…'}</option>
-                    {moveTargets.map((target) => (
-                      <option key={target.id || 'none'} value={target.id || 'none'}>{target.label}</option>
-                    ))}
-                  </select>
+                  />
                 )}
                 <button 
                   className='viewer__delete-btn'

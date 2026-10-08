@@ -246,6 +246,7 @@ const SigningPage = () => {
               }}
               fieldStyle={(f) => ({ '--signer': '#2563eb', cursor: needsSigner(f) ? 'pointer' : 'default' })}
               fieldClassName={(f) => (f.id === currentId && !isDone(f) ? 'esign-field--current' : '')}
+              currentId={nextField && currentId && !isDone(info.fields.find((f) => f.id === currentId) || {}) ? currentId : null}
               renderField={(f) => {
                 const flag = f.id === currentId && !isDone(f) && (
                   // Beside the field: on its left, or its right when it's near the page's left edge

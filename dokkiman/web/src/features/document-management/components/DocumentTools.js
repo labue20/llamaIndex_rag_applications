@@ -3,7 +3,8 @@
  * The Document Manager: folders (one level of subfolders), the signature
  * requests filed in each, and the documents. The open folder is in the
  * address (/app/documents?folder=<id>), so Back works and uploads know
- * where to go.
+ * where to go. A search box finds folders, documents and requests across
+ * every folder; folders sort A–Z or by recent activity.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -14,7 +15,22 @@ import { folderApi, folderPath } from '../services/folderApi';
 import { fetchSignatureRequests } from '../../e-sign/requestsApi';
 import FolderBrowser from './FolderBrowser';
 import CompactUploadButton from './CompactUploadButton';
+import DocumentSearch from './DocumentSearch';
+import { Icon } from '../../../shared';
 import '../styles/folders.scss';
+
+const SORT_KEY = 'dokkiman.folderSort';
+const readSort = () => {
+  try {
+    return window.localStorage.getItem(SORT_KEY) === 'recent' ? 'recent' : 'name';
+  } catch {
+    return 'name';
+  }
+};
+
+// A document's display name (older uploads keep it in different fields)
+const nameOf = (document) => document.filename || document.file_name || document.name || 'Document';
+const time = (value) => (value ? new Date(value.includes('T') ? value : `${value.replace(' ', 'T')}Z`).getTime() || 0 : 0);
 
 const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
   const { deleteDocument } = useDocuments();
@@ -24,6 +40,17 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState(readSort);
+
+  const changeSort = (value) => {
+    setSort(value);
+    try {
+      window.localStorage.setItem(SORT_KEY, value);
+    } catch {
+      // Not remembered (private browsing): fine
+    }
+  };
 
   const loadFolders = useCallback(async () => {
     try {
@@ -54,7 +81,24 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
   for (let folder = currentFolder; folder; folder = byId[folder.parent_id]) trail.unshift(folder);
 
   const here = (item) => (item.folder_id || null) === folderId;
-  const subfolders = folders.filter((f) => (f.parent_id || null) === folderId);
+
+  // Latest activity in each folder (its own creation, uploads and signature
+  // activity, including its subfolders'), for "Recently used"
+  const lastActivity = useMemo(() => {
+    const latest = Object.fromEntries(folders.map((f) => [f.id, time(f.created_at)]));
+    const bump = (folder, when) => {
+      for (let f = byId[folder]; f; f = byId[f.parent_id]) latest[f.id] = Math.max(latest[f.id] || 0, when);
+    };
+    (documents || []).forEach((d) => d.folder_id && bump(d.folder_id, time(d.processing_timestamp)));
+    requests.forEach((r) => r.folder_id && bump(r.folder_id, Math.max(time(r.created_at), time(r.completed_at))));
+    return latest;
+  }, [folders, byId, documents, requests]);
+
+  const subfolders = folders
+    .filter((f) => (f.parent_id || null) === folderId)
+    .sort(sort === 'recent'
+      ? (a, b) => (lastActivity[b.id] || 0) - (lastActivity[a.id] || 0) || a.name.localeCompare(b.name)
+      : (a, b) => a.name.localeCompare(b.name));
   const documentsHere = (documents || []).filter(here);
   const requestsHere = requests.filter(here);
 
@@ -117,9 +161,40 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
     }
   };
 
+  const searching = query.trim().length > 0;
+
   return (
     <div className='document-tools'>
+      <div className='folders__searchbar'>
+        <Icon name='search' size={16} />
+        <input
+          type='search'
+          className='folders__search'
+          placeholder='Search folders, documents and signature requests'
+          aria-label='Search documents'
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
+        />
+      </div>
+      {searching ? (
+        <DocumentSearch
+          query={query.trim()}
+          folders={folders}
+          documents={documents || []}
+          requests={requests}
+          pathOf={(id) => folderPath(folders, id)}
+          nameOf={nameOf}
+          onOpenFolder={(id) => {
+            setQuery('');
+            open(id);
+          }}
+        />
+      ) : (
+      <>
       <FolderBrowser
+        sort={sort}
+        onSortChange={changeSort}
         folders={folders}
         currentFolder={currentFolder}
         trail={trail}
@@ -154,6 +229,8 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
             : null}
         />
       </div>
+      )}
+      </>
       )}
     </div>
   );

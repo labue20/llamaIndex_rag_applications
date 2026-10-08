@@ -64,7 +64,7 @@ export const useWidth = () => {
 };
 
 const FieldStage = ({
-  pdf, pageIndex, fields, renderField, describeField, fieldStyle, fieldClassName,
+  pdf, pageIndex, fields, renderField, describeField, fieldStyle, fieldClassName, currentId = null,
   editable = false, selectedId, onSelect, onChange, onRemove, onActivate,
 }) => {
   const [stageRef, width] = useWidth();
@@ -140,6 +140,8 @@ const FieldStage = ({
                   type='button'
                   // Lets the signing guide find and scroll to each field
                   data-field-id={field.id}
+                  // The field the signing guide points at
+                  aria-current={field.id === currentId ? 'step' : undefined}
                   className={`esign-field esign-field--${field.kind} ${fieldClassName?.(field) || ''}`}
                   style={style}
                   aria-label={describeField(field)}
