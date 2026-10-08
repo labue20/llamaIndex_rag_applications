@@ -72,10 +72,19 @@ const PrivacyPolicy = ({ plan }) => (
       </p>
       <h3>Signed documents</h3>
       <p>
-        When you use Sign PDF, we keep an audit record: who signed (your email, or &quot;Guest&quot;), when,
-        from which network address, the file name, what was placed on which page, and fingerprints (SHA-256)
-        of the document before and after signing. We don&apos;t keep the document itself. The record lets you
-        show later how and when a document was signed.
+        When you sign a document yourself with E-Sign, we keep an audit record: who signed (your email, or
+        &quot;Guest&quot;), when, from which network address, the file name, what was placed on which page, and
+        fingerprints (SHA-256) of the document before and after signing. We don&apos;t keep the document itself.
+        The record lets you show later how and when a document was signed.
+      </p>
+      <h3>Documents sent for signature</h3>
+      <p>
+        When you send a document for signature, we store the document and the names and email addresses you
+        enter for the signers, and email each signer a private link. When a signer opens or signs it, we record
+        the time, their network address and their browser type, and keep their signature and initials images.
+        This becomes the document&apos;s certificate of completion (its audit trail), which everyone receives with the signed copy. We use
+        signers&apos; details only to run the signing and keep its record, never for marketing. Emails are
+        delivered by our email provider.
       </p>
       <h3>Cookies</h3>
       <p>
@@ -88,9 +97,10 @@ const PrivacyPolicy = ({ plan }) => (
     <section>
       <h2>2. Files you convert, split or sign</h2>
       <p>
-        PDF to Word, Word to PDF, Split PDF and Sign PDF process your file in memory or in a temporary folder,
-        send the result back to your browser, and discard both straight away. These files aren&apos;t added to
-        your Document Manager unless you upload them there yourself.
+        PDF to Word, Word to PDF, Split PDF and signing a document yourself with E-Sign process your file in
+        memory or in a temporary folder, send the result back to your browser, and discard both straight away.
+        These files aren&apos;t added to your Document Manager unless you upload them there yourself. Documents
+        you send for signature are the exception: we keep them so signers can open them (see above).
       </p>
     </section>
 
@@ -151,8 +161,13 @@ const PrivacyPolicy = ({ plan }) => (
         </li>
         <li><strong>Server access logs:</strong> rotated automatically, with older logs deleted.</li>
         <li>
-          <strong>Sign PDF audit records:</strong> kept as evidence of the signing. You can ask us to delete
+          <strong>E-Sign audit records:</strong> kept as evidence of the signing. You can ask us to delete
           them.
+        </li>
+        <li>
+          <strong>Documents sent for signature:</strong> kept, with their signers&apos; details and audit trail,
+          until you delete the request in E-Sign (you can once it&apos;s completed, declined or cancelled).
+          Signing links stop working when a request is finished or cancelled, or 30 days after it was sent.
         </li>
       </ul>
     </section>
@@ -280,10 +295,13 @@ const TermsOfService = ({ plan }) => (
     <section>
       <h2>7. Electronic signatures</h2>
       <p>
-        Sign PDF lets you add your own signature, initials and the date to a document. Only sign documents you
-        are authorized to sign, and only with your own signature. Whether an electronic signature is acceptable
-        for a particular document depends on the law and on the other parties; it&apos;s your responsibility to
-        check. We don&apos;t verify your identity beyond your sign-in.
+        E-Sign lets you add your own signature, initials and the date to a document, and send documents to
+        others to sign. Only sign documents you are authorized to sign, and only with your own signature; only
+        send documents to people who expect them, and don&apos;t use E-Sign for spam. Signers are identified by
+        access to the email address you enter; we don&apos;t otherwise verify anyone&apos;s identity. Whether an
+        electronic signature is acceptable for a particular document depends on the law and on the other
+        parties (some documents, such as wills or notarized papers, may need a signature on paper); it&apos;s
+        your responsibility to check.
       </p>
     </section>
 

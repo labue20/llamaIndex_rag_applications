@@ -27,7 +27,7 @@ test('logged-in users get the full app with their account in the header', async 
   expect(within(header).getByRole('menuitem', { name: 'Log out' })).toBeInTheDocument();
   expect(within(header).getByRole('menuitem', { name: 'Change password' })).toBeInTheDocument();
 
-  for (const section of ['Document Manager', 'AI PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Sign PDF']) {
+  for (const section of ['Document Manager', 'AI PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'E-Sign']) {
     expect(screen.getAllByText(section).length).toBeGreaterThan(0);
   }
 });

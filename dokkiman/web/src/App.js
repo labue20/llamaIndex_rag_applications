@@ -7,9 +7,9 @@ import { useDocuments } from './features/document-management';
 import { PdfToWordConverter } from './features/pdf-to-word-converter';
 import { WordToPdfConverter } from './features/word-to-pdf-converter';
 import { SplitPdf } from './features/split-pdf';
-import { SignPdf } from './features/sign-pdf';
+import { ESign } from './features/e-sign';
 import { useAuth, GuestAccountPrompt } from './features/auth';
-import { APP_SECTION_SLUGS, appPath } from './routes';
+import { APP_SECTION_SLUGS, RENAMED_SLUGS, appPath } from './routes';
 import './shared/styles/base.scss';
 import './shared/styles/components.scss';
 import './features/document-management/styles/components.scss';
@@ -32,8 +32,8 @@ function App() {
   const [wordToPdfStatus, setWordToPdfStatus] = useState({ hasFile: false, isBusy: false });
   const splitPdfRef = useRef(null);
   const [splitPdfStatus, setSplitPdfStatus] = useState({ hasFile: false, isBusy: false });
-  const signPdfRef = useRef(null);
-  const [signPdfStatus, setSignPdfStatus] = useState({ hasFile: false, isBusy: false });
+  const eSignRef = useRef(null);
+  const [eSignStatus, setESignStatus] = useState({ hasFile: false, isBusy: false });
 
   const handleUploadSuccess = useCallback(async (result) => {
     console.log('Upload successful, refreshing documents...', result);
@@ -107,27 +107,28 @@ function App() {
       )
     },
     {
-      label: 'Sign PDF',
-      shortLabel: 'Sign',
+      label: 'E-Sign',
+      shortLabel: 'E-Sign',
       icon: <Icon name='pen' />,
-      title: 'Sign PDF',
-      content: <SignPdf ref={signPdfRef} onStatusChange={setSignPdfStatus} allowDocumentManager={!isGuest} />,
+      title: 'E-Sign',
+      content: <ESign ref={eSignRef} onStatusChange={setESignStatus} allowDocumentManager={!isGuest} isGuest={isGuest} />,
       headerAction: (
-        <ConverterHeaderActions converterRef={signPdfRef} status={signPdfStatus} acceptedTypes='.pdf' />
+        <ConverterHeaderActions converterRef={eSignRef} status={eSignStatus} acceptedTypes='.pdf' />
       )
     }
 
-  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, signPdfStatus, isGuest]);
+  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, eSignStatus, isGuest]);
 
   // The section shown comes from the address: /app/<slug>
   const activeIndex = APP_SECTION_SLUGS.indexOf(location.pathname.split('/')[2] || '');
 
-  // /app or an unknown /app/... address: go to the default section
+  // /app or an unknown /app/... address: go to the default section (or where it moved)
+  const slug = location.pathname.split('/')[2] || '';
   useEffect(() => {
     if (activeIndex === -1) {
-      navigate(appPath(isGuest ? 'chat' : 'documents'), { replace: true });
+      navigate(appPath(RENAMED_SLUGS[slug] || (isGuest ? 'chat' : 'documents')), { replace: true });
     }
-  }, [activeIndex, isGuest, navigate]);
+  }, [activeIndex, slug, isGuest, navigate]);
 
   // Name the browser tab after the current tool
   const activeTitle = sections[Math.max(activeIndex, 0)].title;

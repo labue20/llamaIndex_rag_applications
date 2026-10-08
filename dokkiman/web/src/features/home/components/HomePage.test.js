@@ -18,7 +18,7 @@ test('lists every tool', () => {
   renderHome();
   const cards = toolCards();
   expect(cards).toHaveLength(6);
-  ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Sign PDF', 'Document Manager'].forEach((title, i) => {
+  ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'E-Sign', 'Document Manager'].forEach((title, i) => {
     expect(cards[i]).toHaveTextContent(title);
   });
 });
@@ -28,7 +28,7 @@ test('the top bar links to every tool that can be tried without an account', () 
   const { onTryTool } = renderHome();
   const links = within(screen.getByRole('navigation', { name: 'Tools' })).getAllByRole('button');
   expect(links.map((link) => link.textContent)).toEqual(
-    ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Sign PDF']
+    ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'E-Sign']
   );
   fireEvent.click(links[4]);
   expect(onTryTool).toHaveBeenLastCalledWith('sign');
@@ -68,7 +68,7 @@ test('tools can be tried without signing up; the Document Manager needs an accou
   fireEvent.click(cards[3]); // Split PDF
   expect(onTryTool).toHaveBeenLastCalledWith('split');
 
-  fireEvent.click(cards[4]); // Sign PDF
+  fireEvent.click(cards[4]); // E-Sign
   expect(onTryTool).toHaveBeenLastCalledWith('sign');
 
   fireEvent.click(cards[5]); // Document Manager

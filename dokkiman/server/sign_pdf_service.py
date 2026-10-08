@@ -116,6 +116,105 @@ def _insert_text(page, rect, text):
     page.insert_textbox(rect, text, fontsize=4, fontname="helv", rotate=rotation)
 
 
+def stamp(doc, placements, pngs):
+    """Draw validated placements into the open document's pages."""
+    for item in placements:
+        page = doc[item["page"]]
+        rect = _target_rect(page, item)
+        if item["type"] == "image":
+            page.insert_image(rect, stream=pngs[item["image"]], keep_proportion=True,
+                              rotate=page.rotation, overlay=True)
+        else:
+            _insert_text(page, rect, item["text"])
+
+
+def open_pdf(pdf_bytes):
+    """Open a PDF for signing, with errors people can act on."""
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception:
+        raise SignError("This file couldn't be read as a PDF. It may be damaged.")
+    if doc.needs_pass:
+        doc.close()
+        raise SignError("Password-protected PDFs can't be signed. Remove the password and try again.")
+    return doc
+
+
+class _PageWriter:
+    """Writes wrapped lines down A4 pages, starting a new page when one is full."""
+
+    MARGIN = 56
+
+    def __init__(self, doc):
+        self.doc = doc
+        self._new_page()
+
+    def _new_page(self):
+        self.page = self.doc.new_page(width=595, height=842)  # A4
+        self.y = self.MARGIN
+
+    def line(self, text, size=10, bold=False, gap=6, color=(0.1, 0.1, 0.1)):
+        for chunk in textwrap.wrap(text, width=int(470 / (size * 0.5))) or [""]:
+            if self.y + size > 842 - self.MARGIN:
+                self._new_page()
+            self.page.insert_text((self.MARGIN, self.y + size), chunk, fontsize=size,
+                                  fontname="hebo" if bold else "helv", color=color)
+            self.y += size + 3
+        self.y += gap
+
+
+def certificate_of_completion(info):
+    """The audit trail of a signature request with several signers, as its own
+    PDF (like DocuSign's Certificate of Completion). Returns PDF bytes.
+
+    info: title, sender, request_id, sent_at, completed_at, original_sha256,
+    signed_sha256, signed_file_name, and signers: [{name, email, viewed_at,
+    signed_at, ip_address}]
+    """
+    doc = fitz.open()
+    try:
+        _certificate_pages(doc, info)
+        doc.set_metadata({"title": f"Certificate of Completion: {info['title']}",
+                          "producer": "Dokkiman - E-Sign"})
+        return doc.tobytes(garbage=3, deflate=True)
+    finally:
+        doc.close()
+
+
+def _certificate_pages(doc, info):
+    out = _PageWriter(doc)
+    out.line("Certificate of Completion", size=18, bold=True, gap=4)
+    out.line("This certificate records how the document named below was signed.", color=(0.4, 0.4, 0.4), gap=16)
+    for label, value in (
+        ("Document", info["title"]),
+        ("Sent for signature by", info["sender"]),
+        ("Sent at (UTC)", info["sent_at"]),
+        ("Completed at (UTC)", info["completed_at"]),
+        ("Request ID", info["request_id"]),
+    ):
+        out.line(label, size=9, bold=True, gap=0, color=(0.35, 0.35, 0.35))
+        out.line(value, size=10, gap=10)
+
+    out.line("Signers", size=13, bold=True, gap=6)
+    for number, signer in enumerate(info["signers"], start=1):
+        out.line(f"{number}. {signer['name']} <{signer['email']}>", size=10, bold=True, gap=2)
+        out.line(f"Opened the document: {signer.get('viewed_at') or 'not recorded'}", size=9, gap=0)
+        out.line(f"Signed: {signer['signed_at']}", size=9, gap=0)
+        out.line(f"Network address: {signer.get('ip_address') or 'unknown'}", size=9, gap=10)
+
+    for label, value in (
+        ("Original document SHA-256", info["original_sha256"]),
+        (f"Signed document SHA-256 ({info['signed_file_name']})", info["signed_sha256"]),
+    ):
+        out.line(label, size=9, bold=True, gap=0, color=(0.35, 0.35, 0.35))
+        out.line(value, size=10, gap=10)
+    out.line("Each signer received a private link by email and agreed to sign electronically. "
+             "The SHA-256 fingerprints identify the exact file contents: recomputing the signed "
+             "document's fingerprint shows whether it was changed after signing. A copy of this record "
+             "is kept by the service.",
+             size=8, color=(0.45, 0.45, 0.45), gap=0)
+
+
 def _audit_page(doc, record):
     """Append a page summarising who signed what, when, with document fingerprints."""
     page = doc.new_page(width=595, height=842)  # A4
@@ -163,27 +262,13 @@ def _summary(placements):
 
 def sign_pdf(pdf_bytes, placements_json, images, file_name, signer, ip_address, add_audit_trail=True):
     """Stamp placements onto the PDF. Returns (signed_pdf_bytes, audit_record)."""
-    try:
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    except Exception:
-        raise SignError("This file couldn't be read as a PDF. It may be damaged.")
-    if doc.needs_pass:
-        doc.close()
-        raise SignError("Password-protected PDFs can't be signed. Remove the password and try again.")
+    doc = open_pdf(pdf_bytes)
 
     try:
         placements = parse_placements(placements_json, doc.page_count, len(images))
         pngs = [load_image(data) for data in images]
 
-        for item in placements:
-            page = doc[item["page"]]
-            rect = _target_rect(page, item)
-            if item["type"] == "image":
-                page.insert_image(rect, stream=pngs[item["image"]], keep_proportion=True,
-                                  rotate=page.rotation, overlay=True)
-            else:
-                _insert_text(page, rect, item["text"])
-
+        stamp(doc, placements, pngs)
         signed_body = doc.tobytes(garbage=3, deflate=True)
         record = {
             "id": uuid.uuid4().hex,

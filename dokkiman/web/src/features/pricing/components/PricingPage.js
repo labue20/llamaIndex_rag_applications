@@ -59,12 +59,16 @@ const FAQ = ({ plan, supportEmail, online }) => [
       a: 'No. You pay for a month or a year at a time. When that period ends, your account moves to the Free plan unless you renew, and nothing is deleted.',
     },
   {
+    q: 'How does sending a document for signature work?',
+    a: `In E-Sign, choose “Request signatures”, add each signer’s name and email, and place their signature fields. They get an email with a private link and sign online, no account needed. When everyone has signed, you all get the signed PDF and its certificate of completion (the audit trail). Basic includes ${plan.basic_signature_requests_per_month} requests a month (so does the free trial); Pro is unlimited.`,
+  },
+  {
     q: 'Is Pro really unlimited?',
     a: `There are no limits on documents or file conversions. AI questions are subject to fair use: up to ${plan.pro_fair_use_questions_per_day} a day, far more than normal use needs.`,
   },
   {
     q: 'What counts as a file conversion?',
-    a: 'Each PDF to Word, Word to PDF, Split PDF or Sign PDF you download. Asking questions about your documents is counted separately.',
+    a: 'Each PDF to Word, Word to PDF, Split PDF or E-Sign document you download. Asking questions about your documents is counted separately.',
   },
   {
     q: 'Is my data used to train AI?',
@@ -276,7 +280,7 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
               <Feature>Up to {plan.free_max_documents} documents in your Document Manager</Feature>
               <Feature>{plan.free_max_questions_per_day} AI questions a day</Feature>
               <Feature>{plan.free_conversions_per_day} file conversions a day</Feature>
-              <Feature>PDF to Word, Word to PDF, Split PDF and Sign PDF</Feature>
+              <Feature>PDF to Word, Word to PDF, Split PDF and E-Sign</Feature>
               <Feature>Signature audit trail</Feature>
             </ul>
           </section>
@@ -291,7 +295,8 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
               `Up to ${plan.basic_max_documents} documents`,
               `${plan.basic_max_questions_per_day} AI questions a day`,
               'Unlimited file conversions',
-              'Every tool, including Sign PDF with audit trail',
+              `Send ${plan.basic_signature_requests_per_month} documents a month for others to e-sign`,
+              'Every tool, including E-Sign with audit trail',
             ]}
           />
 
@@ -306,7 +311,8 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
               'Unlimited documents',
               'Unlimited AI questions',
               'Unlimited file conversions',
-              'Every tool, including Sign PDF with audit trail',
+              'Unlimited documents sent for e-signature',
+              'Every tool, including E-Sign with audit trail',
               'Keep access to everything you upload',
             ]}
           />

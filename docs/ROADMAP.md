@@ -2,6 +2,67 @@
 
 What's left to do, roughly in priority order. Live site: <https://dokkiman.com>
 
+## How to deploy
+
+From your Mac's Terminal app:
+
+**Step 1: Make sure your change is on `master`.** On GitHub, open a pull
+request from `dev` to `master` and merge it. The server only deploys what's on
+`master`.
+
+**Step 2: Log in to the server.**
+
+```
+ssh dokkiman
+```
+
+You should see a prompt like `ubuntu@ip-172-26-4-43:~$`. The `dokkiman`
+shortcut is in `~/.ssh/config`; it connects to `77.112.74.236` as `ubuntu` with
+the key `~/.ssh/dokkiman_prod.pem`.
+
+**Step 3: Run the deploy script.**
+
+```
+sudo bash /opt/dokkiman/app/dokkiman/deploy/deploy.sh master
+```
+
+It takes about 2–3 minutes and shows these steps:
+
+```
+==> Updating code (master)
+==> Installing Python dependencies
+==> Building the frontend
+==> Installing services
+==> Restarting
+==> Checking health
+Healthy: {"index_server":true,"status":"ok"}
+```
+
+Your data (accounts, documents, the index) isn't touched.
+
+**Step 4: Check it worked.** The last line must say `Healthy`; if it shows an
+error instead, read the lines above it. Then open <https://dokkiman.com> and
+refresh with Cmd+Shift+R to skip the browser cache.
+
+**Step 5: Log out of the server.**
+
+```
+exit
+```
+
+**Useful extras while logged in:**
+
+| To | Run |
+|---|---|
+| See the app's live logs | `sudo journalctl -u dokkiman-api -u dokkiman-index -f` (Ctrl+C to stop) |
+| Check the services are running | `systemctl status dokkiman-api dokkiman-index caddy` |
+| Edit settings (keys, support email) | `sudo nano /opt/dokkiman/app/dokkiman/server/.env`, then run the deploy again |
+| Restart without updating code | `sudo systemctl restart dokkiman-api dokkiman-index` |
+
+**If `ssh dokkiman` fails** with "Permission denied", the key file may have
+been moved. Check that `~/.ssh/dokkiman_prod.pem` exists; the original download
+is `~/Downloads/dokkiman_ssh_prod_key.pem`.
+
 ## Before launch
 
 - [ ] **Decide the prices.** Today there are four paid prices: Basic $1.99/month
@@ -17,9 +78,9 @@ What's left to do, roughly in priority order. Live site: <https://dokkiman.com>
       4. Make one real purchase and refund it.
 - [ ] **Set the support email** (`SUPPORT_EMAIL` in the server's `.env`). It's
       shown in the Upgrade dialog and on the legal pages.
-- [ ] **Ship the new logo.** The folded-page "D" logo and browser icons are
-      ready locally. Commit them, merge to `master` and deploy.
-- [ ] **Merge `dev` into `master`.** This includes the `setup.sh` Caddy log fix.
+- [x] **Ship the new logo.** The folded-page "D" logo and browser icons are live.
+- [x] **Merge `dev` into `master`.** Done in PR #13, which included the
+      `setup.sh` Caddy log fix, the tagline and Pricing on mobile.
 - [ ] **Check the live site end to end:** sign in with Google, upload a
       document and ask a question, and try PDF to Word, Word to PDF, Split and Sign.
 - [ ] **Set up off-server backups.** `BACKUP_BUCKET` is empty, so nightly
@@ -35,7 +96,7 @@ Sign PDF only accepts PDFs today. Converting `.docx` uploads to PDF
 automatically (the Word to PDF converter already does this) makes
 "sign any document" true.
 
-### Request signatures (the big one)
+### Request signatures (built, in E-Sign)
 
 Next, if you want e-signature to be the main product: build "Request signatures". You enter
 a signer's email, they get a link, sign in the browser without an account, and
@@ -44,16 +105,19 @@ service (for example Resend or Amazon SES) and a few days of work, and it would
 make "e-signature tool" fully true. It's also a natural thing to keep for Pro,
 giving people a reason to upgrade.
 
-Pieces to build:
-- [ ] Email sending (Resend or Amazon SES), with a domain verified for
-      `dokkiman.com` (SPF/DKIM records at Namecheap)
-- [ ] Signature requests: the document, signers' emails, signing order, status
-      (sent, viewed, signed, declined) and reminders
-- [ ] A signing page that works from a private link, with no account needed
-- [ ] The signed copy with the full audit trail (every signer, time and IP
+Pieces:
+- [x] Signature requests: the document, signers' emails, signing order, status
+      (sent, viewed, signed, declined), reminders, cancel and delete
+- [x] A signing page that works from a private link, with no account needed
+- [x] The signed copy with the full audit trail (every signer, time and IP
       address, and the document fingerprint), emailed to everyone
-- [ ] Limits per plan, for example Pro only or a few requests a month on Basic
-- [ ] Terms and privacy policy updated to cover signers who don't have accounts
+- [x] Limits per plan: 3 a month on the trial and Basic, none on Free,
+      unlimited on Pro (fair use 200 a month); `SIGNATURE_REQUESTS_PER_MONTH_*`
+- [x] Terms and privacy policy updated to cover signers who don't have accounts
+- [ ] **Turn on real email:** create a Resend account, verify `dokkiman.com`
+      (add Resend's DNS records at Namecheap), then set `RESEND_API_KEY` and
+      `EMAIL_FROM=Dokkiman <sign@dokkiman.com>` in the server's `.env` and deploy.
+      Until then, emails are only written to the server log.
 
 ## Marketing
 
