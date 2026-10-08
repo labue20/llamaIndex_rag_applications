@@ -168,9 +168,12 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
     ? `${Math.max(0, usage.limit - usage.used)} of ${usage.limit} signature requests left this month`
     : null;
 
+  // Same container as the other tools, so the upload box and spacing match
+  const frame = (content) => <div className='file-converter esign-request'>{content}</div>;
+
   if (sent) {
     const names = sent.signers.map((s) => s.name);
-    return (
+    return frame(
       <div className='esign-done'>
         <span className='esign-done__icon'><Icon name='checkCircle' size={28} /></span>
         <h3>Sent for signature</h3>
@@ -189,7 +192,7 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
   }
 
   if (!file) {
-    return (
+    return frame(
       <div className='file-input-section'>
         <div className='upload-area'>
           <input type='file' accept='.pdf' id='esign-request-file-input'
@@ -209,7 +212,7 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
 
   const pageFields = fields.filter((f) => f.page === currentPage);
 
-  return (
+  return frame(
     <div className='esign-compose'>
       <section className='esign-panel' aria-labelledby='esign-signers-title'>
         <h3 id='esign-signers-title' className='esign-panel__title'>Who needs to sign?</h3>
