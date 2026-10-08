@@ -1,5 +1,7 @@
 [Unit]
 Description=Dokkiman - back up accounts, search index and uploaded documents
+# Email an alert if the backup (or its copy to S3) fails
+OnFailure=dokkiman-backup-failed.service
 
 [Service]
 Type=oneshot

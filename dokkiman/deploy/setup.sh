@@ -111,6 +111,7 @@ systemctl enable caddy
 log "Installing the nightly backup"
 install -m 644 "$DEPLOY_DIR/systemd/dokkiman-backup.service" /etc/systemd/system/
 install -m 644 "$DEPLOY_DIR/systemd/dokkiman-backup.timer" /etc/systemd/system/
+install -m 644 "$DEPLOY_DIR/systemd/dokkiman-backup-failed.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now dokkiman-backup.timer
 

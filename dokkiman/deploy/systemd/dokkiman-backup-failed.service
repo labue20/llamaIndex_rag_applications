@@ -1,0 +1,6 @@
+[Unit]
+Description=Dokkiman - email an alert that the nightly backup failed
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/dokkiman/app/dokkiman/deploy/backup-failed.sh
