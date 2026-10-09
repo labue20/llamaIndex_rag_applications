@@ -357,3 +357,15 @@ def test_expired_guest_documents_are_deleted(make_pdf):
     assert not old_path.exists()
     assert "doc-new" in srv.stored_docs  # still within 24 hours
     assert "doc-account" in srv.stored_docs  # accounts' documents never expire
+
+
+# --- admin stats -----------------------------------------------------------
+
+def test_document_counts_per_owner(index, make_pdf, monkeypatch):
+    _insert(make_pdf, "doc-1", OWNER, pages=1)
+    _insert(make_pdf, "doc-2", OWNER, pages=1)
+    _insert(make_pdf, "doc-3", OTHER, pages=1)
+    # Old entries without an owner, and the oldest plain-text format, aren't counted
+    srv.stored_docs["legacy"] = "just text"
+    srv.stored_docs["unowned"] = {"text_preview": "x"}
+    assert srv.document_counts() == {OWNER: 2, OTHER: 1}

@@ -19,6 +19,7 @@ from billing import billing_bp
 from signature_requests import requests_bp
 from folders import document_folder_map, folders_bp, forget_document
 from account import account_bp
+from admin import admin_bp
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config
 from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES, TRUSTED_PROXY_COUNT
@@ -72,6 +73,7 @@ INDEX_SERVER_FUNCTIONS = [
     'get_document_file',
     'ping',
     'claim_guest_documents',
+    'document_counts',
 ]
 
 
@@ -113,6 +115,7 @@ app.register_blueprint(billing_bp)
 app.register_blueprint(requests_bp)
 app.register_blueprint(folders_bp)
 app.register_blueprint(account_bp)
+app.register_blueprint(admin_bp)
 # Blueprints reach the index server through this (tests swap `manager`)
 app.config["INDEX_MANAGER"] = lambda: manager
 if config.STRIPE_CONFIG_ERROR:

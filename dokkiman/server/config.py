@@ -35,6 +35,10 @@ PRO_PRICE_YEARLY = float(os.environ.get("PRO_PRICE_YEARLY", "90"))
 # account can't cost more in OpenAI usage than the plan earns (see the Terms)
 PRO_FAIR_USE_QUESTIONS_PER_DAY = int(os.environ.get("PRO_FAIR_USE_QUESTIONS_PER_DAY", "150"))
 
+# Admin portal (/admin): accounts allowed in, by email, comma-separated.
+# Set in the server's .env; nobody is an admin without it.
+ADMIN_EMAILS = {email.strip().lower() for email in os.environ.get("ADMIN_EMAILS", "").split(",") if email.strip()}
+
 # Shown to users whose trial has ended (optional)
 SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "")
 
