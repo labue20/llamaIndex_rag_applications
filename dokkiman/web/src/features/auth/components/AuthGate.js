@@ -23,10 +23,12 @@ import { PricingPage } from '../../pricing';
 import { HOME_AFTER_LOGIN } from '../../../routes';
 import { SigningPage } from '../../e-sign';
 import { AdminPage } from '../../admin';
+import usePageMeta from '../../../seo/usePageMeta';
 
 const AuthGate = ({ children }) => {
   const { user, isCheckingSession, showHome, showAuth, tryTool, pathAfterAuth } = useAuth();
   const navigate = useNavigate();
+  usePageMeta();
 
   if (isCheckingSession) {
     return (

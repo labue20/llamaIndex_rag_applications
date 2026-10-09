@@ -1,0 +1,27 @@
+{
+  "siteUrl": "https://dokkiman.com",
+  "siteName": "Dokkiman",
+  "image": "/og-image.png",
+  "pages": [
+    {
+      "path": "/",
+      "title": "Dokkiman · Edit, sign, convert and chat with your PDFs",
+      "description": "Free online PDF tools: edit PDFs, sign them or send them for signature with an audit trail, compress and split PDFs, convert between PDF and Word, and ask AI questions about your documents."
+    },
+    {
+      "path": "/pricing",
+      "title": "Pricing · Dokkiman",
+      "description": "Start free, then choose Basic or Pro for more documents, AI questions and signature requests. Try every Dokkiman tool free for 30 days, no credit card needed."
+    },
+    {
+      "path": "/privacy",
+      "title": "Privacy Policy · Dokkiman",
+      "description": "How Dokkiman handles your documents and personal information."
+    },
+    {
+      "path": "/terms",
+      "title": "Terms of Service · Dokkiman",
+      "description": "The terms for using Dokkiman's PDF, e-signature and AI document tools."
+    }
+  ]
+}
