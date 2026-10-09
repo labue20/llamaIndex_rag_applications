@@ -68,6 +68,7 @@ GUEST_PATHS = [
         r"^/convertPdfToWord$",
         r"^/convertWordToPdf$",
         r"^/splitPdf$",
+        r"^/compressPdf$",
         r"^/signPdf$",
         r"^/editPdf$",
         r"^/pdfText$",

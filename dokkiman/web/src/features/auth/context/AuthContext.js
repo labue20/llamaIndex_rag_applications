@@ -145,7 +145,7 @@ export const AuthProvider = ({ children }) => {
     rememberPlace();
     navigateRef.current(`/${mode}`);
   }, [rememberPlace]);
-  // Open a tool from the homepage ('chat' | 'pdf-word' | 'word-pdf' | 'split' | 'manager');
+  // Open a tool from the homepage ('chat' | 'pdf-word' | 'word-pdf' | 'split' | 'compress' | 'manager');
   // visitors without an account use it as guests
   const tryTool = useCallback((tool) => navigateRef.current(TOOL_PATHS[tool] || TOOL_PATHS.chat), []);
 

@@ -8,6 +8,7 @@ import fitz  # PyMuPDF for PDF to Word conversion
 from pdf_to_word_service import convert_pdf_to_word_document, validate_pdf_file
 from word_to_pdf_service import ConversionError, converter
 from split_pdf_service import SPLIT_MODES, SplitError, split_pdf, zip_parts
+from compress_pdf_service import CompressError, compress_pdf
 from sign_pdf_service import SignError, sign_pdf
 from edit_pdf_service import IMAGE_TYPES, EditError, edit_pdf, images_to_pdf, text_lines
 from signature_log import save_signature_record
@@ -458,6 +459,30 @@ def split_pdf_route():
 
     return send_file(io.BytesIO(zip_parts(parts, stem)), as_attachment=True,
                      download_name=f"{stem}_split.zip", mimetype="application/zip")
+
+
+@app.route("/compressPdf", methods=["POST"])
+@limit_conversions
+def compress_pdf_route():
+    """Make an uploaded PDF smaller. Form fields: file, level (light |
+    recommended | strong). Returns the PDF (the original when it can't be made
+    smaller; the browser compares the sizes)."""
+    uploaded_file = request.files.get("file")
+    is_valid, error_message = validate_pdf_file(uploaded_file)
+    if not is_valid:
+        return jsonify({"error": error_message}), 400
+
+    stem = secure_filename(Path(uploaded_file.filename).stem) or "document"
+    try:
+        data = compress_pdf(uploaded_file.read(), request.form.get("level", "recommended"))
+    except CompressError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"Compress PDF error: {str(e)}")
+        return jsonify({"error": "The PDF could not be compressed."}), 500
+
+    return send_file(io.BytesIO(data), as_attachment=True,
+                     download_name=f"{stem}_compressed.pdf", mimetype="application/pdf")
 
 
 @app.route("/health", methods=["GET"])
