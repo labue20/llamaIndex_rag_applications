@@ -1,8 +1,9 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { AuthProvider } from '../../auth';
 import { makeUser } from '../../../test-utils/mockFetch';
 import { renderAt } from '../../../test-utils/router';
 import ESign from './ESign';
+import { sendForSignature } from '../handoff';
 import { mockServer, pdfFile } from './testHelpers';
 
 const USER = makeUser({ signature_requests: { limit: 3, used: 1 } });
@@ -192,4 +193,12 @@ test('Sent can be searched and filtered by status', async () => {
 
   fireEvent.change(screen.getByLabelText('Search sent requests'), { target: { value: 'nobody' } });
   expect(screen.getByText('No requests match.')).toBeInTheDocument();
+});
+
+test('a PDF sent from Edit PDF opens in Request signatures', async () => {
+  showESign();
+  await screen.findByRole('tab', { name: 'Sign yourself' });
+  act(() => sendForSignature(pdfFile('lease_edited.pdf')));
+  expect(await screen.findByRole('tab', { name: 'Request signatures' })).toHaveAttribute('aria-selected', 'true');
+  expect(await screen.findByRole('toolbar', { name: 'Add a field' })).toBeInTheDocument();
 });

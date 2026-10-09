@@ -3,12 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Header, Footer, SidebarLayout, Icon, ConverterHeaderActions } from './shared';
 import { DocumentTools } from './features/document-management';
 import { AiPdfTools, ChatHeaderActions } from './features/ai-pdf';
-import { useDocuments } from './features/document-management';
+import { documentApi, useDocuments } from './features/document-management';
 import { PdfToWordConverter } from './features/pdf-to-word-converter';
 import { WordToPdfConverter } from './features/word-to-pdf-converter';
 import { SplitPdf } from './features/split-pdf';
 import { EditPdf } from './features/edit-pdf';
-import { ESign } from './features/e-sign';
+import { ESign, sendForSignature } from './features/e-sign';
 import { useAuth, GuestAccountPrompt } from './features/auth';
 import { APP_SECTION_SLUGS, RENAMED_SLUGS, appPath } from './routes';
 import './shared/styles/base.scss';
@@ -115,7 +115,22 @@ function App() {
       shortLabel: 'Edit',
       icon: <Icon name='edit' />,
       title: 'Edit PDF',
-      content: <EditPdf ref={editPdfRef} onStatusChange={setEditPdfStatus} allowDocumentManager={!isGuest} />,
+      content: (
+        <EditPdf
+          ref={editPdfRef}
+          onStatusChange={setEditPdfStatus}
+          allowDocumentManager={!isGuest}
+          // Accounts only: keep the result, or send it for signature
+          onSaveToDocuments={isGuest ? undefined : async (file) => {
+            await documentApi.uploadDocument(file);
+            handleUploadSuccess();
+          }}
+          onSendForSignature={isGuest ? undefined : (file) => {
+            sendForSignature(file);
+            navigate(appPath('e-sign'));
+          }}
+        />
+      ),
       headerAction: (
         <ConverterHeaderActions converterRef={editPdfRef} status={editPdfStatus} acceptedTypes='.pdf' />
       )
@@ -131,7 +146,7 @@ function App() {
       )
     }
 
-  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, editPdfStatus, eSignStatus, isGuest]);
+  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, editPdfStatus, eSignStatus, isGuest, navigate]);
 
   // The section shown comes from the address: /app/<slug>
   const activeIndex = APP_SECTION_SLUGS.indexOf(location.pathname.split('/')[2] || '');

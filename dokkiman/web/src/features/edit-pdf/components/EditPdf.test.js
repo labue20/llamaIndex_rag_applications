@@ -18,7 +18,7 @@ const sentEdits = (fetchMock) => {
 };
 
 const openPdf = async () => {
-  fireEvent.change(screen.getByLabelText('Choose PDF File'), { target: { files: [pdf()] } });
+  fireEvent.change(screen.getByLabelText('Choose File'), { target: { files: [pdf()] } });
   await screen.findByRole('toolbar', { name: 'Edit tools' });
   await screen.findByRole('button', { name: 'Page 3' });
 };
@@ -175,7 +175,7 @@ test('other PDFs can be added to combine them', async () => {
   const fetchMock = mockServer();
   render(<EditPdf />);
   await openPdf();
-  fireEvent.change(screen.getByLabelText('Add PDF files'), { target: { files: [pdf('appendix.pdf')] } });
+  fireEvent.change(screen.getByLabelText('Add files'), { target: { files: [pdf('appendix.pdf')] } });
   await waitFor(() => expect(pages()).toHaveLength(6));
   expect(screen.getAllByText(/PDF 2/)).toHaveLength(3);
   save();
@@ -316,4 +316,84 @@ test('redo puts back what undo took away', async () => {
   save();
   await screen.findByText(/Saved and downloaded/);
   expect(sentEdits(fetchMock).edits.items.map((i) => i.kind)).toEqual(['highlight']);
+});
+
+test('sticky notes', async () => {
+  const fetchMock = mockServer();
+  render(<EditPdf />);
+  await openPdf();
+  fireEvent.click(screen.getByRole('button', { name: 'Note' }));
+  dragOnPage([300, 400], [300, 400]);
+  fireEvent.change(await screen.findByRole('textbox', { name: 'Note' }), { target: { value: 'Ask about parking' } });
+  save();
+  await screen.findByText(/Saved and downloaded/);
+  expect(sentEdits(fetchMock).edits.items).toEqual([
+    expect.objectContaining({ kind: 'note', page: 0, text: 'Ask about parking', color: '#f59e0b', width: 0.03 }),
+  ]);
+});
+
+test('a watermark and page numbers are previewed and sent with the edits', async () => {
+  const fetchMock = mockServer();
+  render(<EditPdf />);
+  await openPdf();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Watermark' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Watermark text' }), { target: { value: 'DRAFT' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Page numbers' }));
+  fireEvent.change(screen.getByRole('combobox', { name: /Style/ }), { target: { value: 'page_n_of' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Not on the first page' }));
+  // Page 1 isn't numbered; page 2 is "Page 1 of 2"
+  expect(screen.getByText('DRAFT')).toBeInTheDocument();
+  expect(screen.queryByLabelText(/Page number:/)).not.toBeInTheDocument();
+  fireEvent.click(pages()[1]);
+  expect(await screen.findByLabelText('Page number: Page 1 of 2')).toBeInTheDocument();
+  save();
+
+  await screen.findByText(/Saved and downloaded/);
+  expect(sentEdits(fetchMock).edits.options).toEqual({
+    watermark: { text: 'DRAFT', color: '#dc2626', opacity: 0.25, size: 0.1, diagonal: true },
+    page_numbers: { format: 'page_n_of', position: 'bottom-center', start: 1, skip_first: true, size: 10 },
+  });
+});
+
+test('Word documents and images are opened as PDFs', async () => {
+  const fetchMock = mockFetch({ '/toPdf': { file: new Blob(['%PDF'], { type: 'application/pdf' }) } });
+  render(<EditPdf />);
+  const word = new File(['docx'], 'letter.docx');
+  fireEvent.change(screen.getByLabelText('Choose File'), { target: { files: [word] } });
+  await screen.findByRole('button', { name: 'Page 3' });
+  const call = fetchMock.mock.calls.find(([url]) => url.endsWith('/toPdf'));
+  expect(call[1].body.get('file').name).toBe('letter.docx');
+});
+
+test('other files can’t be opened', async () => {
+  mockFetch({});
+  render(<EditPdf />);
+  fireEvent.change(screen.getByLabelText('Choose File'), { target: { files: [new File(['x'], 'notes.txt')] } });
+  expect(await screen.findByRole('alert')).toHaveTextContent('Open a PDF, a Word document');
+});
+
+test('after saving: send for signature, or keep it in the Document Manager', async () => {
+  mockServer();
+  const onSend = jest.fn();
+  const onKeep = jest.fn(() => Promise.resolve());
+  render(<EditPdf onSendForSignature={onSend} onSaveToDocuments={onKeep} />);
+  await openPdf();
+  save();
+  await screen.findByText(/Saved and downloaded/);
+
+  fireEvent.click(screen.getByRole('button', { name: /Send for signature/ }));
+  expect(onSend).toHaveBeenCalledWith(expect.objectContaining({ name: 'lease_edited.pdf', type: 'application/pdf' }));
+  fireEvent.click(screen.getByRole('button', { name: /Save to Document Manager/ }));
+  expect(await screen.findByRole('button', { name: /Saved to Documents/ })).toBeDisabled();
+  expect(onKeep.mock.calls[0][0].name).toBe('lease_edited.pdf');
+});
+
+test('guests are asked to sign up to keep or send their PDF', async () => {
+  mockServer();
+  render(<EditPdf />);
+  await openPdf();
+  save();
+  await screen.findByText(/Saved and downloaded/);
+  expect(screen.getByText(/Create a free account to keep your PDFs/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Send for signature/ })).not.toBeInTheDocument();
 });

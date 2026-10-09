@@ -20,16 +20,17 @@ const creation = (tool, shape, mark) => {
   if (tool === 'shapes' && shape.kind === 'line') return { mode: 'line', kind: 'line', arrow: !!shape.arrow };
   if (tool === 'shapes') return { mode: 'box', kind: shape.kind };
   if (tool === 'marks') return { mode: 'box', kind: 'mark', mark: mark.id };
+  if (tool === 'note') return { mode: 'box', kind: 'note' };
   if (['text', 'highlight', 'whiteout', 'redact'].includes(tool)) return { mode: 'box', kind: tool };
   return null;
 };
 
 // A click (no drag) adds something of a useful size
-const CLICK_SIZES = { text: [0.4, 0.045], highlight: [0.25, 0.025], mark: [0.035, null] };
+const CLICK_SIZES = { text: [0.4, 0.045], highlight: [0.25, 0.025], mark: [0.035, null], note: [0.03, null] };
 
 const PageEditor = ({
   page, pdf, items, images, tool, shape, mark, selectedId, onSelect, onCreate, onChange, onBeginChange, onRemove,
-  formValues, onFormChange, pageLabel, lines, onEditLine,
+  formValues, onFormChange, pageLabel, lines, onEditLine, watermark, pageNumber,
 }) => {
   const stageRef = useRef(null);
   const canvasRef = useRef(null);
@@ -149,9 +150,9 @@ const PageEditor = ({
       if (width < MIN_SIZE * 2 && height < MIN_SIZE * 2) {
         const [w, h] = CLICK_SIZES[make.kind] || [0.25, 0.08];
         width = w;
-        // Marks are square on the page
+        // Marks and notes are square on the page
         height = h ?? (w * size.width) / size.height;
-        x = clamp(start.x - (make.kind === 'mark' ? width / 2 : 0), 0, 1 - width);
+        x = clamp(start.x - (h === null ? width / 2 : 0), 0, 1 - width);
         y = clamp(start.y - height / 2, 0, 1 - height);
       }
       onCreate({
@@ -188,8 +189,8 @@ const PageEditor = ({
         });
       } else {
         const width = clamp(start.width + dx, MIN_SIZE, 1 - start.x);
-        // Images and marks keep their proportions
-        const keep = item.kind === 'image' || item.kind === 'mark';
+        // Images, marks and notes keep their proportions
+        const keep = item.kind === 'image' || item.kind === 'mark' || item.kind === 'note';
         const height = keep
           ? clamp((start.height * width) / start.width, MIN_SIZE, 1 - start.y)
           : clamp(start.height + dy, MIN_SIZE, 1 - start.y);
@@ -304,6 +305,30 @@ const PageEditor = ({
           data-testid='edit-overlay'
           onPointerDown={startCreate}
         >
+          {/* Previews of the watermark and page number (added to every page when saved) */}
+          {watermark && (
+            <span
+              className='edit-pdf__watermark'
+              aria-hidden='true'
+              style={{
+                color: watermark.color,
+                opacity: watermark.opacity,
+                fontSize: stageWidth ? `${watermark.size * Math.min(stageWidth, stageHeight)}px` : undefined,
+                transform: `translate(-50%, -50%) rotate(${watermark.diagonal ? -Math.atan2(size.height, size.width) : 0}rad)`,
+              }}
+            >
+              {watermark.text}
+            </span>
+          )}
+          {pageNumber && (
+            <span
+              className={`edit-pdf__page-number edit-pdf__page-number--${pageNumber.position}`}
+              aria-label={`Page number: ${pageNumber.label}`}
+              style={{ fontSize: stageHeight ? `${(pageNumber.size / size.height) * stageHeight}px` : undefined }}
+            >
+              {pageNumber.label}
+            </span>
+          )}
           {fields.map(renderField)}
           {items.map((item) => (
             <PageItem

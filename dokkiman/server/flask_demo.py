@@ -9,7 +9,7 @@ from pdf_to_word_service import convert_pdf_to_word_document, validate_pdf_file
 from word_to_pdf_service import ConversionError, converter
 from split_pdf_service import SPLIT_MODES, SplitError, split_pdf, zip_parts
 from sign_pdf_service import SignError, sign_pdf
-from edit_pdf_service import EditError, edit_pdf, text_lines
+from edit_pdf_service import IMAGE_TYPES, EditError, edit_pdf, images_to_pdf, text_lines
 from signature_log import save_signature_record
 from pathlib import Path
 import tempfile
@@ -376,6 +376,17 @@ def convert_pdf_to_word():
         return jsonify({"error": "The PDF couldn't be converted. It may be damaged or unusual."}), 500
 
 
+def _docx_to_pdf(file, stem):
+    """An uploaded .docx (already checked to be a ZIP) as PDF bytes, made by LibreOffice."""
+    # A private folder per conversion, removed (with both files) when done
+    with tempfile.TemporaryDirectory(prefix="word-to-pdf-") as work_dir:
+        input_path = Path(work_dir) / f"{stem}.docx"
+        output_path = Path(work_dir) / f"{stem}.pdf"
+        file.save(input_path)
+        converter.convert_docx_to_pdf(input_path, output_path)
+        return output_path.read_bytes()
+
+
 @app.route("/convertWordToPdf", methods=["POST"])
 @limit_conversions
 def convert_word_to_pdf():
@@ -399,14 +410,7 @@ def convert_word_to_pdf():
     stem = secure_filename(Path(file.filename).stem) or "document"
 
     try:
-        # A private folder per conversion, removed (with both files) when done
-        with tempfile.TemporaryDirectory(prefix="word-to-pdf-") as work_dir:
-            input_path = Path(work_dir) / f"{stem}.docx"
-            output_path = Path(work_dir) / f"{stem}.pdf"
-            file.save(input_path)
-
-            converter.convert_docx_to_pdf(input_path, output_path)
-            pdf_bytes = output_path.read_bytes()
+        pdf_bytes = _docx_to_pdf(file, stem)
     except ConversionError as e:
         # Written for people ("took too long", "may be damaged"): safe to show
         app.logger.error(f"Word to PDF conversion error: {e}")
@@ -545,6 +549,35 @@ def edit_pdf_route():
 
     return send_file(io.BytesIO(edited), as_attachment=True,
                      download_name=f"{stem}_edited.pdf", mimetype="application/pdf")
+
+
+@app.route("/toPdf", methods=["POST"])
+@limit_conversions
+def to_pdf_route():
+    """A Word document (.docx) or an image (PNG, JPEG, WebP) as a PDF, so Edit
+    PDF can open them (form field: file)."""
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    extension = Path(file.filename).suffix.lower().lstrip(".")
+    stem = secure_filename(Path(file.filename).stem) or "document"
+    try:
+        if extension == "docx":
+            if not zipfile.is_zipfile(file.stream):
+                return jsonify({"error": "That Word file couldn't be read. Save it as .docx and try again."}), 400
+            file.stream.seek(0)
+            pdf_bytes = _docx_to_pdf(file, stem)
+        elif extension in IMAGE_TYPES:
+            pdf_bytes = images_to_pdf(file.read(), Path(file.filename).name)
+        else:
+            return jsonify({"error": "Open a PDF, a Word document (.docx) or an image (PNG or JPEG)."}), 400
+    except (ConversionError, EditError) as e:
+        return jsonify({"error": str(e)}), 400 if isinstance(e, EditError) else 500
+    except Exception:
+        app.logger.exception("To PDF failed")
+        return jsonify({"error": "The file couldn't be opened. Please try again."}), 500
+    return send_file(io.BytesIO(pdf_bytes), as_attachment=True, download_name=f"{stem}.pdf",
+                     mimetype="application/pdf")
 
 
 @app.route("/pdfText", methods=["POST"])

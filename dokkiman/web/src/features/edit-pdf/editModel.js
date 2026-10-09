@@ -15,6 +15,7 @@ export const TOOLS = [
   { id: 'sign', label: 'Sign', icon: 'pen' },
   { id: 'shapes', label: 'Shapes', icon: 'shapes' },
   { id: 'marks', label: 'Marks', icon: 'marks' },
+  { id: 'note', label: 'Note', icon: 'note' },
   { id: 'highlight', label: 'Highlight', icon: 'highlighter' },
   { id: 'draw', label: 'Draw', icon: 'draw' },
   { id: 'whiteout', label: 'White-out', icon: 'eraser' },
@@ -45,7 +46,51 @@ export const COLORS = ['#111827', '#2563eb', '#dc2626', '#16a34a', '#f59e0b', '#
 // Colors are remembered per kind of thing added
 export const DEFAULT_COLORS = {
   text: '#111827', highlight: '#fde047', rect: '#dc2626', ellipse: '#dc2626', line: '#dc2626', draw: '#2563eb',
-  mark: '#16a34a',
+  mark: '#16a34a', note: '#f59e0b',
+};
+
+// Whole-document options: a watermark and page numbers
+export const DEFAULT_OPTIONS = {
+  watermark: { enabled: false, text: 'CONFIDENTIAL', color: '#dc2626', opacity: 0.25, size: 0.1, diagonal: true },
+  page_numbers: { enabled: false, format: 'n', position: 'bottom-center', start: 1, skip_first: false, size: 10 },
+};
+export const NUMBER_FORMATS = [
+  { id: 'n', label: '1', make: (n) => `${n}` },
+  { id: 'page_n', label: 'Page 1', make: (n) => `Page ${n}` },
+  { id: 'page_n_of', label: 'Page 1 of 9', make: (n, total) => `Page ${n} of ${total}` },
+  { id: 'n_of', label: '1 / 9', make: (n, total) => `${n} / ${total}` },
+];
+export const NUMBER_POSITIONS = [
+  { id: 'bottom-center', label: 'Bottom center' },
+  { id: 'bottom-right', label: 'Bottom right' },
+  { id: 'bottom-left', label: 'Bottom left' },
+  { id: 'top-center', label: 'Top center' },
+  { id: 'top-right', label: 'Top right' },
+  { id: 'top-left', label: 'Top left' },
+];
+
+/** The page number shown on the page at this position (or null: not numbered). */
+export const pageNumberLabel = (numbers, index, pageCount) => {
+  if (!numbers?.enabled) return null;
+  const first = numbers.skip_first ? 1 : 0;
+  if (index < first) return null;
+  const start = Math.max(1, Number(numbers.start) || 1);
+  const format = NUMBER_FORMATS.find((f) => f.id === numbers.format) || NUMBER_FORMATS[0];
+  return format.make(index - first + start, pageCount - first + start - 1);
+};
+
+/** The options as /editPdf expects them: only the ones switched on. */
+export const optionsForServer = (options) => {
+  const out = {};
+  if (options.watermark.enabled && options.watermark.text.trim()) {
+    const { enabled, ...watermark } = options.watermark;
+    out.watermark = watermark;
+  }
+  if (options.page_numbers.enabled) {
+    const { enabled, ...numbers } = options.page_numbers;
+    out.page_numbers = { ...numbers, start: Math.max(1, Number(numbers.start) || 1) };
+  }
+  return out;
 };
 // Font sizes in points, stored as a fraction of the page height (an 11-inch page is 792 points)
 export const FONT_SIZES = [8, 10, 12, 14, 18, 24, 32, 48];
@@ -74,13 +119,13 @@ export const rotateBy = (rotate, turn) => (((rotate + turn) % 360) + 360) % 360;
  * the old line, then the new text (left out if it was emptied: the line is
  * deleted).
  */
-export const buildEdits = (pages, items, formValues, imageIndex) => {
+export const buildEdits = (pages, items, formValues, imageIndex, options = DEFAULT_OPTIONS) => {
   const position = new Map(pages.map((page, index) => [page.key, index]));
   const out = [];
   items.filter((item) => position.has(item.pageKey)).forEach(({ id, pageKey, imageId, replaces, lineKey, ...rest }) => {
     const page = position.get(pageKey);
     if (replaces) out.push({ kind: 'erase', page, ...replaces });
-    if (rest.kind === 'text' && !rest.text.trim()) return;
+    if ((rest.kind === 'text' || rest.kind === 'note') && !rest.text.trim()) return;
     out.push({ ...rest, page, ...(rest.kind === 'image' ? { image: imageIndex(imageId) } : {}) });
   });
   return {
@@ -89,6 +134,7 @@ export const buildEdits = (pages, items, formValues, imageIndex) => {
       : { file: page.file, page: page.page, rotate: page.rotate })),
     items: out,
     form: formValues,
+    options: optionsForServer(options),
   };
 };
 

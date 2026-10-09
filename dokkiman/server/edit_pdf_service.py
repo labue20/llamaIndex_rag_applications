@@ -22,7 +22,10 @@ fields:
              redact    blacked out: what's underneath is removed from the file
              erase     removes the page's own text in the box (editing existing
                        text sends an erase for the old line and a text item)
+             note      a sticky note (a real PDF comment): text, color
     form:  {"field name": "value" | true | false}
+    options: {"watermark": {"text", "color", "opacity", "size", "diagonal"},
+              "page_numbers": {"format", "position", "start", "skip_first", "size"}}
 
 Everything is drawn into the page content (not as annotations), so the result
 looks the same in every viewer. Form fields stay fillable. Redact and erase
@@ -49,8 +52,18 @@ MAX_TEXT = 5000
 MAX_POINTS = 5000
 MAX_FORM_FIELDS = 1000
 MAX_FORM_VALUE = 5000
-ITEM_KINDS = ("text", "image", "highlight", "rect", "ellipse", "line", "whiteout", "draw", "mark", "redact", "erase")
-BOX_KINDS = ("highlight", "rect", "ellipse", "whiteout", "mark", "redact", "erase")
+ITEM_KINDS = ("text", "image", "highlight", "rect", "ellipse", "line", "whiteout", "draw", "mark", "redact", "erase",
+              "note")
+MAX_NOTE = 2000
+MAX_WATERMARK = 60
+NUMBER_FORMATS = {
+    "n": "{n}",
+    "page_n": "Page {n}",
+    "page_n_of": "Page {n} of {total}",
+    "n_of": "{n} / {total}",
+}
+NUMBER_POSITIONS = ("bottom-center", "bottom-right", "bottom-left", "top-center", "top-right", "top-left")
+IMAGE_TYPES = ("png", "jpg", "jpeg", "webp")
 MARKS = ("check", "cross", "circle", "dot")
 FONTS = {"sans": "sans-serif", "serif": "serif", "mono": "monospace"}
 ALIGNS = ("left", "center", "right")
@@ -59,7 +72,7 @@ MAX_LINES_PER_PAGE = 3000
 ROTATIONS = (0, 90, 180, 270)
 _COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 DEFAULTS = {"text": "#111827", "highlight": "#fde047", "rect": "#dc2626", "ellipse": "#dc2626", "line": "#dc2626",
-            "draw": "#2563eb", "mark": "#16a34a"}
+            "draw": "#2563eb", "mark": "#16a34a", "note": "#f59e0b", "watermark": "#dc2626"}
 HIGHLIGHT_OPACITY = 0.4
 
 
@@ -181,7 +194,14 @@ def parse_request(raw, page_counts, image_count):
             if item.get("mark") not in MARKS:
                 raise EditError("One of the marks isn't valid.")
             entry["mark"] = item["mark"]
+        elif kind == "note":
+            text = str(item.get("text", "")).strip()
+            if not text:
+                continue  # an empty note: nothing to add
+            entry["text"] = text[:MAX_NOTE]
         clean_items.append(entry)
+
+    options = _parse_options(data.get("options"))
 
     form = data.get("form") or {}
     if not isinstance(form, dict) or len(form) > MAX_FORM_FIELDS:
@@ -192,7 +212,42 @@ def parse_request(raw, page_counts, image_count):
             clean_form[str(name)] = value
         elif isinstance(value, (str, int, float)):
             clean_form[str(name)] = str(value)[:MAX_FORM_VALUE]
-    return clean_pages, clean_items, clean_form
+    return clean_pages, clean_items, clean_form, options
+
+
+def _number(value, low, high, default):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return min(max(number, low), high)
+
+
+def _parse_options(raw):
+    """Whole-document options: a watermark and page numbers (both optional)."""
+    options = {}
+    if not isinstance(raw, dict):
+        return options
+    watermark = raw.get("watermark")
+    if isinstance(watermark, dict) and str(watermark.get("text", "")).strip():
+        options["watermark"] = {
+            "text": " ".join(str(watermark["text"]).split())[:MAX_WATERMARK],
+            "color": _color(watermark.get("color"), "watermark"),
+            "opacity": _number(watermark.get("opacity"), 0.05, 1, 0.25),
+            # Font size as a fraction of the page's shorter side
+            "size": _number(watermark.get("size"), 0.03, 0.25, 0.1),
+            "diagonal": watermark.get("diagonal", True) is not False,
+        }
+    numbers = raw.get("page_numbers")
+    if isinstance(numbers, dict) and numbers.get("enabled", True):
+        options["page_numbers"] = {
+            "format": numbers.get("format") if numbers.get("format") in NUMBER_FORMATS else "n",
+            "position": numbers.get("position") if numbers.get("position") in NUMBER_POSITIONS else "bottom-center",
+            "start": int(_number(numbers.get("start"), 1, 100000, 1)),
+            "skip_first": bool(numbers.get("skip_first")),
+            "size": _number(numbers.get("size"), 6, 36, 10),
+        }
+    return options
 
 
 def load_image(data):
@@ -334,12 +389,90 @@ def draw_item(page, item, pngs):
         _draw_line(page, item)
     elif kind == "mark":
         _draw_mark(page, item)
+    elif kind == "note":
+        # A real comment: opens in PDF viewers' comment panes
+        rect = _shown_rect(page, item)
+        annot = page.add_text_annot(rect.tl, item["text"], icon="Note")
+        annot.set_colors(stroke=item["color"])
+        annot.set_info(title="Note")
+        annot.update()
     elif kind == "draw":
         shown = page.rect
         points = [fitz.Point(shown.x0 + x * shown.width, shown.y0 + y * shown.height) * page.derotation_matrix
                   for x, y in item["points"]]
         page.draw_polyline(points, color=item["color"], width=item["stroke"] * shown.width, closePath=False,
                            lineCap=1, lineJoin=1, overlay=True)
+
+
+def add_watermark(page, options):
+    """Text across the page, see-through, upright on the page as shown."""
+    shown = page.rect
+    center = fitz.Point(shown.width / 2, shown.height / 2) * page.derotation_matrix
+    fontsize = options["size"] * min(shown.width, shown.height)
+    # Long text shrinks to fit across the page
+    fontsize = min(fontsize, 0.9 * (math.hypot(shown.width, shown.height) if options["diagonal"] else shown.width)
+                   / max(1.0, fitz.get_text_length(options["text"], fontname="hebo", fontsize=1)))
+    width = fitz.get_text_length(options["text"], fontname="hebo", fontsize=fontsize)
+    angle = (math.degrees(math.atan2(shown.height, shown.width)) if options["diagonal"] else 0) + page.rotation
+    page.insert_text(fitz.Point(center.x - width / 2, center.y + fontsize * 0.35), options["text"], fontsize=fontsize,
+                     fontname="hebo", color=options["color"], fill_opacity=options["opacity"],
+                     morph=(center, fitz.Matrix(angle)), overlay=True)
+
+
+def add_page_number(page, label, options):
+    shown = page.rect
+    fontsize = options["size"]
+    margin = max(18.0, shown.height * 0.03)
+    vertical, horizontal = options["position"].split("-")
+    top = margin if vertical == "top" else shown.height - margin - fontsize * 1.6
+    box = fitz.Rect(margin, top, shown.width - margin, top + fontsize * 1.6)
+    css = (f"* {{font-family: sans-serif; font-size: {fontsize:.1f}px; color: #374151; margin: 0;"
+           f" text-align: {'center' if horizontal == 'center' else horizontal};}}")
+    page.insert_htmlbox(box * page.derotation_matrix, html.escape(label), css=css, rotate=page.rotation)
+
+
+def apply_options(doc, options):
+    if "watermark" in options:
+        for page in doc:
+            add_watermark(page, options["watermark"])
+    numbers = options.get("page_numbers")
+    if numbers:
+        first = 1 if numbers["skip_first"] else 0
+        total = doc.page_count - first + numbers["start"] - 1
+        for index in range(first, doc.page_count):
+            n = index - first + numbers["start"]
+            add_page_number(doc[index], NUMBER_FORMATS[numbers["format"]].format(n=n, total=total), numbers)
+
+
+def images_to_pdf(image_bytes, name="image"):
+    """A photo or picture as a one-page PDF, the page as wide as US Letter
+    (612 points) and as tall as the image needs. Phone photos are turned the
+    right way up."""
+    from PIL import ImageOps
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        image = ImageOps.exif_transpose(image)
+        image.load()
+    except Exception:
+        raise EditError(f"{name} couldn't be read as an image. Use a PNG or JPEG.")
+    if image.mode not in ("RGB", "L"):
+        background = Image.new("RGB", image.size, "white")
+        background.paste(image.convert("RGBA"), mask=image.convert("RGBA").split()[-1])
+        image = background
+    # Keep files reasonable: big photos are scaled down to about 200 dpi
+    if max(image.size) > 2400:
+        image.thumbnail((2400, 2400))
+    jpeg = io.BytesIO()
+    image.save(jpeg, format="JPEG", quality=88)
+    width = 612
+    height = width * image.height / image.width
+    doc = fitz.open()
+    page = doc.new_page(width=width, height=height)
+    page.insert_image(page.rect, stream=jpeg.getvalue())
+    try:
+        return doc.tobytes(garbage=3, deflate=True)
+    finally:
+        doc.close()
 
 
 def remove_underneath(doc, items):
@@ -432,7 +565,7 @@ def edit_pdf(main_bytes, extra_bytes, raw_request, image_bytes):
         for number, data in enumerate(extra_bytes, start=2):
             extras.append(open_pdf(data, f"PDF {number}"))
         page_counts = [doc.page_count] + [extra.page_count for extra in extras]
-        pages, items, form = parse_request(raw_request, page_counts, len(image_bytes))
+        pages, items, form, options = parse_request(raw_request, page_counts, len(image_bytes))
         pngs = [load_image(data) for data in image_bytes]
 
         # Form fields belong to the main PDF: fill them before pages move around
@@ -470,6 +603,7 @@ def edit_pdf(main_bytes, extra_bytes, raw_request, image_bytes):
         for item in items:
             if item["kind"] not in ("erase", "redact"):
                 draw_item(doc[item["page"]], item, pngs)
+        apply_options(doc, options)
 
         return doc.tobytes(garbage=3, deflate=True)
     finally:

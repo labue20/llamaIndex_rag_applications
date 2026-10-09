@@ -10,6 +10,7 @@ import { SignPdf } from '../../sign-pdf';
 import { useAuth } from '../../auth/context/AuthContext';
 import { Icon } from '../../../shared';
 import RequestSignatures from './RequestSignatures';
+import { useSignatureHandOff } from '../handoff';
 import SentRequests from './SentRequests';
 import '../../sign-pdf/styles/sign-pdf.scss';
 import '../styles/esign.scss';
@@ -53,6 +54,14 @@ const ESign = forwardRef(({ onStatusChange, allowDocumentManager = true, isGuest
     const current = statuses[tab] || {};
     onStatusChange?.({ hasFile: !!current.hasFile, isBusy: !!current.isBusy });
   }, [onStatusChange, statuses, tab]);
+
+  // A PDF sent from another tool (Edit PDF's Send for signature)
+  const receive = useCallback((file) => {
+    if (isGuest) return;
+    setTab('request');
+    requestRef.current?.selectFile(file);
+  }, [isGuest]);
+  useSignatureHandOff(receive);
 
   useImperativeHandle(ref, () => ({
     selectFile: (file) => {

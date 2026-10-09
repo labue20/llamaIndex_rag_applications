@@ -118,15 +118,15 @@ const PageStrip = ({
         <li className='edit-pdf__strip-add'>
           <button type='button' className='edit-pdf__add' onClick={onAddBlank} disabled={disabled}>+ Blank page</button>
           <button type='button' className='edit-pdf__add' onClick={() => addInputRef.current?.click()} disabled={disabled}>
-            + Add PDF
+            + Add file
           </button>
           <input
             ref={addInputRef}
             type='file'
-            accept='.pdf,application/pdf'
+            accept='.pdf,application/pdf,.docx,.png,.jpg,.jpeg,.webp'
             multiple
             hidden
-            aria-label='Add PDF files'
+            aria-label='Add files'
             onChange={(e) => {
               const files = [...e.target.files];
               e.target.value = '';
