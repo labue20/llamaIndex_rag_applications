@@ -400,3 +400,28 @@ def test_pro_is_unlimited_within_fair_use(signup, make_pdf, fresh_db, monkeypatc
     blocked = _create(owner, make_pdf)
     assert blocked.status_code == 429
     assert blocked.get_json()["code"] == "fair_use_limit"
+
+
+# --- misuse protections ----------------------------------------------------------------------
+
+def test_signing_emails_say_who_sent_them_and_how_to_report_misuse(signup, make_pdf, outbox, monkeypatch):
+    monkeypatch.setattr(config, "SUPPORT_EMAIL", "support@dokkiman.com")
+    owner = signup("owner@example.com")
+    request_id = _create(owner, make_pdf).get_json()["request"]["id"]
+    invite = outbox[0]
+    assert "sent by owner@example.com using Dokkiman" in invite["text"]
+    assert "Dokkiman didn't write this message" in invite["text"]
+    assert f"report it to support@dokkiman.com (request {request_id})" in invite["text"]
+    assert "mailto:support@dokkiman.com?subject=Report%20abuse" in invite["html"]
+    assert request_id in invite["html"]
+
+
+def test_there_is_a_daily_cap_on_every_plan(signup, make_pdf, fresh_db, monkeypatch):
+    monkeypatch.setattr(config, "SIGNATURE_REQUESTS_PER_DAY", 2)
+    owner = signup()
+    _set(fresh_db, "UPDATE users SET plan = 'pro'")  # unlimited per month, still capped per day
+    assert _create(owner, make_pdf).status_code == 201
+    assert _create(owner, make_pdf).status_code == 201
+    blocked = _create(owner, make_pdf)
+    assert blocked.status_code == 429
+    assert blocked.get_json()["code"] == "daily_limit"

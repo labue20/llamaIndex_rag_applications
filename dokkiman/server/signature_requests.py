@@ -41,6 +41,7 @@ import re
 import secrets
 import shutil
 import uuid
+from urllib.parse import quote
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, g, jsonify, request, send_file
@@ -266,6 +267,16 @@ def _send(conn, req, signer_id, to, subject, html_body, text, attachments=None):
         return False
 
 
+def _report_link(req):
+    """A mailto: for reporting a misused signing email (None without SUPPORT_EMAIL)."""
+    if not config.SUPPORT_EMAIL:
+        return None
+    subject = quote(f"Report abuse: signature request {req['id']}")
+    body = quote(f"I received a signing request from {req['owner_email']} that I think is spam or a scam.\n"
+                 f"Request ID: {req['id']}\n")
+    return f"mailto:{config.SUPPORT_EMAIL}?subject={subject}&body={body}"
+
+
 def _invite(conn, req, signer, reminder=False):
     """Give the signer a (new) link and email it."""
     token, token_hash = _new_token()
@@ -289,16 +300,23 @@ def _invite(conn, req, signer, reminder=False):
         paragraphs.append(f"Their message: <em>{html.escape(req['message'])}</em>")
     paragraphs.append("Review the document and sign it online. It takes about a minute, and you don't need an account.")
     link = _sign_link(token)
+    # Anyone with an account can send these, so say who sent it and how to report misuse
+    report = _report_link(req)
+    notice = (f"This request was sent by {html.escape(sender)} using Dokkiman. Dokkiman didn't write this "
+              "message and doesn't vouch for the sender. Not expecting it? Don't sign it, and "
+              + (f'<a href="{html.escape(report)}" style="color:#64748b">report it to us</a>.' if report else "ignore it."))
     html_body = _email_html(
         "You have a document to sign" if not reminder else "Reminder: a document is waiting for your signature",
         paragraphs, button=("Review and sign", link),
-        footer=f"This link is just for you; please don't forward it. It works until {expires}. "
-               "If you weren't expecting this, you can ignore this email or decline in the document.",
+        footer=f"This link is just for you; please don't forward it. It works until {expires}.<br><br>{notice}",
     )
     text = (
         f"Hi {signer['name']},\n\n{sender} asked you to sign \"{title}\".\n"
         + (f"\nTheir message: {req['message']}\n" if req["message"] else "")
         + f"\nReview and sign: {link}\n\nThis link is just for you and works until {expires}.\n"
+        + f"\nThis request was sent by {sender} using Dokkiman. Dokkiman didn't write this message and doesn't "
+          "vouch for the sender. Not expecting it? Don't sign it"
+        + (f", and report it to {config.SUPPORT_EMAIL} (request {req['id']}).\n" if config.SUPPORT_EMAIL else ".\n")
     )
     _send(conn, req, signer["id"], signer["email"], subject, html_body, text)
     return token
@@ -498,6 +516,14 @@ def create_request():
     limit_error = signature_request_limit_error(g.user["id"])
     if limit_error:
         return limit_error
+    # On every plan: a cap per day, so signing emails can't be sent in bulk
+    since = (_now() - timedelta(days=1)).isoformat()
+    with connect_db() as conn:
+        sent_today = conn.execute("SELECT COUNT(*) FROM signature_requests WHERE owner_id = ? AND created_at >= ?",
+                                  (g.user["id"], since)).fetchone()[0]
+    if sent_today >= config.SIGNATURE_REQUESTS_PER_DAY:
+        return _error(f"You've sent {config.SIGNATURE_REQUESTS_PER_DAY} signature requests in the last 24 hours, "
+                      "the most allowed. Please try again later.", 429, "daily_limit")
 
     uploaded = request.files.get("file")
     is_valid, message = validate_pdf_file(uploaded)

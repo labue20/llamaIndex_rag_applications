@@ -220,3 +220,21 @@ def test_health_reports_an_unreachable_index_server(client, index_server, monkey
     response = client.get("/health")
     assert response.status_code == 503
     assert response.get_json() == {"status": "degraded", "index_server": False}
+
+
+def test_unexpected_errors_do_not_reveal_internals(signup, index_server, monkeypatch):
+    """A crash's details (paths, library errors) go to the log, not to the browser."""
+    user_client = signup()
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("secret detail: /opt/dokkiman/app/dokkiman/server/saved_index")
+
+    monkeypatch.setattr(index_server, "chat_with_document", crash)
+    monkeypatch.setattr(index_server, "get_full_document_content", crash)
+    for response in (
+        user_client.post("/chat", json={"message": "hi", "documentId": "d1"}),
+        user_client.get("/getFullDocument/d1"),
+    ):
+        assert response.status_code == 500
+        assert "secret detail" not in response.get_json()["error"]
+        assert "/opt/" not in response.get_json()["error"]

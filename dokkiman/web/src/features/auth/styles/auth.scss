@@ -835,3 +835,22 @@
 }
 
 .account-menu__error { padding: 0 0.625rem 0.375rem; }
+
+// --- deleting an account --------------------------------------------------------------------
+.account-menu__item--danger {
+  color: theme-color(error) !important;
+}
+
+.auth-form__submit--danger {
+  background: theme-color(error) !important;
+
+  &:hover:not(:disabled) { background: darken(theme-color(error), 8%) !important; }
+}
+
+.account-dialog__list {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: theme-color(text-secondary);
+}

@@ -2,7 +2,8 @@
 Description=Nightly backup of Dokkiman's data
 
 [Timer]
-OnCalendar=*-*-* 03:30:00
+# In UTC whatever the server's timezone: before the 08:00 UTC Lightsail snapshot
+OnCalendar=*-*-* 03:30:00 UTC
 RandomizedDelaySec=10min
 Persistent=true
 

@@ -200,6 +200,12 @@ the file → Download), copy it to the server with
 
 ## Security notes
 
+- **Content-Security-Policy** (in the Caddyfile): the browser runs only this
+  site's own code, plus Google's sign-in script. If you add something that loads
+  from another site (analytics, a chat widget, Stripe.js…), add its address to
+  the right part of the policy, or the browser will block it (the browser's
+  console says what was blocked).
+
 - Only Caddy faces the internet. The API and index server listen on
   `127.0.0.1`, and the app runs as the unprivileged `dokkiman` user.
 - `server/.env` (keys and secrets) and the data folders are readable only by

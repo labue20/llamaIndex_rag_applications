@@ -46,6 +46,9 @@ SIGNATURE_REQUESTS_PER_MONTH_BASIC = int(os.environ.get("SIGNATURE_REQUESTS_PER_
 SIGNATURE_REQUESTS_PER_MONTH_PRO = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_PRO", "-1"))
 # Pro's unlimited requests are subject to fair use (see the Terms)
 PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH = int(os.environ.get("PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH", "200"))
+# On every plan, at most this many requests a day per account (limits misuse
+# of signing emails for spam or phishing)
+SIGNATURE_REQUESTS_PER_DAY = int(os.environ.get("SIGNATURE_REQUESTS_PER_DAY", "10"))
 SIGNATURE_REQUEST_MAX_SIGNERS = int(os.environ.get("SIGNATURE_REQUEST_MAX_SIGNERS", "10"))
 # Signing links stop working this many days after a request is sent
 SIGNATURE_REQUEST_DAYS = int(os.environ.get("SIGNATURE_REQUEST_DAYS", "30"))

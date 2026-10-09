@@ -192,8 +192,11 @@ const PrivacyPolicy = ({ plan }) => (
       <ul>
         <li>You can delete any document at any time from the Document Manager.</li>
         <li>
-          To delete your account and everything in it, or to get a copy of your information, contact us at{' '}
-          <Contact supportEmail={plan.support_email} />.
+          You can delete your account and everything in it yourself: account menu → <strong>Delete account</strong>.
+          It&apos;s removed straight away, and from backups within 40 days.
+        </li>
+        <li>
+          To get a copy of your information, contact us at <Contact supportEmail={plan.support_email} />.
         </li>
       </ul>
     </section>
@@ -351,7 +354,7 @@ const TermsOfService = ({ plan }) => (
     <section>
       <h2>12. Ending</h2>
       <p>
-        You can stop using the service at any time and ask us to delete your account. We may end or suspend
+        You can stop using the service at any time and delete your account from the account menu. We may end or suspend
         your access if you break these terms.
       </p>
     </section>
