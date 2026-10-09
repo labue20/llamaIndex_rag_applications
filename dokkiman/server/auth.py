@@ -70,6 +70,7 @@ GUEST_PATHS = [
         r"^/splitPdf$",
         r"^/signPdf$",
         r"^/editPdf$",
+        r"^/pdfText$",
         r"^/uploadFile$",
         r"^/chat$",
         r"^/backgroundIndex/[^/]+$",

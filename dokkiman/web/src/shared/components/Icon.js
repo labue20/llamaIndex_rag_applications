@@ -80,6 +80,57 @@ const PATHS = {
       <path d='M14.5 11.5l2 2L11 19l-2.5.5.5-2.5z' />
     </>
   ),
+  // Edit PDF tools
+  pointer: <path d='M5 3l14 7.5-6.2 1.7L10 18.5z' />,
+  textCursor: (
+    <>
+      <path d='M4 6V4h10v2M9 4v14M7 18h4' />
+      <path d='M17 9v10M15.5 9h3M15.5 19h3' />
+    </>
+  ),
+  type: <path d='M5 7V5h14v2M12 5v14M9 19h6' />,
+  shapes: (
+    <>
+      <rect x='3' y='3' width='10' height='10' rx='1' />
+      <circle cx='15.5' cy='15.5' r='5.5' />
+    </>
+  ),
+  marks: (
+    <>
+      <path d='M3.5 8.5l2.5 2.5 5-5.5' />
+      <path d='M14 4l6 6M20 4l-6 6' />
+      <circle cx='7' cy='17' r='3' />
+      <path d='M14.5 17h6' />
+    </>
+  ),
+  highlighter: (
+    <>
+      <path d='M14.5 4.5l5 5-8 8H6.5v-5z' />
+      <path d='M4 20h16' />
+    </>
+  ),
+  draw: <path d='M3 17c3-6 5-9 7-9s1 6 3 6 3-7 5-7 2 3 3 4' />,
+  eraser: (
+    <>
+      <path d='M8 20l-4.5-4.5a1.5 1.5 0 0 1 0-2.1L13 4l7 7-9 9z' />
+      <path d='M8 20h12M9.5 9.5l7 7' />
+    </>
+  ),
+  redact: (
+    <>
+      <rect x='3' y='5' width='18' height='5' rx='1' fill='currentColor' />
+      <path d='M3 15h12M3 19h8' />
+    </>
+  ),
+  image: (
+    <>
+      <rect x='3' y='4' width='18' height='16' rx='2' />
+      <circle cx='9' cy='10' r='1.75' />
+      <path d='M21 16l-5-5-9 9' />
+    </>
+  ),
+  undo: <path d='M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3' />,
+  redo: <path d='M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3' />,
   pen: (
     <>
       <path d='M15.5 4.5l4 4L9 19l-5 1 1-5z' />

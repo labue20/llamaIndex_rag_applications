@@ -10,17 +10,31 @@ fields:
            page's own rotation; a page may appear more than once
     items: [{"page": 0, "kind": "text", "x": .1, "y": .1, "width": .3,
              "height": .05, "text": "Hello", "font_size": .02, "color": "#000000"}, ...]
-           page is an index into pages; kind is text, image, highlight, rect,
-           whiteout or draw; positions are fractions of the page as shown
-           (rotation applied), like Sign PDF
+           page is an index into pages; positions are fractions of the page as
+           shown (rotation applied), like Sign PDF. Kinds:
+             text      font_size (fraction of page height), color, font (sans,
+                       serif, mono), bold, italic, underline, align
+             image     image (index into the uploaded images)
+             highlight, whiteout, rect, ellipse   a box (rect and ellipse: stroke)
+             line      points [[x, y], [x, y]], arrow, stroke
+             draw      points (freehand), stroke
+             mark      mark: check, cross, circle or dot
+             redact    blacked out: what's underneath is removed from the file
+             erase     removes the page's own text in the box (editing existing
+                       text sends an erase for the old line and a text item)
     form:  {"field name": "value" | true | false}
 
 Everything is drawn into the page content (not as annotations), so the result
-looks the same in every viewer. Form fields stay fillable.
+looks the same in every viewer. Form fields stay fillable. Redact and erase
+really remove the text underneath; white-out only covers it.
+
+text_lines() lists a PDF's lines of text with their style, for editing them.
 """
 
+import html
 import io
 import json
+import math
 import re
 
 import fitz  # PyMuPDF
@@ -35,10 +49,17 @@ MAX_TEXT = 5000
 MAX_POINTS = 5000
 MAX_FORM_FIELDS = 1000
 MAX_FORM_VALUE = 5000
-ITEM_KINDS = ("text", "image", "highlight", "rect", "whiteout", "draw")
+ITEM_KINDS = ("text", "image", "highlight", "rect", "ellipse", "line", "whiteout", "draw", "mark", "redact", "erase")
+BOX_KINDS = ("highlight", "rect", "ellipse", "whiteout", "mark", "redact", "erase")
+MARKS = ("check", "cross", "circle", "dot")
+FONTS = {"sans": "sans-serif", "serif": "serif", "mono": "monospace"}
+ALIGNS = ("left", "center", "right")
+MAX_TEXT_PAGES = 300
+MAX_LINES_PER_PAGE = 3000
 ROTATIONS = (0, 90, 180, 270)
 _COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
-DEFAULTS = {"text": "#111827", "highlight": "#fde047", "rect": "#dc2626", "draw": "#2563eb"}
+DEFAULTS = {"text": "#111827", "highlight": "#fde047", "rect": "#dc2626", "ellipse": "#dc2626", "line": "#dc2626",
+            "draw": "#2563eb", "mark": "#16a34a"}
 HIGHLIGHT_OPACITY = 0.4
 
 
@@ -120,15 +141,16 @@ def parse_request(raw, page_counts, image_count):
             raise EditError("Something was added to a page that doesn't exist.")
         kind = item["kind"]
         entry = {"kind": kind, "page": page, "color": _color(item.get("color"), kind)}
-        if kind == "draw":
+        if kind in ("draw", "line"):
             points = item.get("points")
-            if not isinstance(points, list) or not 2 <= len(points) <= MAX_POINTS:
+            if not isinstance(points, list) or not 2 <= len(points) <= (MAX_POINTS if kind == "draw" else 2):
                 raise EditError("A drawing isn't valid.")
             try:
                 entry["points"] = [(min(max(float(x), 0.0), 1.0), min(max(float(y), 0.0), 1.0)) for x, y in points]
             except (TypeError, ValueError):
                 raise EditError("A drawing isn't valid.")
             entry["stroke"] = _fraction(item, "stroke", 0.0005, 0.05) if "stroke" in item else 0.003
+            entry["arrow"] = kind == "line" and bool(item.get("arrow"))
         else:
             x, y = _fraction(item, "x"), _fraction(item, "y")
             width, height = _fraction(item, "width", 0.001), _fraction(item, "height", 0.001)
@@ -144,13 +166,21 @@ def parse_request(raw, page_counts, image_count):
             entry["text"] = text
             entry["font_size"] = _fraction(item, "font_size", 0.004, 0.2) if "font_size" in item else 0.015
             entry["bold"] = bool(item.get("bold"))
+            entry["italic"] = bool(item.get("italic"))
+            entry["underline"] = bool(item.get("underline"))
+            entry["font"] = item.get("font") if item.get("font") in FONTS else "sans"
+            entry["align"] = item.get("align") if item.get("align") in ALIGNS else "left"
         elif kind == "image":
             index = item.get("image")
             if not isinstance(index, int) or not 0 <= index < image_count:
                 raise EditError("An image is missing. Please add it again.")
             entry["image"] = index
-        elif kind == "rect":
+        elif kind in ("rect", "ellipse"):
             entry["stroke"] = _fraction(item, "stroke", 0.0005, 0.05) if "stroke" in item else 0.003
+        elif kind == "mark":
+            if item.get("mark") not in MARKS:
+                raise EditError("One of the marks isn't valid.")
+            entry["mark"] = item["mark"]
         clean_items.append(entry)
 
     form = data.get("form") or {}
@@ -222,16 +252,64 @@ def _shown_rect(page, item):
     return rect * page.derotation_matrix
 
 
+def _hex(color):
+    return "#" + "".join(f"{round(c * 255):02x}" for c in color)
+
+
 def _draw_text(page, item):
-    rect = _shown_rect(page, item)
+    """Styled text in its box (shrunk to fit if it doesn't). Fonts with
+    other alphabets (Chinese, Arabic...) are filled in automatically."""
     fontsize = max(4.0, item["font_size"] * page.rect.height)
-    fontname = "hebo" if item["bold"] else "helv"
-    # Shrink to fit the box if the text doesn't fit at the chosen size
-    while True:
-        if page.insert_textbox(rect, item["text"], fontsize=fontsize, fontname=fontname, color=item["color"],
-                               rotate=page.rotation, align=fitz.TEXT_ALIGN_LEFT) >= 0 or fontsize <= 4:
-            return
-        fontsize = max(4.0, fontsize * 0.9)
+    css = (
+        f"* {{font-family: {FONTS[item['font']]}; font-size: {fontsize:.2f}px; line-height: 1.15;"
+        f" color: {_hex(item['color'])}; text-align: {item['align']};"
+        f" font-weight: {'bold' if item['bold'] else 'normal'}; font-style: {'italic' if item['italic'] else 'normal'};"
+        f" text-decoration: {'underline' if item['underline'] else 'none'}; white-space: pre-wrap;"
+        f" margin: 0; padding: 0;}}"
+    )
+    body = "<br>".join(html.escape(line) for line in item["text"].split("\n"))
+    page.insert_htmlbox(_shown_rect(page, item), body, css=css, rotate=page.rotation, scale_low=0)
+
+
+def _shown_point(page, x, y):
+    shown = page.rect
+    return fitz.Point(shown.x0 + x * shown.width, shown.y0 + y * shown.height) * page.derotation_matrix
+
+
+def _draw_line(page, item):
+    (x1, y1), (x2, y2) = item["points"]
+    shown = page.rect
+    width = item["stroke"] * shown.width
+    start, end = _shown_point(page, x1, y1), _shown_point(page, x2, y2)
+    page.draw_line(start, end, color=item["color"], width=width, lineCap=1, overlay=True)
+    if item["arrow"]:
+        # The arrowhead, worked out on the page as shown
+        ax, ay = x1 * shown.width, y1 * shown.height
+        bx, by = x2 * shown.width, y2 * shown.height
+        angle = math.atan2(by - ay, bx - ax)
+        size = max(width * 4, 6)
+        wings = [(bx - size * math.cos(angle - a), by - size * math.sin(angle - a)) for a in (0.45, -0.45)]
+        head = [fitz.Point(bx, by)] + [fitz.Point(wx, wy) for wx, wy in wings]
+        page.draw_polyline([p * page.derotation_matrix for p in head], color=item["color"], fill=item["color"],
+                           width=width, closePath=True, overlay=True)
+
+
+def _draw_mark(page, item):
+    rect = _shown_rect(page, item)
+    width = max(1.0, min(rect.width, rect.height) * 0.12)
+    mark = item["mark"]
+    if mark in ("circle", "dot"):
+        inset = width / 2 if mark == "circle" else 0
+        page.draw_oval(rect + (inset, inset, -inset, -inset), color=None if mark == "dot" else item["color"],
+                       fill=item["color"] if mark == "dot" else None, width=width, overlay=True)
+        return
+    # Check and cross, drawn in the box as shown
+    strokes = ([[(0.15, 0.55), (0.4, 0.8), (0.88, 0.18)]] if mark == "check"
+               else [[(0.18, 0.18), (0.82, 0.82)], [(0.82, 0.18), (0.18, 0.82)]])
+    for stroke in strokes:
+        points = [_shown_point(page, item["x"] + fx * item["width"], item["y"] + fy * item["height"]) for fx, fy in stroke]
+        page.draw_polyline(points, color=item["color"], width=width, lineCap=1, lineJoin=1, closePath=False,
+                           overlay=True)
 
 
 def draw_item(page, item, pngs):
@@ -249,12 +327,96 @@ def draw_item(page, item, pngs):
     elif kind == "rect":
         page.draw_rect(_shown_rect(page, item), color=item["color"], width=item["stroke"] * page.rect.width,
                        overlay=True)
+    elif kind == "ellipse":
+        page.draw_oval(_shown_rect(page, item), color=item["color"], width=item["stroke"] * page.rect.width,
+                       overlay=True)
+    elif kind == "line":
+        _draw_line(page, item)
+    elif kind == "mark":
+        _draw_mark(page, item)
     elif kind == "draw":
         shown = page.rect
         points = [fitz.Point(shown.x0 + x * shown.width, shown.y0 + y * shown.height) * page.derotation_matrix
                   for x, y in item["points"]]
         page.draw_polyline(points, color=item["color"], width=item["stroke"] * shown.width, closePath=False,
                            lineCap=1, lineJoin=1, overlay=True)
+
+
+def remove_underneath(doc, items):
+    """Erase (the page's own text only, for edited lines) and redact (text,
+    images and drawings, then a black box), before anything is drawn."""
+    for kind in ("erase", "redact"):
+        pages = {}
+        for item in items:
+            if item["kind"] == kind:
+                pages.setdefault(item["page"], []).append(item)
+        for number, page_items in pages.items():
+            page = doc[number]
+            for item in page_items:
+                rect = _shown_rect(page, item)
+                if kind == "erase":
+                    # Slightly smaller, so the lines above and below aren't touched
+                    inset = rect.height * 0.12 if page.rotation in (0, 180) else rect.width * 0.12
+                    rect = rect + ((0, inset, 0, -inset) if page.rotation in (0, 180) else (inset, 0, -inset, 0))
+                    page.add_redact_annot(rect, fill=False)
+                else:
+                    page.add_redact_annot(rect, fill=(0, 0, 0))
+            if kind == "erase":
+                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE, graphics=fitz.PDF_REDACT_LINE_ART_NONE)
+            else:
+                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS,
+                                      graphics=fitz.PDF_REDACT_LINE_ART_REMOVE_IF_COVERED)
+
+
+def _style_of(span):
+    name = span["font"].lower()
+    if any(word in name for word in ("courier", "mono", "consol")):
+        font = "mono"
+    elif any(word in name for word in ("times", "serif", "georgia", "garamond", "roman", "book", "cambria", "minion")) \
+            and "sans" not in name:
+        font = "serif"
+    else:
+        font = "sans"
+    return {
+        "font": font,
+        "bold": bool(span["flags"] & 16) or "bold" in name or "black" in name,
+        "italic": bool(span["flags"] & 2) or "italic" in name or "oblique" in name,
+        "color": f"#{span['color'] & 0xFFFFFF:06x}",
+    }
+
+
+def text_lines(pdf_bytes):
+    """Every horizontal line of text, per page, as shown (the page's own
+    rotation applied): box, text, size and style, as fractions of the page."""
+    doc = open_pdf(pdf_bytes)
+    try:
+        pages = []
+        for page in doc.pages(0, min(doc.page_count, MAX_TEXT_PAGES)):
+            shown = page.rect
+            lines = []
+            for block in page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]:
+                for line in block.get("lines", []):
+                    spans = [s for s in line["spans"] if s["text"].strip()]
+                    # Only text that reads left to right as shown
+                    turn = page.rotation_matrix
+                    direction = fitz.Point(line["dir"]) * fitz.Matrix(turn.a, turn.b, turn.c, turn.d, 0, 0)
+                    if not spans or abs(direction.y) > 0.01 or direction.x < 0:
+                        continue
+                    box = fitz.Rect(line["bbox"]) * page.rotation_matrix
+                    main = max(spans, key=lambda s: len(s["text"]))
+                    lines.append({
+                        "x": round(box.x0 / shown.width, 5), "y": round(box.y0 / shown.height, 5),
+                        "width": round(box.width / shown.width, 5), "height": round(box.height / shown.height, 5),
+                        "text": "".join(s["text"] for s in line["spans"]).strip(),
+                        "font_size": round(main["size"] / shown.height, 5),
+                        **_style_of(main),
+                    })
+                    if len(lines) >= MAX_LINES_PER_PAGE:
+                        break
+            pages.append(lines)
+        return pages
+    finally:
+        doc.close()
 
 
 def edit_pdf(main_bytes, extra_bytes, raw_request, image_bytes):
@@ -304,8 +466,10 @@ def edit_pdf(main_bytes, extra_bytes, raw_request, image_bytes):
             if entry["rotate"]:
                 page = doc[number]
                 page.set_rotation((page.rotation + entry["rotate"]) % 360)
+        remove_underneath(doc, items)
         for item in items:
-            draw_item(doc[item["page"]], item, pngs)
+            if item["kind"] not in ("erase", "redact"):
+                draw_item(doc[item["page"]], item, pngs)
 
         return doc.tobytes(garbage=3, deflate=True)
     finally:

@@ -1,26 +1,42 @@
 /**
  * Page Editor
  * The current page, large, with what's been added to it on top. With a tool
- * picked, drag on the page to add a box (text, highlight, box, white-out) or
- * draw freehand; with Select, drag things to move them and their corner to
- * resize. The PDF's own form fields can be filled in place.
+ * picked, drag on the page to add a box (text, highlight, shapes, white-out,
+ * redaction), a line or arrow, or draw freehand; click to add a mark. With
+ * Edit text, the page's own lines of text can be clicked to change them.
+ * Things added can be moved, resized and removed with any tool. The PDF's own
+ * form fields can be filled in place.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
 import { clamp, fieldValue, formFieldsFrom, shownSize } from '../editModel';
+import PageItem, { pointsBox } from './PageItem';
 
 const MIN_SIZE = 0.01;
 
+// What a drag on the page makes with each tool
+const creation = (tool, shape, mark) => {
+  if (tool === 'draw') return { mode: 'free' };
+  if (tool === 'shapes' && shape.kind === 'line') return { mode: 'line', kind: 'line', arrow: !!shape.arrow };
+  if (tool === 'shapes') return { mode: 'box', kind: shape.kind };
+  if (tool === 'marks') return { mode: 'box', kind: 'mark', mark: mark.id };
+  if (['text', 'highlight', 'whiteout', 'redact'].includes(tool)) return { mode: 'box', kind: tool };
+  return null;
+};
+
+// A click (no drag) adds something of a useful size
+const CLICK_SIZES = { text: [0.4, 0.045], highlight: [0.25, 0.025], mark: [0.035, null] };
+
 const PageEditor = ({
-  page, pdf, items, images, tool, selectedId, onSelect, onCreate, onChange, onBeginChange, onRemove, formValues,
-  onFormChange, pageLabel,
+  page, pdf, items, images, tool, shape, mark, selectedId, onSelect, onCreate, onChange, onBeginChange, onRemove,
+  formValues, onFormChange, pageLabel, lines, onEditLine,
 }) => {
   const stageRef = useRef(null);
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
   const [stageWidth, setStageWidth] = useState(0);
   const [fields, setFields] = useState([]);
-  const [draft, setDraft] = useState(null); // a box or line being drawn
+  const [draft, setDraft] = useState(null); // a box, line or drawing being made
   const size = shownSize(page);
   const ratio = size.height / size.width;
   const stageHeight = stageWidth ? stageWidth * ratio : undefined;
@@ -28,7 +44,7 @@ const PageEditor = ({
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return undefined;
-    const measure = () => setStageWidth(Math.min(stage.clientWidth, 900));
+    const measure = () => setStageWidth(Math.min(stage.clientWidth - 24, 1100));
     measure();
     if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(measure);
@@ -95,44 +111,53 @@ const PageEditor = ({
   };
 
   const startCreate = (event) => {
-    if (tool === 'select') {
+    const make = creation(tool, shape, mark);
+    if (!make) {
       onSelect(null);
       return;
     }
     if (event.target !== overlayRef.current) return;
     event.preventDefault();
     const start = pointAt(event);
-    let current = tool === 'draw' ? { points: [[start.x, start.y]] } : { start, end: start };
-    setDraft(current);
+    let current = make.mode === 'free' ? { points: [[start.x, start.y]] } : { start, end: start };
+    setDraft({ ...current, mode: make.mode, kind: make.kind });
 
     const onMove = (e) => {
       const point = pointAt(e);
-      current = tool === 'draw'
-        ? { points: [...current.points, [point.x, point.y]] }
-        : { start, end: point };
-      setDraft(current);
+      current = make.mode === 'free' ? { points: [...current.points, [point.x, point.y]] } : { start, end: point };
+      setDraft({ ...current, mode: make.mode, kind: make.kind });
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       setDraft(null);
-      if (tool === 'draw') {
+      if (make.mode === 'free') {
         if (current.points.length > 1) onCreate({ kind: 'draw', points: current.points });
         return;
       }
       const { end } = current;
+      if (make.mode === 'line') {
+        if (Math.hypot(end.x - start.x, end.y - start.y) > MIN_SIZE) {
+          onCreate({ kind: 'line', arrow: make.arrow, points: [[start.x, start.y], [end.x, end.y]] });
+        }
+        return;
+      }
       let x = Math.min(start.x, end.x);
       let y = Math.min(start.y, end.y);
       let width = Math.abs(end.x - start.x);
       let height = Math.abs(end.y - start.y);
-      // A click (no drag): a box of a useful size where it was clicked
       if (width < MIN_SIZE * 2 && height < MIN_SIZE * 2) {
-        width = tool === 'text' ? 0.4 : 0.25;
-        height = tool === 'text' ? 0.045 : tool === 'highlight' ? 0.025 : 0.08;
-        x = clamp(start.x, 0, 1 - width);
+        const [w, h] = CLICK_SIZES[make.kind] || [0.25, 0.08];
+        width = w;
+        // Marks are square on the page
+        height = h ?? (w * size.width) / size.height;
+        x = clamp(start.x - (make.kind === 'mark' ? width / 2 : 0), 0, 1 - width);
         y = clamp(start.y - height / 2, 0, 1 - height);
       }
-      onCreate({ kind: tool, x, y, width: Math.max(width, MIN_SIZE), height: Math.max(height, MIN_SIZE) });
+      onCreate({
+        kind: make.kind, ...(make.mark ? { mark: make.mark } : {}),
+        x, y, width: Math.max(width, MIN_SIZE), height: Math.max(height, MIN_SIZE),
+      });
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -151,11 +176,10 @@ const PageEditor = ({
     const onMove = (e) => {
       const dx = (e.clientX - startX) / (box.width || 1);
       const dy = (e.clientY - startY) / (box.height || 1);
-      if (item.kind === 'draw') {
-        const xs = start.points.map((p) => p[0]);
-        const ys = start.points.map((p) => p[1]);
-        const mx = clamp(dx, -Math.min(...xs), 1 - Math.max(...xs));
-        const my = clamp(dy, -Math.min(...ys), 1 - Math.max(...ys));
+      if (start.points) {
+        const area = pointsBox(start.points, 0);
+        const mx = clamp(dx, -area.x, 1 - area.x2);
+        const my = clamp(dy, -area.y, 1 - area.y2);
         onChange(item.id, { points: start.points.map(([px, py]) => [px + mx, py + my]) });
       } else if (mode === 'move') {
         onChange(item.id, {
@@ -164,11 +188,12 @@ const PageEditor = ({
         });
       } else {
         const width = clamp(start.width + dx, MIN_SIZE, 1 - start.x);
-        // Images keep their proportions
-        const height = item.kind === 'image'
+        // Images and marks keep their proportions
+        const keep = item.kind === 'image' || item.kind === 'mark';
+        const height = keep
           ? clamp((start.height * width) / start.width, MIN_SIZE, 1 - start.y)
           : clamp(start.height + dy, MIN_SIZE, 1 - start.y);
-        onChange(item.id, item.kind === 'image' ? { width: (height * start.width) / start.height, height } : { width, height });
+        onChange(item.id, keep ? { width: (height * start.width) / start.height, height } : { width, height });
       }
     };
     const onUp = () => {
@@ -183,7 +208,7 @@ const PageEditor = ({
     if (event.target.tagName === 'TEXTAREA') return;
     const step = event.shiftKey ? 0.05 : 0.005;
     const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
-    if (moves[event.key] && item.kind !== 'draw') {
+    if (moves[event.key] && !item.points) {
       event.preventDefault();
       onBeginChange();
       const [dx, dy] = moves[event.key];
@@ -197,92 +222,7 @@ const PageEditor = ({
     }
   };
 
-  const px = (fraction) => (stageHeight ? `${fraction * stageHeight}px` : undefined);
-
-  const renderItem = (item) => {
-    const selected = selectedId === item.id;
-    const common = {
-      role: 'button',
-      tabIndex: 0,
-      'aria-label': `${item.kind === 'whiteout' ? 'white-out' : item.kind === 'rect' ? 'box' : item.kind}${item.kind === 'text' && item.text ? `: ${item.text.slice(0, 30)}` : ''}`,
-      'aria-pressed': selected,
-      onKeyDown: (e) => onItemKey(e, item),
-      onFocus: () => onSelect(item.id),
-    };
-    if (item.kind === 'draw') {
-      const xs = item.points.map((p) => p[0]);
-      const ys = item.points.map((p) => p[1]);
-      const pad = item.stroke;
-      const box = {
-        x: Math.max(0, Math.min(...xs) - pad), y: Math.max(0, Math.min(...ys) - pad),
-        x2: Math.min(1, Math.max(...xs) + pad), y2: Math.min(1, Math.max(...ys) + pad),
-      };
-      return (
-        <div
-          key={item.id}
-          {...common}
-          className={`edit-pdf__item edit-pdf__item--draw ${selected ? 'edit-pdf__item--selected' : ''}`}
-          style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${(box.x2 - box.x) * 100}%`, height: `${(box.y2 - box.y) * 100}%` }}
-          onPointerDown={(e) => startDrag(e, item, 'move')}
-        >
-          <svg viewBox={`${box.x} ${box.y} ${box.x2 - box.x} ${box.y2 - box.y}`} preserveAspectRatio='none' aria-hidden='true'>
-            <polyline
-              points={item.points.map(([x, y]) => `${x},${y}`).join(' ')}
-              fill='none'
-              stroke={item.color}
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              vectorEffect='non-scaling-stroke'
-              style={{ strokeWidth: stageWidth ? item.stroke * stageWidth : 2 }}
-            />
-          </svg>
-          {selected && <RemoveButton onRemove={() => onRemove(item.id)} />}
-        </div>
-      );
-    }
-    const style = {
-      left: `${item.x * 100}%`, top: `${item.y * 100}%`, width: `${item.width * 100}%`, height: `${item.height * 100}%`,
-    };
-    if (item.kind === 'highlight') style.background = `${item.color}66`;
-    if (item.kind === 'rect') style.border = `${Math.max(1, item.stroke * (stageWidth || 600))}px solid ${item.color}`;
-    return (
-      <div
-        key={item.id}
-        {...common}
-        className={`edit-pdf__item edit-pdf__item--${item.kind} ${selected ? 'edit-pdf__item--selected' : ''}`}
-        style={style}
-        onPointerDown={(e) => {
-          if (e.target.tagName === 'TEXTAREA' && selected) return;
-          startDrag(e, item, 'move');
-        }}
-      >
-        {item.kind === 'text' && (selected ? (
-          <textarea
-            className='edit-pdf__text'
-            aria-label='Text'
-            value={item.text}
-            placeholder='Type here'
-            autoFocus={!item.text}
-            style={{ fontSize: px(item.font_size), color: item.color, fontWeight: item.bold ? 700 : 400 }}
-            onFocus={onBeginChange}
-            onChange={(e) => onChange(item.id, { text: e.target.value })}
-          />
-        ) : (
-          <span className='edit-pdf__text' style={{ fontSize: px(item.font_size), color: item.color, fontWeight: item.bold ? 700 : 400 }}>
-            {item.text || <span className='edit-pdf__placeholder'>Type here</span>}
-          </span>
-        ))}
-        {item.kind === 'image' && <img src={images[item.imageId]?.dataUrl} alt='' draggable={false} />}
-        {selected && (
-          <>
-            <RemoveButton onRemove={() => onRemove(item.id)} />
-            <span className='edit-pdf__resize' aria-hidden='true' onPointerDown={(e) => startDrag(e, item, 'resize')} />
-          </>
-        )}
-      </div>
-    );
-  };
-
+  // --- the PDF's own form fields ---------------------------------------------------------
   const renderField = (field) => {
     const value = fieldValue(field, formValues);
     const style = {
@@ -323,29 +263,70 @@ const PageEditor = ({
     );
   };
 
-  const draftBox = draft && !draft.points && {
+  // --- the page's own lines of text (Edit text) ---------------------------------------------
+  const editedLines = new Set(items.map((i) => i.lineKey).filter(Boolean));
+  const renderLine = (line, index) => {
+    const lineKey = `${page.key}:${index}`;
+    if (editedLines.has(lineKey)) return null;
+    return (
+      <button
+        key={lineKey}
+        type='button'
+        className='edit-pdf__line'
+        aria-label={`Edit text: ${line.text}`}
+        style={{
+          left: `${line.x * 100}%`, top: `${line.y * 100}%`,
+          width: `${line.width * 100}%`, height: `${line.height * 100}%`,
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => onEditLine(line, lineKey)}
+      />
+    );
+  };
+
+  const draftBox = draft?.mode === 'box' && {
     left: `${Math.min(draft.start.x, draft.end.x) * 100}%`,
     top: `${Math.min(draft.start.y, draft.end.y) * 100}%`,
     width: `${Math.abs(draft.end.x - draft.start.x) * 100}%`,
     height: `${Math.abs(draft.end.y - draft.start.y) * 100}%`,
   };
+  const draftPoints = draft?.mode === 'free'
+    ? draft.points
+    : draft?.mode === 'line' && [[draft.start.x, draft.start.y], [draft.end.x, draft.end.y]];
 
   return (
     <div className='edit-pdf__stage' ref={stageRef}>
       <div className='edit-pdf__page' style={{ width: stageWidth || undefined, height: stageHeight }}>
         <canvas ref={canvasRef} className='edit-pdf__canvas' aria-label={pageLabel} />
         <div
-          className={`edit-pdf__overlay edit-pdf__overlay--${tool}`}
+          className={`edit-pdf__overlay edit-pdf__overlay--${tool} ${creation(tool, shape, mark) ? 'edit-pdf__overlay--creating' : ''}`}
           ref={overlayRef}
           data-testid='edit-overlay'
           onPointerDown={startCreate}
         >
           {fields.map(renderField)}
-          {items.map(renderItem)}
-          {draftBox && <div className={`edit-pdf__draft edit-pdf__draft--${tool}`} style={draftBox} />}
-          {draft?.points && (
+          {items.map((item) => (
+            <PageItem
+              key={item.id}
+              item={item}
+              image={images[item.imageId]}
+              selected={selectedId === item.id}
+              stageWidth={stageWidth}
+              stageHeight={stageHeight}
+              onPointerDown={(e) => startDrag(e, item, 'move')}
+              onResize={(e) => startDrag(e, item, 'resize')}
+              onKeyDown={(e) => onItemKey(e, item)}
+              onFocus={() => onSelect(item.id)}
+              onRemove={() => onRemove(item.id)}
+              onText={(text) => onChange(item.id, { text })}
+              onTextFocus={onBeginChange}
+            />
+          ))}
+          {tool === 'edittext' && lines?.map(renderLine)}
+          {draftBox && <div className={`edit-pdf__draft edit-pdf__draft--${draft.kind}`} style={draftBox} />}
+          {draftPoints && (
             <svg className='edit-pdf__draft-line' viewBox='0 0 1 1' preserveAspectRatio='none' aria-hidden='true'>
-              <polyline points={draft.points.map(([x, y]) => `${x},${y}`).join(' ')} fill='none' stroke='#2563eb'
+              <polyline points={draftPoints.map(([x, y]) => `${x},${y}`).join(' ')} fill='none' stroke='#2563eb'
                 vectorEffect='non-scaling-stroke' strokeWidth='2' />
             </svg>
           )}
@@ -354,17 +335,5 @@ const PageEditor = ({
     </div>
   );
 };
-
-const RemoveButton = ({ onRemove }) => (
-  <button
-    type='button'
-    className='edit-pdf__remove'
-    aria-label='Remove'
-    onPointerDown={(e) => e.stopPropagation()}
-    onClick={onRemove}
-  >
-    ×
-  </button>
-);
 
 export default PageEditor;
