@@ -5,32 +5,75 @@
 @import '../../../shared/styles/variables';
 
 .edit-pdf {
+  // While editing, use the whole width: the page gets the room
+  &--editing {
+    max-width: none;
+
+    &::before,
+    &::after { display: none; }
+  }
+
   &__loading {
     margin-top: 1rem;
     color: theme-color(text-secondary);
     text-align: center;
   }
 
-  &__toolbar {
+  // --- the tools panel, on the right --------------------------------------------
+  &__panel {
+    position: sticky;
+    top: 0;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.375rem;
-    margin-bottom: 0.5rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: theme-color(secondary);
+
+    .converter-message { margin: 0; }
+  }
+
+  // Small tiles, three to a row: an icon with a short label
+  &__toolbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.3125rem;
+  }
+
+  &__save {
+    width: 100%;
+    justify-content: center;
+    margin: 0;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    font-size: 0.9375rem;
+    white-space: nowrap;
   }
 
   &__tool {
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
-    padding: 0.4375rem 0.75rem;
+    justify-content: center;
+    gap: 0.1875rem;
+    min-width: 0;
+    padding: 0.4375rem 0.125rem 0.375rem;
     border: 1px solid theme-color(border);
     border-radius: 8px;
     background: theme-color(primary);
     color: theme-color(text-primary);
     font: inherit;
-    font-size: 0.875rem;
-    font-weight: 600;
     cursor: pointer;
+
+    .icon { color: theme-color(text-secondary); }
+
+    &--row {
+      flex-direction: row;
+      gap: 0.375rem;
+      padding: 0.375rem 0.5rem;
+    }
 
     &:hover:not(:disabled) {
       border-color: rgba(theme-color(accent), 0.5);
@@ -50,22 +93,78 @@
       background: theme-color(accent);
       color: theme-color(text-contrast);
 
+      .icon { color: inherit; }
+
       &:hover:not(:disabled) { background: theme-color(accent-hover); }
     }
   }
 
-  &__undo { margin-left: auto; }
+  &__tool-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  &__history {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.375rem;
+  }
+
+  &__toggle {
+    min-width: 30px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid theme-color(border);
+    border-radius: 6px;
+    background: theme-color(primary);
+    color: theme-color(text-primary);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover { border-color: rgba(theme-color(accent), 0.5); }
+
+    &--active {
+      border-color: theme-color(accent);
+      background: theme-color(accent-light);
+      color: theme-color(accent);
+    }
+
+    &--symbol { font-size: 1rem; line-height: 1; }
+  }
+
+  &__style-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  &__link {
+    margin-left: 0.25rem;
+    padding: 0;
+    border: none;
+    background: none;
+    color: theme-color(accent);
+    font: inherit;
+    cursor: pointer;
+
+    &:hover { text-decoration: underline; }
+  }
 
   &__style {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.375rem 0.5rem;
-    min-height: 2.75rem;
-    margin-bottom: 0.75rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 10px;
-    background: theme-color(secondary);
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid theme-color(border);
     font-size: 0.8125rem;
 
     select {
@@ -83,8 +182,6 @@
     align-items: center;
     color: theme-color(text-secondary);
     font-weight: 500;
-
-    &:not(:first-child) { margin-left: 0.5rem; }
   }
 
   &__swatch {
@@ -116,34 +213,74 @@
   }
 
   &__hint {
-    margin-left: auto;
+    flex-basis: 100%;
     font-size: 0.8125rem;
+    line-height: 1.4;
     color: theme-color(text-secondary);
   }
 
+  // Pages | the page being edited | tools
   &__workspace {
-    display: flex;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr) 216px;
+    align-items: start;
     gap: 0.75rem;
-    margin-bottom: 1rem;
 
+    @media (max-width: 1100px) { grid-template-columns: 140px minmax(0, 1fr) 200px; }
+
+    // Phones and small tablets: tools on top (one row to swipe), the page, then the pages
     @media (max-width: 768px) {
-      flex-direction: column;
-      align-items: stretch;
+      grid-template-columns: minmax(0, 1fr);
+
+      .edit-pdf__strip { order: 2; }
+
+      .edit-pdf__hint { font-size: 0.75rem; }
+
+      .edit-pdf__panel {
+        order: -1;
+        position: static;
+        max-height: none;
+        overflow: visible;
+        padding: 0.5rem;
+      }
+
+      .edit-pdf__toolbar {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+        scrollbar-width: thin;
+      }
+
+      .edit-pdf__tool { flex: 0 0 64px; }
+
+      .edit-pdf__history {
+        display: flex;
+        flex: 0 0 auto;
+      }
+
+      .edit-pdf__style { padding-top: 0.5rem; }
+
+      // Smaller page thumbnails, so the page itself is closer to the top
+      .edit-pdf__thumb,
+      .edit-pdf__strip-add { width: 84px; }
+      .edit-pdf__thumb-paper { width: 60px; max-height: 84px; }
+      .edit-pdf__thumb-actions { flex-wrap: wrap; justify-content: center; }
+      .edit-pdf__thumb-actions button { width: 26px; height: 26px; }
     }
   }
 
   // --- the page strip ---------------------------------------------------------
   &__strip {
-    flex: 0 0 140px;
-    max-height: 75vh;
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - 150px);
     overflow-y: auto;
     padding: 0.5rem;
     border-radius: 12px;
     background: theme-color(secondary);
 
     @media (max-width: 768px) {
-      flex-basis: auto;
+      position: static;
       max-height: none;
       overflow-x: auto;
       overflow-y: hidden;
@@ -272,7 +409,6 @@
 
   // --- the page being edited ---------------------------------------------------
   &__stage {
-    flex: 1;
     min-width: 0;
     display: flex;
     justify-content: center;
@@ -302,6 +438,9 @@
     inset: 0;
 
     &--text { cursor: text; }
+
+    // While adding things, clicks go to the page, not to what's already on it
+    &--creating .edit-pdf__item { pointer-events: none; }
     &--highlight,
     &--rect,
     &--whiteout,
@@ -331,17 +470,25 @@
 
     &--whiteout { background: #fff; outline: 1px solid rgba(15, 23, 42, 0.08); }
 
+    &--redact { background: #000; }
+
+    &--ellipse { border-radius: 50%; }
+
+    &--line,
+    &--draw {
+      svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+    }
+
     &--text {
       padding: 2px;
       border-color: rgba(theme-color(accent), 0.35);
     }
 
-    &--draw svg {
-      display: block;
-      width: 100%;
-      height: 100%;
-      overflow: visible;
-    }
   }
 
   &__text {
@@ -365,6 +512,54 @@
   textarea.edit-pdf__text { cursor: text; user-select: text; }
 
   &__placeholder { color: theme-color(text-muted); }
+
+  // An edited line of the PDF's own text: the original, hidden under the new text
+  &__cover {
+    position: absolute;
+    background: #fff;
+    pointer-events: none;
+  }
+
+  // Edit text: the page's own lines, ready to click
+  &__line {
+    position: absolute;
+    padding: 0;
+    border: 1px dashed transparent;
+    border-radius: 2px;
+    background: rgba(theme-color(accent), 0.04);
+    cursor: text;
+
+    &:hover,
+    &:focus-visible {
+      border-color: theme-color(accent);
+      background: rgba(theme-color(accent), 0.12);
+      outline: none;
+    }
+  }
+
+  &__mark {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 12;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &__mark-fill { fill: currentColor; stroke: none; }
+
+  &__arrowhead {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-color: transparent;
+    border-right-width: 0;
+    pointer-events: none;
+  }
 
   &__remove {
     position: absolute;
@@ -413,6 +608,8 @@
 
     &--highlight { background: rgba(253, 224, 71, 0.4); border-color: transparent; }
     &--whiteout { background: #fff; }
+    &--redact { background: #000; }
+    &--ellipse { border-radius: 50%; }
   }
 
   &__draft-line {

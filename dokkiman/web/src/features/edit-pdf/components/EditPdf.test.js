@@ -84,7 +84,7 @@ test('text is placed where the page is clicked, then typed', async () => {
   render(<EditPdf />);
   await openPdf();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Text' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add text' }));
   dragOnPage([60, 400], [60, 400]); // a click
   fireEvent.change(await screen.findByRole('textbox', { name: 'Text' }), { target: { value: 'Paid in full' } });
   fireEvent.change(screen.getByRole('combobox', { name: /Size/ }), { target: { value: '18' } });
@@ -110,7 +110,7 @@ test('highlights, boxes, white-out and drawings follow the drag', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Draw' }));
   dragOnPage([60, 600], [540, 600]);
   fireEvent.click(pages()[1]); // things on page 2 go with page 2
-  fireEvent.click(screen.getByRole('button', { name: 'Box' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Shapes' })); // a box, to start with
   dragOnPage([300, 400], [120, 200]); // dragged up and left
   save();
 
@@ -210,4 +210,110 @@ test('problems from the server are shown', async () => {
   await openPdf();
   save();
   expect(await screen.findByRole('alert')).toHaveTextContent('A page doesn’t exist in its PDF.');
+});
+
+test('the PDF’s own text can be changed, line by line', async () => {
+  const line = { x: 0.1, y: 0.2, width: 0.4, height: 0.02, text: 'Monthly rent is $1,700', font: 'serif', bold: false,
+    italic: false, color: '#cc0000', font_size: 0.015 };
+  const fetchMock = mockFetch({
+    '/pdfText': { body: { pages: [[line, { ...line, y: 0.3, text: 'Due on the first' }], [], []] } },
+    '/editPdf': { file: new Blob(['%PDF'], { type: 'application/pdf' }) },
+  });
+  render(<EditPdf />);
+  await openPdf();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit text' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit text: Monthly rent is $1,700' }));
+  const box = screen.getByRole('textbox', { name: 'Text' });
+  expect(box).toHaveValue('Monthly rent is $1,700');
+  fireEvent.change(box, { target: { value: 'Monthly rent is $1,850' } });
+  // An edited line can't be picked again; the others can
+  expect(screen.queryByRole('button', { name: 'Edit text: Monthly rent is $1,700' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit text: Due on the first' }));
+  fireEvent.change(screen.getAllByRole('textbox', { name: 'Text' })[0], { target: { value: '' } }); // delete the line
+  save();
+
+  await screen.findByText(/Saved and downloaded/);
+  const { items } = sentEdits(fetchMock).edits;
+  expect(items).toEqual([
+    { kind: 'erase', page: 0, x: 0.1, y: 0.2, width: 0.4, height: 0.02 },
+    expect.objectContaining({ kind: 'text', page: 0, text: 'Monthly rent is $1,850', font: 'serif', color: '#cc0000',
+      font_size: 0.015, x: 0.1, y: 0.2 }),
+    { kind: 'erase', page: 0, x: 0.1, y: 0.3, width: 0.4, height: 0.02 },
+  ]);
+  // The PDF went to /pdfText once
+  expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/pdfText'))).toHaveLength(1);
+});
+
+test('text can be styled', async () => {
+  const fetchMock = mockServer();
+  render(<EditPdf />);
+  await openPdf();
+  fireEvent.click(screen.getByRole('button', { name: 'Add text' }));
+  dragOnPage([60, 400], [60, 400]);
+  fireEvent.change(await screen.findByRole('textbox', { name: 'Text' }), { target: { value: 'Note' } });
+  fireEvent.change(screen.getByRole('combobox', { name: /Font/ }), { target: { value: 'mono' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Italic' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Underline' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Align center' }));
+  save();
+
+  await screen.findByText(/Saved and downloaded/);
+  expect(sentEdits(fetchMock).edits.items[0]).toMatchObject({
+    kind: 'text', text: 'Note', font: 'mono', italic: true, underline: true, align: 'center', bold: false,
+  });
+});
+
+test('shapes, arrows, marks and redactions', async () => {
+  const fetchMock = mockServer();
+  render(<EditPdf />);
+  await openPdf();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Shapes' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ellipse' }));
+  dragOnPage([60, 80], [300, 160]);
+  fireEvent.click(screen.getByRole('button', { name: 'Shapes' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Arrow' }));
+  dragOnPage([60, 400], [300, 400]);
+  fireEvent.click(screen.getByRole('button', { name: 'Marks' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cross' }));
+  dragOnPage([300, 600], [300, 600]); // a click
+  fireEvent.click(screen.getByRole('button', { name: 'Redact' }));
+  dragOnPage([60, 700], [360, 720]);
+  save();
+
+  await screen.findByText(/Saved and downloaded/);
+  const { items } = sentEdits(fetchMock).edits;
+  expect(items.map((i) => i.kind)).toEqual(['ellipse', 'line', 'mark', 'redact']);
+  expect(items[1]).toMatchObject({ arrow: true, points: [[0.1, 0.5], [0.5, 0.5]] });
+  expect(items[2]).toMatchObject({ mark: 'cross', color: '#16a34a', width: 0.035 });
+  // Marks are square on the page: 0.035 of the width is 0.02625 of the (taller) height
+  expect(items[2].height).toBeCloseTo(0.02625);
+  expect(items[3].color).toBeUndefined();
+});
+
+test('the date can be added from Sign', async () => {
+  const fetchMock = mockServer();
+  render(<EditPdf />);
+  await openPdf();
+  fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Date' }));
+  save();
+  await screen.findByText(/Saved and downloaded/);
+  expect(sentEdits(fetchMock).edits.items[0]).toMatchObject({ kind: 'text', text: new Date().toLocaleDateString() });
+});
+
+test('redo puts back what undo took away', async () => {
+  const fetchMock = mockServer();
+  render(<EditPdf />);
+  await openPdf();
+  fireEvent.click(screen.getByRole('button', { name: 'Highlight' }));
+  dragOnPage([60, 80], [300, 120]);
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  expect(screen.getByRole('button', { name: 'Redo' })).toBeEnabled();
+  fireEvent.keyDown(window, { key: 'z', ctrlKey: true, shiftKey: true });
+  expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
+  save();
+  await screen.findByText(/Saved and downloaded/);
+  expect(sentEdits(fetchMock).edits.items.map((i) => i.kind)).toEqual(['highlight']);
 });

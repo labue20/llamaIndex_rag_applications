@@ -1,22 +1,27 @@
 /**
  * Edit PDF
- * Organize pages (reorder, turn, copy, remove, add blank pages, combine
- * PDFs) and add text, images, highlights, boxes, white-out and drawings, and
- * fill in the PDF's own form fields. The server makes the new PDF (/editPdf).
+ * Change the PDF's own text, add text, signatures, images, shapes, marks,
+ * highlights, drawings, white-out and redactions, fill in its form fields,
+ * and organize pages (reorder, turn, copy, remove, add blank pages, combine
+ * PDFs). The server makes the new PDF (/editPdf); the text lines to edit come
+ * from /pdfText.
  */
 
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/webpack';
 import {
-  apiFetch, DocumentPicker, downloadBlob, filenameFromDisposition, Icon, readApiError,
+  apiFetch, dataUrlToBlob, DocumentPicker, downloadBlob, filenameFromDisposition, Icon, readApiError,
 } from '../../../shared';
+import SignatureDialog from '../../sign-pdf/components/SignatureDialog';
 import {
-  buildEdits, clamp, COLORS, DEFAULT_COLORS, FONT_SIZES, MAX_FILES, newKey, POINTS_PER_PAGE, rotateBy, shownSize,
-  STROKES, TOOLS,
+  buildEdits, clamp, DEFAULT_COLORS, MARKS, MAX_FILES, newKey, POINTS_PER_PAGE, rotateBy, SHAPES, shownSize,
+  STROKES, textItemForLine, TOOLS,
 } from '../editModel';
 import PageEditor from './PageEditor';
 import PageStrip from './PageStrip';
+import StyleBar from './StyleBar';
 import '../../../shared/styles/converter.scss';
+import '../../sign-pdf/styles/sign-pdf.scss';
 import '../styles/edit-pdf.scss';
 
 const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
@@ -57,20 +62,37 @@ const loadPdf = async (file, fileIndex) => {
   return { doc, pages };
 };
 
+// What each tool adds, for its color and style
+const kindOfTool = (tool, shapeId) => {
+  if (tool === 'shapes') return SHAPES.find((s) => s.id === shapeId).kind;
+  if (tool === 'marks') return 'mark';
+  if (tool === 'sign') return null;
+  return ['text', 'highlight', 'draw'].includes(tool) ? tool : null;
+};
+
 const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref) => {
   const [files, setFiles] = useState([]); // File objects: [0] the main PDF, then PDFs added
   const [docs, setDocs] = useState([]); // pdf.js documents, same order
   const [pages, setPages] = useState([]);
   const [items, setItems] = useState([]);
-  const [images, setImages] = useState({}); // imageId -> { file, dataUrl, aspect }
+  const [images, setImages] = useState({}); // imageId -> { file?, dataUrl, aspect }
   const [formValues, setFormValues] = useState({});
   const [history, setHistory] = useState([]);
+  const [future, setFuture] = useState([]);
   const [currentKey, setCurrentKey] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [tool, setTool] = useState('select');
-  const [colors, setColors] = useState(DEFAULT_COLORS);
-  const [fontPoints, setFontPoints] = useState(12);
-  const [stroke, setStroke] = useState(STROKES[1].value);
+  const [shapeId, setShapeId] = useState('rect');
+  const [markId, setMarkId] = useState('check');
+  const [styles, setStyles] = useState({
+    text: { color: DEFAULT_COLORS.text, font: 'sans', font_size: 12 / POINTS_PER_PAGE, bold: false, italic: false,
+      underline: false, align: 'left' },
+    stroke: STROKES[1].value,
+    colors: DEFAULT_COLORS,
+  });
+  const [textLines, setTextLines] = useState({}); // file index -> { status, pages }
+  const [signImages, setSignImages] = useState({}); // signature / initials -> imageId
+  const [signDialog, setSignDialog] = useState(null); // { kind, place }
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -90,9 +112,12 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     setImages({});
     setFormValues({});
     setHistory([]);
+    setFuture([]);
     setCurrentKey(null);
     setSelectedId(null);
     setTool('select');
+    setTextLines({});
+    setSignImages({});
     setError('');
     setResult('');
   }, [docs]);
@@ -124,36 +149,53 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     onStatusChange?.({ hasFile: !!file, isBusy: isSaving || isLoading });
   }, [onStatusChange, file, isSaving, isLoading]);
 
-  // --- undo ----------------------------------------------------------------------------
+  // --- undo and redo -----------------------------------------------------------------------
+  const snapshot = useCallback(() => ({ pages, items, formValues }), [pages, items, formValues]);
+
   const remember = useCallback(() => {
-    setHistory((prev) => [...prev.slice(-(HISTORY - 1)), { pages, items, formValues }]);
+    setHistory((prev) => [...prev.slice(-(HISTORY - 1)), snapshot()]);
+    setFuture([]);
     setResult('');
-  }, [pages, items, formValues]);
+  }, [snapshot]);
+
+  const restore = useCallback((state) => {
+    setPages(state.pages);
+    setItems(state.items);
+    setFormValues(state.formValues);
+    setSelectedId(null);
+    if (!state.pages.some((p) => p.key === currentKey)) setCurrentKey(state.pages[0]?.key ?? null);
+  }, [currentKey]);
 
   const undo = useCallback(() => {
-    setHistory((prev) => {
-      if (!prev.length) return prev;
-      const last = prev[prev.length - 1];
-      setPages(last.pages);
-      setItems(last.items);
-      setFormValues(last.formValues);
-      setSelectedId(null);
-      if (!last.pages.some((p) => p.key === currentKey)) setCurrentKey(last.pages[0]?.key ?? null);
-      return prev.slice(0, -1);
-    });
-  }, [currentKey]);
+    if (!history.length) return;
+    setFuture((prev) => [snapshot(), ...prev]);
+    restore(history[history.length - 1]);
+    setHistory((prev) => prev.slice(0, -1));
+  }, [history, snapshot, restore]);
+
+  const redo = useCallback(() => {
+    if (!future.length) return;
+    setHistory((prev) => [...prev, snapshot()]);
+    restore(future[0]);
+    setFuture((prev) => prev.slice(1));
+  }, [future, snapshot, restore]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
       const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey && !typing && file) {
+      if (!(e.metaKey || e.ctrlKey) || typing || !file) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
+      } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+        e.preventDefault();
+        redo();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [undo, file]);
+  }, [undo, redo, file]);
 
   // --- pages ---------------------------------------------------------------------------
   const movePage = (key, toIndex) => {
@@ -184,7 +226,7 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     });
     // What was added to the page comes along to the copy
     setItems((prev) => [...prev, ...prev.filter((i) => i.pageKey === key)
-      .map((i) => ({ ...i, id: nextItemId++, pageKey: copyKey }))]);
+      .map((i) => ({ ...i, id: nextItemId++, pageKey: copyKey, lineKey: i.lineKey?.replace(key, copyKey) }))]);
     setCurrentKey(copyKey);
   };
 
@@ -240,22 +282,67 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     }
   };
 
+  // --- the PDF's own text (Edit text) --------------------------------------------------------
+  const textFile = tool === 'edittext' && currentPage && !currentPage.blank ? currentPage.file : null;
+  useEffect(() => {
+    if (textFile === null || textLines[textFile]) return;
+    setTextLines((prev) => ({ ...prev, [textFile]: { status: 'loading' } }));
+    (async () => {
+      try {
+        const formData = new FormData();
+        formData.append('file', files[textFile]);
+        const response = await apiFetch('/pdfText', { method: 'POST', body: formData });
+        if (!response.ok) throw new Error(await readApiError(response, 'The text in this PDF couldn’t be read.'));
+        const data = await response.json();
+        setTextLines((prev) => ({ ...prev, [textFile]: { status: 'ready', pages: data.pages } }));
+      } catch (err) {
+        setTextLines((prev) => ({ ...prev, [textFile]: { status: 'error', message: err.message } }));
+      }
+    })();
+  }, [textFile, textLines, files]);
+
+  const linesInfo = textFile === null ? null : textLines[textFile];
+  const pageLines = linesInfo?.status === 'ready' && currentPage?.rotate === 0
+    ? linesInfo.pages[currentPage.page] || [] : null;
+  let editTextHint = null;
+  if (tool === 'edittext') {
+    if (!currentPage || currentPage.blank) editTextHint = 'A blank page has no text to change. Use Add text.';
+    else if (currentPage.rotate) editTextHint = 'Turn this page back to change its text (or change it, then turn it).';
+    else if (!linesInfo || linesInfo.status === 'loading') editTextHint = 'Finding the text on this page…';
+    else if (linesInfo.status === 'error') editTextHint = linesInfo.message;
+    else if (pageLines && pageLines.length === 0) {
+      editTextHint = 'No text found on this page. If it’s a scan, use White-out and Add text instead.';
+    }
+  }
+
+  const editLine = (line, lineKey) => {
+    remember();
+    const item = { id: nextItemId++, pageKey: currentPage.key, ...textItemForLine(line, lineKey) };
+    setItems((prev) => [...prev, item]);
+    setSelectedId(item.id);
+  };
+
   // --- things on pages --------------------------------------------------------------------
-  const styleFor = (kind) => ({
-    color: colors[kind] || '#111827',
-    ...(kind === 'text' ? { font_size: fontPoints / POINTS_PER_PAGE, bold: false } : {}),
-    ...(kind === 'rect' || kind === 'draw' ? { stroke } : {}),
-  });
+  const styleFor = (kind) => {
+    if (kind === 'text') return { ...styles.text };
+    if (kind === 'whiteout' || kind === 'redact' || kind === 'image') return {};
+    return {
+      color: styles.colors[kind],
+      ...(['rect', 'ellipse', 'line', 'draw'].includes(kind) ? { stroke: styles.stroke } : {}),
+    };
+  };
 
   const createItem = (spec) => {
     remember();
     const item = { id: nextItemId++, pageKey: currentPage.key, ...styleFor(spec.kind), ...spec };
-    if (item.kind === 'text') item.text = '';
-    if (item.kind === 'whiteout') delete item.color;
+    if (item.kind === 'text' && item.text === undefined) item.text = '';
     setItems((prev) => [...prev, item]);
-    setSelectedId(item.id);
+    // Text and images are adjusted straight away; with the other tools, the
+    // next drag on the page adds another one
+    if (item.kind === 'text' || item.kind === 'image') setSelectedId(item.id);
     // After placing a text box, type into it
     if (item.kind === 'text') setTool('select');
+    return item;
   };
 
   const changeItem = (id, changes) => setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...changes } : i)));
@@ -264,6 +351,12 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     remember();
     setItems((prev) => prev.filter((i) => i.id !== id));
     setSelectedId(null);
+  };
+
+  const placeImage = (imageId, image, width = 0.3) => {
+    const size = shownSize(currentPage);
+    const height = clamp((width * image.aspect * size.width) / size.height, 0.02, 0.8);
+    createItem({ kind: 'image', imageId, x: clamp(0.5 - width / 2, 0, 1 - width), y: clamp(0.5 - height / 2, 0, 1 - height), width, height });
   };
 
   const addImage = async (imageFile) => {
@@ -279,26 +372,54 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
       const image = await readImage(imageFile);
       const imageId = `img-${nextImageId++}`;
       setImages((prev) => ({ ...prev, [imageId]: image }));
-      const size = shownSize(currentPage);
-      const width = 0.3;
-      const height = clamp((width * image.aspect * size.width) / size.height, 0.02, 0.8);
-      createItem({ kind: 'image', imageId, x: 0.35, y: clamp(0.5 - height / 2, 0, 1 - height), width, height });
+      placeImage(imageId, image);
       setTool('select');
     } catch (err) {
       setError(err.message);
     }
   };
 
-  // The style controls change the selected item, or what the tool will add next
-  const styleTarget = selected ? selected.kind : tool;
+  // Sign: a signature or initials (made once, then reused), or today's date
+  const sign = (kind) => {
+    if (kind === 'date') {
+      createItem({ kind: 'text', text: new Date().toLocaleDateString(), x: 0.4, y: 0.6, width: 0.2, height: 0.03 });
+      return;
+    }
+    const imageId = signImages[kind];
+    if (imageId) placeImage(imageId, images[imageId], kind === 'initials' ? 0.12 : 0.3);
+    else setSignDialog({ kind, place: true });
+  };
+
+  const signatureDone = (image) => {
+    const { kind, place } = signDialog;
+    const imageId = `${kind}-${nextImageId++}`;
+    setImages((prev) => ({ ...prev, [imageId]: image }));
+    setSignDialog(null);
+    // A new signature replaces the old one everywhere it was placed
+    const previous = signImages[kind];
+    setSignImages((prev) => ({ ...prev, [kind]: imageId }));
+    if (previous) setItems((prev) => prev.map((i) => (i.imageId === previous ? { ...i, imageId } : i)));
+    if (place) placeImage(imageId, image, kind === 'initials' ? 0.12 : 0.3);
+  };
+
+  // The style controls change the selected item, or what the tool adds next
+  const styleKind = selected ? selected.kind : kindOfTool(tool, shapeId);
+  const currentStyle = selected || (styleKind === 'text' ? styles.text : {
+    color: styles.colors[styleKind], stroke: styles.stroke,
+  });
   const setStyle = (changes) => {
     if (selected) {
       remember();
       changeItem(selected.id, changes);
     }
-    if (changes.color) setColors((prev) => ({ ...prev, [styleTarget]: changes.color }));
-    if (changes.font_size) setFontPoints(Math.round(changes.font_size * POINTS_PER_PAGE));
-    if (changes.stroke) setStroke(changes.stroke);
+    setStyles((prev) => {
+      if (styleKind === 'text') return { ...prev, text: { ...prev.text, ...changes } };
+      return {
+        ...prev,
+        ...(changes.stroke ? { stroke: changes.stroke } : {}),
+        colors: changes.color ? { ...prev.colors, [styleKind]: changes.color } : prev.colors,
+      };
+    });
   };
 
   const setFormValue = (name, value) => {
@@ -323,7 +444,11 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
       const formData = new FormData();
       formData.append('file', file);
       files.slice(1).forEach((extra) => formData.append('files', extra));
-      usedImages.forEach((id) => formData.append('images', images[id].file));
+      usedImages.forEach((id) => {
+        const image = images[id];
+        if (image.file) formData.append('images', image.file);
+        else formData.append('images', dataUrlToBlob(image.dataUrl), `${id}.png`);
+      });
       formData.append('edits', JSON.stringify(edits));
 
       const response = await apiFetch('/editPdf', { method: 'POST', body: formData });
@@ -366,8 +491,8 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
               )}
             </div>
             <p className='upload-hint'>
-              Add text, images, highlights and drawings, fill in forms, and reorder, turn, remove or combine pages
-              • Max 50MB
+              Change text, add text, signatures, images and shapes, fill in forms, redact, and reorder or combine
+              pages • Max 50MB
             </p>
           </div>
         </div>
@@ -382,108 +507,10 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     );
   }
 
-  const strokeTarget = styleTarget === 'rect' || styleTarget === 'draw';
-  const currentStroke = selected?.stroke ?? stroke;
-  const currentColor = selected?.color ?? colors[styleTarget];
-  const currentPoints = selected?.kind === 'text' ? Math.round(selected.font_size * POINTS_PER_PAGE) : fontPoints;
   const pageIndex = pages.findIndex((p) => p.key === currentPage?.key);
 
   return (
-    <div className='file-converter edit-pdf'>
-      <div className='edit-pdf__toolbar' role='toolbar' aria-label='Edit tools'>
-        {TOOLS.map((t) => (
-          <button
-            key={t.id}
-            type='button'
-            className={`edit-pdf__tool ${tool === t.id ? 'edit-pdf__tool--active' : ''}`}
-            aria-pressed={tool === t.id}
-            onClick={() => {
-              setTool(t.id);
-              setSelectedId(null);
-            }}
-            disabled={isSaving}
-          >
-            {t.label}
-          </button>
-        ))}
-        <label className='edit-pdf__tool'>
-          Image
-          <input
-            type='file'
-            accept='image/png,image/jpeg'
-            hidden
-            aria-label='Add an image'
-            onChange={(e) => {
-              const picked = e.target.files[0];
-              e.target.value = '';
-              if (picked) addImage(picked);
-            }}
-          />
-        </label>
-        <button type='button' className='edit-pdf__tool edit-pdf__undo' onClick={undo} disabled={!history.length || isSaving}>
-          Undo
-        </button>
-      </div>
-
-      {/* Always shown, so the page doesn't jump when the tool changes */}
-      <div className='edit-pdf__style' role='group' aria-label='Style'>
-        {(['text', 'highlight', 'rect', 'draw'].includes(styleTarget)) && (
-          <>
-            <span className='edit-pdf__style-label'>Color</span>
-            {COLORS.filter((c) => styleTarget !== 'highlight' || c !== '#ffffff').map((c) => (
-              <button
-                key={c}
-                type='button'
-                className={`edit-pdf__swatch ${currentColor === c ? 'edit-pdf__swatch--active' : ''}`}
-                style={{ background: c }}
-                aria-label={`Color ${c}`}
-                aria-pressed={currentColor === c}
-                onClick={() => setStyle({ color: c })}
-              />
-            ))}
-            {styleTarget === 'text' && (
-              <>
-                <label className='edit-pdf__style-label'>
-                  Size
-                  <select
-                    value={FONT_SIZES.includes(currentPoints) ? currentPoints : ''}
-                    onChange={(e) => setStyle({ font_size: Number(e.target.value) / POINTS_PER_PAGE })}
-                  >
-                    {!FONT_SIZES.includes(currentPoints) && <option value=''>{currentPoints}</option>}
-                    {FONT_SIZES.map((s) => <option key={s} value={s}>{s} pt</option>)}
-                  </select>
-                </label>
-                {selected && (
-                  <button
-                    type='button'
-                    className={`edit-pdf__bold ${selected.bold ? 'edit-pdf__bold--active' : ''}`}
-                    aria-pressed={!!selected.bold}
-                    onClick={() => setStyle({ bold: !selected.bold })}
-                  >
-                    B
-                  </button>
-                )}
-              </>
-            )}
-            {strokeTarget && (
-              <label className='edit-pdf__style-label'>
-                Line
-                <select value={currentStroke} onChange={(e) => setStyle({ stroke: Number(e.target.value) })}>
-                  {STROKES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </label>
-            )}
-          </>
-        )}
-        <span className='edit-pdf__hint'>
-          {selected && 'Drag to move, drag the corner to resize, Delete to remove.'}
-          {!selected && tool === 'select' && 'Click something you added to change it. Fill in form fields right on the page.'}
-          {!selected && tool === 'text' && 'Click on the page where the text should go, then type.'}
-          {!selected && ['highlight', 'rect', 'whiteout'].includes(tool) && 'Drag across the page to add it.'}
-          {!selected && tool === 'draw' && 'Draw on the page with your mouse, finger or pen.'}
-        </span>
-      </div>
-
+    <div className='file-converter edit-pdf edit-pdf--editing'>
       <div className='edit-pdf__workspace'>
         <PageStrip
           pages={pages}
@@ -510,6 +537,8 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
             items={items.filter((i) => i.pageKey === currentPage.key)}
             images={images}
             tool={tool}
+            shape={SHAPES.find((s) => s.id === shapeId)}
+            mark={MARKS.find((m) => m.id === markId)}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onCreate={createItem}
@@ -519,31 +548,101 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
             formValues={formValues}
             onFormChange={setFormValue}
             pageLabel={`Page ${pageIndex + 1} of ${pages.length}`}
+            lines={pageLines}
+            onEditLine={editLine}
           />
         )}
+
+        {/* Tools on the right (on phones, above the page), so the page gets the room */}
+        <aside className='edit-pdf__panel' aria-label='Editing tools'>
+          <div className='edit-pdf__toolbar' role='toolbar' aria-label='Edit tools'>
+            {TOOLS.map((t) => (
+              <button
+                key={t.id}
+                type='button'
+                className={`edit-pdf__tool ${tool === t.id ? 'edit-pdf__tool--active' : ''}`}
+                aria-pressed={tool === t.id}
+                onClick={() => {
+                  setTool(t.id);
+                  setSelectedId(null);
+                }}
+                disabled={isSaving}
+              >
+                <Icon name={t.icon} size={18} />
+                <span className='edit-pdf__tool-label'>{t.label}</span>
+              </button>
+            ))}
+            <label className='edit-pdf__tool'>
+              <Icon name='image' size={18} />
+              <span className='edit-pdf__tool-label'>Image</span>
+              <input
+                type='file'
+                accept='image/png,image/jpeg'
+                hidden
+                aria-label='Add an image'
+                onChange={(e) => {
+                  const picked = e.target.files[0];
+                  e.target.value = '';
+                  if (picked) addImage(picked);
+                }}
+              />
+            </label>
+            <span className='edit-pdf__history'>
+              <button type='button' className='edit-pdf__tool edit-pdf__tool--row' onClick={undo}
+                disabled={!history.length || isSaving} title='Undo (Ctrl+Z)'>
+                <Icon name='undo' size={16} />
+                <span className='edit-pdf__tool-label'>Undo</span>
+              </button>
+              <button type='button' className='edit-pdf__tool edit-pdf__tool--row' onClick={redo}
+                disabled={!future.length || isSaving} title='Redo (Ctrl+Shift+Z)'>
+                <Icon name='redo' size={16} />
+                <span className='edit-pdf__tool-label'>Redo</span>
+              </button>
+            </span>
+          </div>
+
+          <StyleBar
+            tool={tool}
+            selected={selected}
+            styleKind={styleKind}
+            style={currentStyle}
+            onStyle={setStyle}
+            shapeId={shapeId}
+            onShape={setShapeId}
+            markId={markId}
+            onMark={setMarkId}
+            onSign={sign}
+            hasSignature={!!signImages.signature}
+            hasInitials={!!signImages.initials}
+            onChangeSignature={(kind) => setSignDialog({ kind, place: false })}
+            hint={editTextHint}
+          />
+
+          {error && (
+            <div className='converter-message converter-message--error' role='alert'>
+              <Icon name='alert' size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+          {result && !error && (
+            <div className='converter-message converter-message--success' role='status'>
+              <Icon name='checkCircle' size={16} />
+              <span>{result}</span>
+            </div>
+          )}
+
+          <button type='button' className='convert-btn edit-pdf__save' onClick={save} disabled={isSaving || isLoading}>
+            <span className='btn-icon' aria-hidden='true'>
+              {isSaving ? <span className='btn-spinner' /> : <Icon name='edit' size={18} />}
+            </span>
+            {isSaving ? 'Saving...' : 'Save & download'}
+          </button>
+        </aside>
       </div>
 
-      {error && (
-        <div className='converter-message converter-message--error' role='alert'>
-          <Icon name='alert' size={16} />
-          <span>{error}</span>
-        </div>
+      {signDialog && (
+        <SignatureDialog kind={signDialog.kind} onDone={signatureDone} onClose={() => setSignDialog(null)} />
       )}
-      {result && !error && (
-        <div className='converter-message converter-message--success' role='status'>
-          <Icon name='checkCircle' size={16} />
-          <span>{result}</span>
-        </div>
-      )}
-
-      <div className='conversion-action'>
-        <button type='button' className='convert-btn' onClick={save} disabled={isSaving || isLoading}>
-          <span className='btn-icon' aria-hidden='true'>
-            {isSaving ? <span className='btn-spinner' /> : <Icon name='edit' size={18} />}
-          </span>
-          {isSaving ? 'Saving...' : 'Save & download'}
-        </button>
-      </div>
     </div>
   );
 });

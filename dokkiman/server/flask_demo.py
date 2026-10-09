@@ -9,7 +9,7 @@ from pdf_to_word_service import convert_pdf_to_word_document, validate_pdf_file
 from word_to_pdf_service import ConversionError, converter
 from split_pdf_service import SPLIT_MODES, SplitError, split_pdf, zip_parts
 from sign_pdf_service import SignError, sign_pdf
-from edit_pdf_service import EditError, edit_pdf
+from edit_pdf_service import EditError, edit_pdf, text_lines
 from signature_log import save_signature_record
 from pathlib import Path
 import tempfile
@@ -545,6 +545,23 @@ def edit_pdf_route():
 
     return send_file(io.BytesIO(edited), as_attachment=True,
                      download_name=f"{stem}_edited.pdf", mimetype="application/pdf")
+
+
+@app.route("/pdfText", methods=["POST"])
+def pdf_text_route():
+    """The lines of text on each page of an uploaded PDF, with their position
+    and style, so Edit PDF can let people change them (form field: file)."""
+    uploaded_file = request.files.get("file")
+    is_valid, error_message = validate_pdf_file(uploaded_file)
+    if not is_valid:
+        return jsonify({"error": error_message}), 400
+    try:
+        return jsonify({"pages": text_lines(uploaded_file.read())})
+    except EditError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        app.logger.exception("PDF text error")
+        return jsonify({"error": "The text in this PDF couldn't be read."}), 500
 
 
 @app.route("/plans", methods=["GET"])

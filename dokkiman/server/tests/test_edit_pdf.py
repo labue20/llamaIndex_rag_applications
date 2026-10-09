@@ -255,3 +255,127 @@ def test_route_reports_problems(signup, make_pdf):
     assert not_pdf.status_code == 400
     bad_extra = _post(user, make_pdf().read_bytes(), {"pages": [{"page": 0}]}, extras=[b"x"])
     assert bad_extra.status_code == 400
+
+
+# --- Release A: editing existing text, redaction, shapes, marks, styles -----------------------
+
+from edit_pdf_service import text_lines  # noqa: E402
+
+
+def _letter(tmp_path, rotation=0):
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((72, 100), "Monthly rent is $1,700", fontsize=12, fontname="tiro", color=(0.8, 0, 0))
+    page.insert_text((72, 116), "Due on the first day", fontsize=12, fontname="hebo")
+    page.insert_text((72, 300), "Account number 12345678", fontsize=11)
+    page.set_rotation(rotation)
+    path = tmp_path / f"letter{rotation}.pdf"
+    doc.save(path)
+    return path.read_bytes()
+
+
+def test_text_lines_give_each_lines_place_and_style(tmp_path):
+    [lines] = text_lines(_letter(tmp_path))
+    rent, due, account = lines
+    assert rent["text"] == "Monthly rent is $1,700"
+    assert rent["font"] == "serif" and not rent["bold"] and rent["color"] == "#cc0000"
+    assert due["font"] == "sans" and due["bold"]
+    assert rent["font_size"] == pytest.approx(12 / 792, rel=0.01)
+    assert rent["x"] == pytest.approx(72 / 612, abs=0.002)
+    assert rent["y"] < due["y"] < account["y"]
+
+
+def test_text_lines_on_a_turned_page_are_as_shown(tmp_path):
+    [lines] = text_lines(_letter(tmp_path, rotation=90))
+    # The text runs top to bottom when the page is turned: not editable as lines
+    assert lines == []
+
+
+def test_editing_a_line_replaces_it(tmp_path):
+    [lines] = text_lines(_letter(tmp_path))
+    rent = lines[0]
+    box = {key: rent[key] for key in ("x", "y", "width", "height")}
+    doc = _edit(_letter(tmp_path), [{"page": 0}], [
+        {"kind": "erase", "page": 0, **box},
+        {"kind": "text", "page": 0, **box, "width": 0.5, "height": rent["height"] * 1.4,
+         "text": "Monthly rent is $1,850", "font_size": rent["font_size"], "font": "serif", "color": rent["color"]},
+    ])
+    text = doc[0].get_text()
+    assert "$1,850" in text and "$1,700" not in text
+    assert "Due on the first day" in text  # the next line is untouched
+
+
+def test_redaction_removes_the_text_for_good(tmp_path):
+    [lines] = text_lines(_letter(tmp_path))
+    account = lines[2]
+    doc = _edit(_letter(tmp_path), [{"page": 0}], [
+        {"kind": "redact", "page": 0, **{key: account[key] for key in ("x", "y", "width", "height")}},
+    ])
+    page = doc[0]
+    assert "12345678" not in page.get_text()
+    assert page.search_for("12345678") == []
+    assert "Monthly rent" in page.get_text()
+    r, g, b = _pixel(page, account["x"] + account["width"] / 2, account["y"] + account["height"] / 2)
+    assert max(r, g, b) < 40  # a black box
+
+
+def test_text_styles_and_other_alphabets(make_pdf):
+    doc = _edit(make_pdf(pages=1).read_bytes(), [{"page": 0}], [
+        {"kind": "text", "page": 0, "x": 0.1, "y": 0.5, "width": 0.8, "height": 0.08, "text": "Signed 已付",
+         "font": "serif", "italic": True, "underline": True, "align": "center", "font_size": 0.02},
+    ])
+    page = doc[0]
+    assert "Signed" in page.get_text() and "已付" in page.get_text()
+    fonts = " ".join(f[3] for f in page.get_fonts())
+    assert "Italic" in fonts
+    # Centered: the text starts well to the right of the box's left edge
+    word = next(w for w in page.get_text("words") if w[4] == "Signed")
+    assert word[0] > 0.25 * page.rect.width
+
+
+def test_lines_arrows_ellipses_and_marks(make_pdf):
+    doc = _edit(make_pdf(pages=1).read_bytes(), [{"page": 0}], [
+        {"kind": "line", "page": 0, "points": [[0.1, 0.6], [0.5, 0.6]], "arrow": True, "color": "#0000ff",
+         "stroke": 0.004},
+        {"kind": "ellipse", "page": 0, "x": 0.6, "y": 0.55, "width": 0.3, "height": 0.1, "color": "#00ff00",
+         "stroke": 0.006},
+        {"kind": "mark", "page": 0, "mark": "check", "x": 0.1, "y": 0.8, "width": 0.05, "height": 0.04},
+        {"kind": "mark", "page": 0, "mark": "dot", "x": 0.3, "y": 0.8, "width": 0.05, "height": 0.04,
+         "color": "#ff0000"},
+    ])
+    page = doc[0]
+    r, g, b = _pixel(page, 0.3, 0.6)
+    assert b > 200 and r < 80  # the line
+    r, g, b = _pixel(page, 0.75, 0.55 + 0.002)
+    assert g > 150 and r < 120  # the top of the ellipse
+    assert min(_pixel(page, 0.75, 0.6)) > 240  # not filled
+    r, g, b = _pixel(page, 0.325, 0.82)
+    assert r > 200 and g < 80  # the dot is filled
+    assert len(page.get_drawings()) >= 4
+
+
+@pytest.mark.parametrize("item,message", [
+    ({"kind": "mark", "mark": "star", "x": 0, "y": 0, "width": .1, "height": .1}, "marks isn't valid"),
+    ({"kind": "line", "points": [[0, 0], [1, 1], [0.5, 0.5]]}, "drawing isn't valid"),
+    ({"kind": "redact", "x": 0.95, "y": 0, "width": .1, "height": .1}, "outside the page"),
+])
+def test_validation_of_the_new_kinds(item, message):
+    with pytest.raises(EditError, match=message):
+        parse_request(json.dumps({"pages": [{"page": 0}], "items": [{**item, "page": 0}]}), [1], 0)
+
+
+def test_unknown_styles_fall_back_to_the_defaults():
+    _, [item], _ = parse_request(json.dumps({"pages": [{"page": 0}], "items": [
+        {"kind": "text", "page": 0, "x": 0, "y": 0, "width": .5, "height": .1, "text": "Hi", "font": "comic",
+         "align": "justify"}]}), [1], 0)
+    assert item["font"] == "sans" and item["align"] == "left"
+
+
+def test_pdf_text_route(client, tmp_path):
+    response = client.post("/pdfText", data={"file": (io.BytesIO(_letter(tmp_path)), "letter.pdf")},
+                           content_type="multipart/form-data")
+    assert response.status_code == 200
+    [lines] = response.get_json()["pages"]
+    assert [line["text"] for line in lines][0] == "Monthly rent is $1,700"
+    bad = client.post("/pdfText", data={"file": (io.BytesIO(b"nope"), "x.pdf")}, content_type="multipart/form-data")
+    assert bad.status_code == 400
