@@ -147,7 +147,6 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
       <HomeNav
         onLogin={onLogin}
         onSignup={onSignup}
-        onOpenTool={openTool}
         isLoggedIn={isLoggedIn}
         onOpenApp={onOpenApp}
       />

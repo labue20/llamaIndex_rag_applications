@@ -168,32 +168,43 @@ const EditPdf = forwardRef(({
     setResult('');
   }, [docs]);
 
-  const loadFile = useCallback(async (selectedFile) => {
+  // Open one file, or several combined (Merge PDF)
+  const loadFiles = useCallback(async (selectedFiles) => {
     reset();
+    if (selectedFiles.length > MAX_FILES) {
+      setError(`Combine at most ${MAX_FILES} files at once.`);
+      return;
+    }
     setIsLoading(true);
-    let pdfFile;
+    const pdfFiles = [];
     try {
-      pdfFile = await asPdf(selectedFile);
+      for (const selected of selectedFiles) pdfFiles.push(await asPdf(selected));
     } catch (err) {
       setError(err.message);
       setIsLoading(false);
       return;
     }
     try {
-      const loaded = await loadPdf(pdfFile, 0);
-      setFiles([pdfFile]);
-      setDocs([loaded.doc]);
-      setPages(loaded.pages);
-      setCurrentKey(loaded.pages[0]?.key ?? null);
+      const loaded = [];
+      for (const [index, pdfFile] of pdfFiles.entries()) loaded.push(await loadPdf(pdfFile, index));
+      const allPages = loaded.flatMap((l) => l.pages);
+      setFiles(pdfFiles);
+      setDocs(loaded.map((l) => l.doc));
+      setPages(allPages);
+      setCurrentKey(allPages[0]?.key ?? null);
     } catch (err) {
       console.error('Could not open PDF:', err);
-      setError('This PDF couldn’t be opened. It may be damaged or password-protected.');
+      setError(pdfFiles.length > 1
+        ? 'One of those files couldn’t be opened. It may be damaged or password-protected.'
+        : 'This PDF couldn’t be opened. It may be damaged or password-protected.');
     } finally {
       setIsLoading(false);
     }
   }, [reset]);
 
-  useImperativeHandle(ref, () => ({ selectFile: loadFile, reset }));
+  const loadFile = useCallback((selectedFile) => loadFiles([selectedFile]), [loadFiles]);
+
+  useImperativeHandle(ref, () => ({ selectFile: loadFile, openFiles: loadFiles, reset }));
 
   useEffect(() => {
     onStatusChange?.({ hasFile: !!file, isBusy: isSaving || isLoading });

@@ -1,0 +1,574 @@
+[
+  {
+    "path": "/edit-pdf",
+    "app": "edit-pdf",
+    "icon": "edit",
+    "accept": ".pdf,.docx,.png,.jpg,.jpeg,.webp",
+    "name": "Edit PDF",
+    "title": "Edit PDF Online, Free · Dokkiman",
+    "description": "Edit PDFs in your browser: change the existing text, add text, images and signatures, fill in forms, redact, and add page numbers. Free to try.",
+    "h1": "Edit PDF online, free",
+    "lead": "Change the text that's already in your PDF, add text, images and signatures, fill in forms and black out private details. No software to install.",
+    "cta": "Choose a file to edit",
+    "hint": "PDF, Word or image • Up to 50 MB",
+    "howTo": "How to edit a PDF",
+    "steps": [
+      {
+        "title": "Open your file",
+        "text": "Choose a PDF. A Word document or a photo works too: it's turned into a PDF first."
+      },
+      {
+        "title": "Make your changes",
+        "text": "Click a line to change its text, or use the tools to add text, signatures, images, shapes, notes and highlights."
+      },
+      {
+        "title": "Download it",
+        "text": "Click Done to download the new PDF. With an account you can also send it for signature or keep it in your documents."
+      }
+    ],
+    "features": [
+      {
+        "title": "Change the existing text",
+        "text": "Click any line of text in the PDF and type. The new text matches the size and color of the old."
+      },
+      {
+        "title": "Fill in forms",
+        "text": "Type straight into a PDF's form fields, tick boxes and pick from lists."
+      },
+      {
+        "title": "Redact for real",
+        "text": "Black out names, numbers and addresses. Redacted text is removed from the file, not just covered."
+      },
+      {
+        "title": "Organize pages",
+        "text": "Reorder, turn, copy and remove pages, add blank ones, or combine several files into one PDF."
+      },
+      {
+        "title": "Watermark and page numbers",
+        "text": "Add a DRAFT or CONFIDENTIAL watermark and number every page, in the style you choose."
+      },
+      {
+        "title": "Works on your phone",
+        "text": "The editor works in any modern browser, on a computer, tablet or phone."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Is Dokkiman's PDF editor free?",
+        "a": "Yes. You can edit and download PDFs without an account. A free account adds a Document Manager and more daily use; paid plans add more."
+      },
+      {
+        "q": "Can I change the text that's already in a PDF?",
+        "a": "Yes. Choose Edit text and click a line to change it. A scanned PDF is a picture of text, so it has no text to change: use White-out and Add text instead."
+      },
+      {
+        "q": "What's the difference between white-out and redact?",
+        "a": "White-out covers something with white, but what's underneath stays in the file. Redact removes the text and images underneath when you save, so they can't be recovered."
+      },
+      {
+        "q": "Do you keep my files?",
+        "a": "No. Your file is edited and sent straight back to you. It's only kept if you choose Save to Document Manager."
+      },
+      {
+        "q": "Can I edit a Word document or a photo?",
+        "a": "Yes. Word documents (.docx) and photos (JPG, PNG or WebP) are turned into a PDF when you open them, so you can edit them like any other PDF."
+      }
+    ],
+    "related": [
+      "/merge-pdf",
+      "/sign-pdf",
+      "/compress-pdf"
+    ]
+  },
+  {
+    "path": "/sign-pdf",
+    "app": "e-sign",
+    "icon": "pen",
+    "accept": ".pdf",
+    "name": "Sign PDF",
+    "title": "Sign PDF Online & Send for Signature · Dokkiman",
+    "description": "Sign a PDF yourself in seconds, or send it to others to sign by email. Draw, type or upload your signature, with an audit trail of who signed and when.",
+    "h1": "Sign PDF online",
+    "lead": "Sign a PDF yourself in seconds, or send it to others to sign by email. Every signature comes with an audit trail of who signed and when.",
+    "cta": "Choose a PDF to sign",
+    "hint": "PDF • Up to 50 MB",
+    "howTo": "How to sign a PDF",
+    "steps": [
+      {
+        "title": "Open your PDF",
+        "text": "Choose the document you need to sign."
+      },
+      {
+        "title": "Add your signature",
+        "text": "Draw, type or upload your signature, then place it, your initials and the date where they belong."
+      },
+      {
+        "title": "Download it signed",
+        "text": "Get the signed PDF, with an optional page recording who signed, when, and from where."
+      }
+    ],
+    "features": [
+      {
+        "title": "Sign it yourself",
+        "text": "Draw with a mouse or finger, type your name, or upload a picture of your signature."
+      },
+      {
+        "title": "Send for signature",
+        "text": "Email a PDF to the people who need to sign. They sign from the link, without an account."
+      },
+      {
+        "title": "Audit trail",
+        "text": "Each signed document records who signed, when, their IP address, and a fingerprint of the file before and after."
+      },
+      {
+        "title": "Understand before you sign",
+        "text": "People you send a document to can ask questions about it and get plain answers before they sign."
+      },
+      {
+        "title": "Reminders",
+        "text": "Remind signers who haven't signed yet, and see where each request stands."
+      },
+      {
+        "title": "Keep everything together",
+        "text": "Documents you send for signature are kept with your account, with their signed copies and certificates, ready to download again."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Is an electronic signature legally binding?",
+        "a": "In many countries, including the US (ESIGN Act and UETA) and the EU (eIDAS), electronic signatures are legally valid for most documents. Some documents, such as wills, may have other requirements, so check if you're unsure."
+      },
+      {
+        "q": "Do the people I send a document to need an account?",
+        "a": "No. They get an email with a private link, open the document and sign it in their browser."
+      },
+      {
+        "q": "Is signing free?",
+        "a": "Signing a PDF yourself is free. Sending documents for others to sign is included in the free trial and in the Basic and Pro plans."
+      },
+      {
+        "q": "What's in the audit trail?",
+        "a": "Who signed, when, from which IP address, and a SHA-256 fingerprint of the document before and after signing, so any later change can be spotted."
+      }
+    ],
+    "related": [
+      "/edit-pdf",
+      "/merge-pdf",
+      "/chat-with-pdf"
+    ]
+  },
+  {
+    "path": "/compress-pdf",
+    "app": "compress-pdf",
+    "icon": "compress",
+    "accept": ".pdf",
+    "name": "Compress PDF",
+    "title": "Compress PDF Online, Free · Reduce PDF Size · Dokkiman",
+    "description": "Make PDFs smaller to email or upload. Choose light, recommended or strong compression and see the size before and after. Text stays sharp. Free.",
+    "h1": "Compress PDF",
+    "lead": "Make big PDFs and scans small enough to email or upload. Choose how much to shrink them, and see the size before and after.",
+    "cta": "Choose a PDF to compress",
+    "hint": "PDF • Up to 50 MB",
+    "howTo": "How to compress a PDF",
+    "steps": [
+      {
+        "title": "Open your PDF",
+        "text": "Choose the PDF that's too big."
+      },
+      {
+        "title": "Pick a level",
+        "text": "Light keeps images sharp, Recommended suits most files, and Strong makes the smallest file."
+      },
+      {
+        "title": "Download it",
+        "text": "The smaller PDF downloads straight away, with how much space you saved."
+      }
+    ],
+    "features": [
+      {
+        "title": "Three levels",
+        "text": "Trade a little image quality for a much smaller file, or keep images sharp."
+      },
+      {
+        "title": "Text stays text",
+        "text": "Only images are shrunk. Text stays sharp, searchable and selectable."
+      },
+      {
+        "title": "See the savings",
+        "text": "You see the size before and after, like 25.1 MB → 3.4 MB."
+      },
+      {
+        "title": "Nothing kept",
+        "text": "Your PDF is compressed and sent straight back. We don't keep a copy."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "How much smaller will my PDF get?",
+        "a": "It depends on what's inside. Scans and PDFs full of photos often shrink by 70–90%. PDFs that are mostly text are usually small already."
+      },
+      {
+        "q": "Will compressing lower the quality?",
+        "a": "Only images are affected. Light keeps them sharp, Recommended is fine for screens and most printing, and Strong is for when size matters most."
+      },
+      {
+        "q": "Can I compress a password-protected PDF?",
+        "a": "Remove the password first, then compress it."
+      },
+      {
+        "q": "Is it free?",
+        "a": "Yes. You can compress PDFs without an account."
+      }
+    ],
+    "related": [
+      "/split-pdf",
+      "/merge-pdf",
+      "/edit-pdf"
+    ]
+  },
+  {
+    "path": "/merge-pdf",
+    "app": "edit-pdf",
+    "icon": "layers",
+    "accept": ".pdf,.docx,.png,.jpg,.jpeg,.webp",
+    "multiple": true,
+    "name": "Merge PDF",
+    "title": "Merge PDF Online, Free · Combine PDF Files · Dokkiman",
+    "description": "Combine PDFs, Word documents and images into one PDF. Put the pages in order, turn or remove them, then download. Free, no sign-up needed.",
+    "h1": "Merge PDF files",
+    "lead": "Combine PDFs, Word documents and photos into one PDF. Put the pages in the order you want, then download.",
+    "cta": "Choose files to merge",
+    "hint": "Up to 10 files: PDF, Word or image",
+    "howTo": "How to merge PDF files",
+    "steps": [
+      {
+        "title": "Choose your files",
+        "text": "Pick several files at once. You can add more later."
+      },
+      {
+        "title": "Put the pages in order",
+        "text": "Drag pages into place, turn them, or remove the ones you don't need."
+      },
+      {
+        "title": "Download one PDF",
+        "text": "Click Done to download everything as a single PDF."
+      }
+    ],
+    "features": [
+      {
+        "title": "Mix file types",
+        "text": "Combine PDFs with Word documents and photos: they're turned into PDF pages."
+      },
+      {
+        "title": "Page by page",
+        "text": "Reorder, turn, copy or remove any page, or add a blank one."
+      },
+      {
+        "title": "Edit while you're there",
+        "text": "Add text, a signature, page numbers or a watermark to the combined PDF."
+      },
+      {
+        "title": "Nothing kept",
+        "text": "Your files are combined and sent straight back. We don't keep a copy."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "How many files can I merge?",
+        "a": "Up to 10 files at a time, each up to 50 MB."
+      },
+      {
+        "q": "Can I change the order of the pages?",
+        "a": "Yes. Drag the page thumbnails into the order you want, or use the arrows under a page."
+      },
+      {
+        "q": "Can I merge Word documents and images?",
+        "a": "Yes. Word documents (.docx) and photos (JPG, PNG or WebP) are turned into PDF pages and combined with your PDFs."
+      },
+      {
+        "q": "Is it free?",
+        "a": "Yes. You can merge PDFs without an account."
+      }
+    ],
+    "related": [
+      "/split-pdf",
+      "/edit-pdf",
+      "/compress-pdf"
+    ]
+  },
+  {
+    "path": "/split-pdf",
+    "app": "split-pdf",
+    "icon": "scissors",
+    "accept": ".pdf",
+    "name": "Split PDF",
+    "title": "Split PDF Online, Free · Extract Pages · Dokkiman",
+    "description": "Split a PDF into single pages or page ranges, or pull out just the pages you need into a new PDF. Fillable forms keep working. Free.",
+    "h1": "Split PDF",
+    "lead": "Split a PDF into single pages or page ranges, or pull out just the pages you need into a new PDF.",
+    "cta": "Choose a PDF to split",
+    "hint": "PDF • Up to 50 MB",
+    "howTo": "How to split a PDF",
+    "steps": [
+      {
+        "title": "Open your PDF",
+        "text": "Choose the PDF you want to split."
+      },
+      {
+        "title": "Choose how",
+        "text": "Every page on its own, custom ranges like 1-3, 4-6, or just the pages you pick."
+      },
+      {
+        "title": "Download",
+        "text": "Get one PDF, or a ZIP with a PDF for each part."
+      }
+    ],
+    "features": [
+      {
+        "title": "Three ways to split",
+        "text": "Every page, custom page ranges, or extract selected pages into one file."
+      },
+      {
+        "title": "Forms keep working",
+        "text": "Fillable forms, including IRS forms, stay fillable in Adobe Acrobat and other viewers."
+      },
+      {
+        "title": "Fast",
+        "text": "Even long PDFs split in a moment."
+      },
+      {
+        "title": "Nothing kept",
+        "text": "Your PDF is split and sent straight back. We don't keep a copy."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "How do I extract only some pages?",
+        "a": "Choose Extract pages and type the pages you want, like 1, 3-5. They're combined into one new PDF."
+      },
+      {
+        "q": "Can I split a PDF into several files at once?",
+        "a": "Yes. Choose Every page or Custom ranges. You get a ZIP file with one PDF for each part."
+      },
+      {
+        "q": "Will fillable forms still work?",
+        "a": "Yes. Form fields keep their names, so the split files stay fillable in Adobe Acrobat and other viewers."
+      },
+      {
+        "q": "Is it free?",
+        "a": "Yes. You can split PDFs without an account."
+      }
+    ],
+    "related": [
+      "/merge-pdf",
+      "/compress-pdf",
+      "/pdf-to-word"
+    ]
+  },
+  {
+    "path": "/pdf-to-word",
+    "app": "pdf-to-word",
+    "icon": "fileToWord",
+    "accept": ".pdf",
+    "name": "PDF to Word",
+    "title": "PDF to Word Converter, Free · PDF to DOCX · Dokkiman",
+    "description": "Convert a PDF into a Word document (.docx) you can edit. Free and quick, with nothing to install. Your file isn't kept after it's converted.",
+    "h1": "PDF to Word converter",
+    "lead": "Turn a PDF into a Word document (.docx) you can edit in Microsoft Word, Google Docs or Pages.",
+    "cta": "Choose a PDF to convert",
+    "hint": "PDF • Up to 50 MB",
+    "howTo": "How to convert a PDF to Word",
+    "steps": [
+      {
+        "title": "Open your PDF",
+        "text": "Choose the PDF you want to edit in Word."
+      },
+      {
+        "title": "Convert",
+        "text": "The text and its formatting are turned into an editable Word document."
+      },
+      {
+        "title": "Download the .docx",
+        "text": "Open it in Word, Google Docs or Pages and edit as usual."
+      }
+    ],
+    "features": [
+      {
+        "title": "Editable text",
+        "text": "Paragraphs and their formatting come across as real, editable text."
+      },
+      {
+        "title": "Works everywhere",
+        "text": "The .docx opens in Microsoft Word, Google Docs, LibreOffice and Apple Pages."
+      },
+      {
+        "title": "Nothing to install",
+        "text": "Convert in your browser on a computer, tablet or phone."
+      },
+      {
+        "title": "Nothing kept",
+        "text": "Your PDF is converted and sent straight back. We don't keep a copy."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Can I convert a scanned PDF to Word?",
+        "a": "A scanned PDF is a picture of text, so there's no text to convert yet. Making scans searchable (OCR) is coming soon."
+      },
+      {
+        "q": "Will the layout look exactly the same?",
+        "a": "Text and its formatting come across. Complex layouts, like many columns or text over images, may need some tidying in Word."
+      },
+      {
+        "q": "Is it free?",
+        "a": "Yes. You can convert PDFs to Word without an account."
+      },
+      {
+        "q": "Only need a small change?",
+        "a": "You can change a PDF's text directly with Edit PDF, without converting it to Word and back."
+      }
+    ],
+    "related": [
+      "/word-to-pdf",
+      "/edit-pdf",
+      "/chat-with-pdf"
+    ]
+  },
+  {
+    "path": "/word-to-pdf",
+    "app": "word-to-pdf",
+    "icon": "fileToPdf",
+    "accept": ".docx",
+    "name": "Word to PDF",
+    "title": "Word to PDF Converter, Free · DOCX to PDF · Dokkiman",
+    "description": "Convert Word documents (.docx) into PDFs that look the same on every device. Free, quick and nothing to install. Your file isn't kept.",
+    "h1": "Word to PDF converter",
+    "lead": "Turn a Word document (.docx) into a PDF that looks the same on every computer, phone and printer.",
+    "cta": "Choose a Word file",
+    "hint": "Word (.docx) • Up to 50 MB",
+    "howTo": "How to convert Word to PDF",
+    "steps": [
+      {
+        "title": "Open your Word file",
+        "text": "Choose a .docx document."
+      },
+      {
+        "title": "Convert",
+        "text": "Fonts, images, tables and page layout are kept."
+      },
+      {
+        "title": "Download the PDF",
+        "text": "Share it, print it, or send it for signature."
+      }
+    ],
+    "features": [
+      {
+        "title": "Looks right everywhere",
+        "text": "A PDF keeps its layout on any device, unlike a Word file."
+      },
+      {
+        "title": "Ready to sign",
+        "text": "Turn a contract into a PDF, then sign it or send it for signature."
+      },
+      {
+        "title": "Nothing to install",
+        "text": "Convert in your browser on a computer, tablet or phone."
+      },
+      {
+        "title": "Nothing kept",
+        "text": "Your document is converted and sent straight back. We don't keep a copy."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Which Word files can I convert?",
+        "a": "Word documents saved as .docx, the format used by Word since 2007, Google Docs and Pages exports."
+      },
+      {
+        "q": "Will my fonts and images be kept?",
+        "a": "Yes. Text, fonts, images, tables and page layout are kept in the PDF."
+      },
+      {
+        "q": "Is it free?",
+        "a": "Yes. You can convert Word documents without an account."
+      },
+      {
+        "q": "Can I edit the PDF afterwards?",
+        "a": "Yes. Open it in Edit PDF to change text, add a signature, or combine it with other files."
+      }
+    ],
+    "related": [
+      "/pdf-to-word",
+      "/sign-pdf",
+      "/merge-pdf"
+    ]
+  },
+  {
+    "path": "/chat-with-pdf",
+    "app": "chat",
+    "icon": "chat",
+    "name": "Chat with PDF",
+    "title": "Chat with PDF · Ask AI Questions About Any PDF · Dokkiman",
+    "description": "Upload a PDF and ask questions in plain language. Get clear answers drawn from your document, summaries, and answers about specific pages. Try it free.",
+    "h1": "Chat with PDF",
+    "lead": "Upload a PDF and ask questions in plain language. Get clear answers drawn from your document, instead of searching through it.",
+    "cta": "Upload a PDF and ask",
+    "hint": "PDF • Up to 50 MB",
+    "howTo": "How to chat with a PDF",
+    "steps": [
+      {
+        "title": "Upload your PDF",
+        "text": "A report, contract, paper, manual: any PDF with text in it."
+      },
+      {
+        "title": "Ask a question",
+        "text": "Ask anything, like “What are the payment terms?” or “Summarize page 7”."
+      },
+      {
+        "title": "Get an answer",
+        "text": "Answers are built from the most relevant parts of your document."
+      }
+    ],
+    "features": [
+      {
+        "title": "Plain answers",
+        "text": "Ask in your own words and get a clear answer, not a list of search hits."
+      },
+      {
+        "title": "Page by page",
+        "text": "Ask about “page 7” or “pages 3-5” and it looks at exactly those pages."
+      },
+      {
+        "title": "Summaries",
+        "text": "Get the main points of a long document in seconds."
+      },
+      {
+        "title": "Not used for training",
+        "text": "Your documents are processed by OpenAI to answer your questions and aren't used to train AI models."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "What can I ask?",
+        "a": "Anything about the document: summaries, explanations, specific facts, figures, dates, or what a particular page says."
+      },
+      {
+        "q": "Is my document private?",
+        "a": "Your documents are tied to your account and other users can't see them. Documents uploaded without an account are deleted after a day."
+      },
+      {
+        "q": "Is it free?",
+        "a": "You can try it without an account. A free account and the free trial give you more documents and questions."
+      },
+      {
+        "q": "Can I chat with a scanned PDF?",
+        "a": "Chat needs a PDF with text in it. A scan is a picture of text: making scans searchable (OCR) is coming soon."
+      }
+    ],
+    "related": [
+      "/pdf-to-word",
+      "/edit-pdf",
+      "/sign-pdf"
+    ]
+  }
+]

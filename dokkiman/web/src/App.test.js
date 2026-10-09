@@ -31,3 +31,23 @@ test('logged-in users get the full app with their account in the header', async 
     expect(screen.getAllByText(section).length).toBeGreaterThan(0);
   }
 });
+
+test('a file chosen on a tool’s public page opens in that tool', async () => {
+  mockFetch({ '/auth/me': { status: 401 } });
+  renderAt(
+    <AuthProvider>
+      <AuthGate>
+        <App />
+      </AuthGate>
+    </AuthProvider>,
+    '/compress-pdf'
+  );
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'Compress PDF' })).toBeInTheDocument();
+  const scan = new File(['%PDF'], 'scan.pdf', { type: 'application/pdf' });
+  fireEvent.change(screen.getByLabelText(/Choose a PDF to compress/), { target: { files: [scan] } });
+
+  // The Compress PDF tool, with the file open and ready
+  expect(await screen.findByText('scan.pdf')).toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: /Recommended/ })).toBeChecked();
+});
