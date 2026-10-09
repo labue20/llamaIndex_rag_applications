@@ -7,6 +7,7 @@ import { documentApi, useDocuments } from './features/document-management';
 import { PdfToWordConverter } from './features/pdf-to-word-converter';
 import { WordToPdfConverter } from './features/word-to-pdf-converter';
 import { SplitPdf } from './features/split-pdf';
+import { CompressPdf } from './features/compress-pdf';
 import { EditPdf } from './features/edit-pdf';
 import { ESign, sendForSignature } from './features/e-sign';
 import { useAuth, GuestAccountPrompt } from './features/auth';
@@ -33,6 +34,8 @@ function App() {
   const [wordToPdfStatus, setWordToPdfStatus] = useState({ hasFile: false, isBusy: false });
   const splitPdfRef = useRef(null);
   const [splitPdfStatus, setSplitPdfStatus] = useState({ hasFile: false, isBusy: false });
+  const compressPdfRef = useRef(null);
+  const [compressPdfStatus, setCompressPdfStatus] = useState({ hasFile: false, isBusy: false });
   const editPdfRef = useRef(null);
   const [editPdfStatus, setEditPdfStatus] = useState({ hasFile: false, isBusy: false });
   const eSignRef = useRef(null);
@@ -111,6 +114,16 @@ function App() {
       )
     },
     {
+      label: 'Compress PDF',
+      shortLabel: 'Compress',
+      icon: <Icon name='compress' />,
+      title: 'Compress PDF',
+      content: <CompressPdf ref={compressPdfRef} onStatusChange={setCompressPdfStatus} allowDocumentManager={!isGuest} />,
+      headerAction: (
+        <ConverterHeaderActions converterRef={compressPdfRef} status={compressPdfStatus} acceptedTypes='.pdf' />
+      )
+    },
+    {
       label: 'Edit PDF',
       shortLabel: 'Edit',
       icon: <Icon name='edit' />,
@@ -146,7 +159,7 @@ function App() {
       )
     }
 
-  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, editPdfStatus, eSignStatus, isGuest, navigate]);
+  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, compressPdfStatus, editPdfStatus, eSignStatus, isGuest, navigate]);
 
   // The section shown comes from the address: /app/<slug>
   const activeIndex = APP_SECTION_SLUGS.indexOf(location.pathname.split('/')[2] || '');

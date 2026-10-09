@@ -129,6 +129,11 @@ const PATHS = {
       <path d='M21 16l-5-5-9 9' />
     </>
   ),
+  compress: (
+    <>
+      <path d='M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7' />
+    </>
+  ),
   note: (
     <>
       <path d='M5 4h14a1 1 0 0 1 1 1v9.5L14.5 20H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z' />

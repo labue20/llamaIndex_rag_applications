@@ -30,6 +30,13 @@ export const TOOLS = [
     text: 'Pull out the pages you need into separate files.',
   },
   {
+    id: 'compress',
+    icon: 'compress',
+    title: 'Compress PDF',
+    text: 'Shrink big PDFs and scans so they’re easy to email and upload.',
+    badge: 'New',
+  },
+  {
     id: 'edit',
     icon: 'edit',
     title: 'Edit PDF',
