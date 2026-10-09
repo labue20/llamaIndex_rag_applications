@@ -61,7 +61,7 @@ const FAQ = ({ plan, supportEmail, online }) => [
     },
   {
     q: 'How does sending a document for signature work?',
-    a: `In E-Sign, choose “Request signatures”, add each signer’s name and email, and place their signature fields. They get an email with a private link and sign online, no account needed. When everyone has signed, you all get the signed PDF and its certificate of completion (the audit trail). Basic includes ${plan.basic_signature_requests_per_month} requests a month (so does the free trial); Pro is unlimited.`,
+    a: `In E-Sign, choose “Request signatures”, add each signer’s name and email, and place their signature fields. They get an email with a private link and sign online, no account needed. When everyone has signed, you all get the signed PDF and its certificate of completion (the audit trail). Basic includes ${plan.basic_signature_requests_per_month} requests a month (the free trial, ${plan.trial_signature_requests_per_month}); Pro is unlimited.`,
   },
   {
     q: 'Is Pro really unlimited?',
