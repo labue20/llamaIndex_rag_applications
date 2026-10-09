@@ -8,7 +8,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { shownSize } from '../editModel';
 
-const THUMB_WIDTH = 96;
+const THUMB_WIDTH = 140;
 
 const Thumbnail = ({ page, pdf }) => {
   const canvasRef = useRef(null);

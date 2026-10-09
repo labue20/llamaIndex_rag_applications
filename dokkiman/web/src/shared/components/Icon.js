@@ -141,6 +141,22 @@ const PATHS = {
     </>
   ),
   undo: <path d='M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3' />,
+  close: <path d='M6 6l12 12M18 6L6 18' />,
+  chevronLeft: <path d='M15 18l-6-6 6-6' />,
+  chevronRight: <path d='M9 18l6-6-6-6' />,
+  chevronDown: <path d='M6 9l6 6 6-6' />,
+  plus: <path d='M12 5v14M5 12h14' />,
+  minus: <path d='M5 12h14' />,
+  download: <path d='M12 4v11M7 10l5 5 5-5M5 20h14' />,
+  fit: <path d='M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4' />,
+  sliders: (
+    <>
+      <path d='M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0' />
+      <circle cx='16' cy='6' r='2' />
+      <circle cx='10' cy='12' r='2' />
+      <circle cx='18' cy='18' r='2' />
+    </>
+  ),
   redo: <path d='M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3' />,
   pen: (
     <>

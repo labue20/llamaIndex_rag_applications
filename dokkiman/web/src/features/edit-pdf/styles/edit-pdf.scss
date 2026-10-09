@@ -5,9 +5,18 @@
 @import '../../../shared/styles/variables';
 
 .edit-pdf {
-  // While editing, use the whole width: the page gets the room
-  &--editing {
+  // --- the full-screen editor ----------------------------------------------------
+  // Top bar | tools | style row | pages, the page, settings
+  &--fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 95; // above the app; below dialogs such as Upgrade (100)
+    display: flex;
+    flex-direction: column;
     max-width: none;
+    min-height: 0;
+    margin: 0;
+    background: theme-color(secondary);
 
     &::before,
     &::after { display: none; }
@@ -19,45 +28,167 @@
     text-align: center;
   }
 
-  // --- the tools panel, on the right --------------------------------------------
-  &__panel {
-    position: sticky;
-    top: 0;
+  &__topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 50px;
+    padding: 0.375rem 1rem;
+    border-bottom: 1px solid theme-color(border);
+    background: theme-color(primary);
+  }
+
+  &__title {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    max-height: calc(100vh - 215px); // the space between the app header and footer
-    padding: 0.75rem;
-    border-radius: 12px;
-    background: theme-color(secondary);
-
-    .converter-message { margin: 0; }
+    min-width: 0;
+    margin-right: auto;
   }
 
-  &__panel-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-height: 0;
-    overflow-y: auto;
-  }
-
-  // Small tiles, three to a row: an icon with a short label
-  &__toolbar {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.3125rem;
-  }
-
-  &__save {
-    flex-shrink: 0;
-    width: 100%;
-    justify-content: center;
-    margin: 0;
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-    font-size: 0.9375rem;
+  &__file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 600;
+    color: theme-color(text-primary);
+  }
+
+  &__file-meta {
+    font-size: 0.75rem;
+    color: theme-color(text-secondary);
+  }
+
+  &__topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  &__icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: theme-color(text-secondary);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: theme-color(secondary); color: theme-color(text-primary); }
+    &:focus-visible { outline: 2px solid theme-color(accent); outline-offset: 1px; }
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
+  }
+
+  // Done, and its menu: Download, Send for signature, Save to Document Manager
+  &__done {
+    position: relative;
+    margin-left: 0.375rem;
+  }
+
+  &__done-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.875rem 0.5rem 1rem;
+    border: none;
+    border-radius: 8px;
+    background: theme-color(accent);
+    color: theme-color(text-contrast);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: theme-color(accent-hover); }
+    &:focus-visible { outline: 2px solid theme-color(accent); outline-offset: 2px; }
+    &:disabled { opacity: 0.7; cursor: progress; }
+
+    .btn-spinner {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: theme-color(text-contrast);
+      animation: converter-spin 0.8s linear infinite;
+    }
+  }
+
+  &__done-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 5;
+    width: 280px;
+    padding: 0.375rem;
+    border: 1px solid theme-color(border);
+    border-radius: 12px;
+    background: theme-color(primary);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+
+    button {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      color: theme-color(text-primary);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+
+      .icon { flex-shrink: 0; margin-top: 2px; color: theme-color(accent); }
+      &:hover:not(:disabled),
+      &:focus-visible { background: theme-color(accent-light); outline: none; }
+      &:disabled { opacity: 0.55; cursor: default; }
+    }
+
+    span { display: flex; flex-direction: column; }
+    strong { font-size: 0.875rem; }
+    small { font-size: 0.75rem; color: theme-color(text-secondary); }
+  }
+
+  &__done-note {
+    margin: 0;
+    padding: 0.5rem 0.75rem 0.625rem;
+    border-top: 1px solid theme-color(border);
+    font-size: 0.8125rem;
+    color: theme-color(text-secondary);
+  }
+
+  // One row of tools: an icon with a short label; scrolls sideways if needed
+  &__toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 0.25rem;
+    padding: 0.375rem 1rem;
+    overflow-x: auto;
+    border-bottom: 1px solid theme-color(border);
+    background: theme-color(primary);
+    scrollbar-width: thin;
+
+    .edit-pdf__tool {
+      flex: 0 0 auto;
+      min-width: 58px;
+
+      &:not(.edit-pdf__tool--active) {
+        border-color: transparent;
+        background: transparent;
+      }
+
+      &:not(.edit-pdf__tool--active):hover:not(:disabled) { background: theme-color(accent-light); }
+    }
+  }
+
+  &__toolbar-divider {
+    flex: 0 0 1px;
+    margin: 0.375rem 0.25rem;
+    background: theme-color(border);
   }
 
   &__tool {
@@ -67,7 +198,7 @@
     justify-content: center;
     gap: 0.1875rem;
     min-width: 0;
-    padding: 0.4375rem 0.125rem 0.375rem;
+    padding: 0.3125rem 0.125rem 0.25rem;
     border: 1px solid theme-color(border);
     border-radius: 8px;
     background: theme-color(primary);
@@ -105,6 +236,10 @@
 
       &:hover:not(:disabled) { background: theme-color(accent-hover); }
     }
+
+    // Watermark or page numbers turned on
+    &--on .icon { color: theme-color(accent); }
+    &--on .edit-pdf__tool-label { color: theme-color(accent); }
   }
 
   &__tool-label {
@@ -115,13 +250,6 @@
     font-size: 0.6875rem;
     font-weight: 600;
     line-height: 1.2;
-  }
-
-  &__history {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.375rem;
   }
 
   &__toggle {
@@ -166,13 +294,16 @@
     &:hover { text-decoration: underline; }
   }
 
+  // Under the tools: the current tool's choices and style, and a hint
   &__style {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid theme-color(border);
+    min-height: 40px;
+    padding: 0.25rem 1rem;
+    border-bottom: 1px solid theme-color(border);
+    background: theme-color(primary);
     font-size: 0.8125rem;
 
     select {
@@ -221,79 +352,140 @@
   }
 
   &__hint {
-    flex-basis: 100%;
+    flex: 1 1 260px;
     font-size: 0.8125rem;
     line-height: 1.4;
     color: theme-color(text-secondary);
   }
 
-  // Pages | the page being edited | tools
-  &__workspace {
+  // Pages | the page being edited | Watermark and page numbers
+  &__main {
+    flex: 1;
+    min-height: 0;
     display: grid;
-    grid-template-columns: 140px minmax(0, 1fr) 216px;
-    align-items: start;
-    gap: 0.75rem;
+    grid-template-columns: 196px minmax(0, 1fr);
 
-    @media (max-width: 1100px) { grid-template-columns: 140px minmax(0, 1fr) 200px; }
+    &--setup { grid-template-columns: 196px minmax(0, 1fr) 264px; }
+  }
 
-    // Phones and small tablets: tools on top (one row to swipe), the page, then the pages
-    @media (max-width: 768px) {
-      grid-template-columns: minmax(0, 1fr);
+  &__canvas-area {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 
-      .edit-pdf__strip { order: 2; }
+  &__messages {
+    position: absolute;
+    top: 0.75rem;
+    left: 50%;
+    z-index: 4;
+    width: min(520px, calc(100% - 2rem));
+    transform: translateX(-50%);
 
-      .edit-pdf__hint { font-size: 0.75rem; }
+    .converter-message {
+      margin: 0;
+      align-items: center;
+      background-color: theme-color(primary);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
 
-      .edit-pdf__panel {
-        order: -1;
-        position: static;
-        max-height: none;
-        padding: 0.5rem;
-      }
-
-      .edit-pdf__panel-body { overflow: visible; }
-
-      .edit-pdf__toolbar {
-        display: flex;
-        overflow-x: auto;
-        padding-bottom: 0.25rem;
-        scrollbar-width: thin;
-      }
-
-      .edit-pdf__tool { flex: 0 0 64px; }
-
-      .edit-pdf__history {
-        display: flex;
-        flex: 0 0 auto;
-      }
-
-      .edit-pdf__style { padding-top: 0.5rem; }
-
-      // Smaller page thumbnails, so the page itself is closer to the top
-      .edit-pdf__thumb,
-      .edit-pdf__strip-add { width: 84px; }
-      .edit-pdf__thumb-paper { width: 60px; max-height: 84px; }
-      .edit-pdf__thumb-actions { flex-wrap: wrap; justify-content: center; }
-      .edit-pdf__thumb-actions button { width: 26px; height: 26px; }
+      span { flex: 1; }
     }
+  }
+
+  &__dismiss {
+    display: inline-flex;
+    padding: 0.125rem;
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  // Floating at the bottom of the page area: pages and zoom
+  &__nav {
+    position: absolute;
+    left: 50%;
+    bottom: 1rem;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.25rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.86);
+    color: #fff;
+    transform: translateX(-50%);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+    white-space: nowrap;
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      min-width: 30px;
+      height: 30px;
+      padding: 0 0.375rem;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+
+      &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
+      &:focus-visible { outline: 2px solid #93c5fd; }
+      &:disabled { opacity: 0.35; cursor: default; }
+      &[aria-pressed='true'] { background: rgba(255, 255, 255, 0.2); }
+    }
+  }
+
+  &__nav-value {
+    min-width: 3.25rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__nav-divider {
+    width: 1px;
+    height: 18px;
+    margin: 0 0.25rem;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  &__setup {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.75rem 1rem 1.5rem;
+    border-left: 1px solid theme-color(border);
+    background: theme-color(primary);
+
+    .edit-pdf__options { padding-top: 0; border-top: none; }
+  }
+
+  &__setup-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+
+    h3 { margin: 0; font-size: 0.9375rem; }
   }
 
   // --- the page strip ---------------------------------------------------------
   &__strip {
-    position: sticky;
-    top: 0;
-    max-height: calc(100vh - 215px); // the space between the app header and footer
+    min-height: 0;
     overflow-y: auto;
-    padding: 0.5rem;
-    border-radius: 12px;
-    background: theme-color(secondary);
-
-    @media (max-width: 768px) {
-      position: static;
-      max-height: none;
-      overflow-x: auto;
-      overflow-y: hidden;
-    }
+    overscroll-behavior: contain;
+    padding: 0.75rem 1rem;
+    border-right: 1px solid theme-color(border);
+    background: theme-color(primary);
   }
 
   &__pages {
@@ -316,7 +508,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0.25rem;
-    width: 120px;
+    width: 164px;
     border-radius: 8px;
 
     &--dragging { opacity: 0.4; }
@@ -340,8 +532,8 @@
 
   &__thumb-paper {
     display: block;
-    width: 96px;
-    max-height: 140px;
+    width: 140px;
+    max-height: 200px;
     overflow: hidden;
     background: #fff;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
@@ -371,8 +563,13 @@
     background: theme-color(accent);
   }
 
+  // Move, turn, copy and remove: under the current page only, so more pages fit
+  &__thumb:not(&__thumb--current) &__thumb-actions { display: none; }
+
   &__thumb-actions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 2px;
 
     button {
@@ -396,7 +593,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
-    width: 120px;
+    width: 164px;
 
     @media (max-width: 768px) { justify-content: center; }
   }
@@ -418,23 +615,28 @@
 
   // --- the page being edited ---------------------------------------------------
   &__stage {
+    flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
-    justify-content: center;
-    padding: 0.75rem;
-    border-radius: 12px;
-    background: theme-color(secondary);
+    padding: 0.75rem 0.75rem 4rem; // room for the page and zoom bar
+    overflow: auto;
+    overscroll-behavior: contain;
 
-    @media (max-width: 640px) { padding: 0.375rem; }
+    @media (max-width: 640px) { padding: 0.5rem 0.5rem 4rem; }
   }
 
   &__page {
     position: relative;
+    flex-shrink: 0;
     max-width: 100%;
+    margin: 0 auto; // centered; scrolls from the left edge when zoomed in
     background: #fff;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 8px 24px -12px rgba(15, 23, 42, 0.25);
     touch-action: none;
   }
+
+  &__page--zoomed { max-width: none; }
 
   &__canvas {
     display: block;
@@ -792,5 +994,78 @@
     margin: 0;
     color: theme-color(text-secondary);
     font-size: 0.8125rem;
+  }
+}
+
+// --- the full-screen editor on phones and small tablets ---------------------------------
+@media (max-width: 768px) {
+  .edit-pdf {
+    &__topbar { gap: 0.375rem; padding: 0.375rem 0.5rem; }
+
+    &__toolbar {
+      padding: 0.25rem 0.5rem;
+
+      .edit-pdf__tool { min-width: 54px; }
+    }
+
+    // One line that scrolls sideways, like the tools
+    &__style {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding: 0.375rem 0.5rem;
+      scrollbar-width: none;
+    }
+
+    &__style-group { flex-wrap: nowrap; }
+
+    &__hint {
+      flex: 0 0 auto;
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    // The page on top, the pages in a row below it
+    &__main,
+    &__main--setup {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    &__strip {
+      order: 2;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0.375rem 0.5rem;
+      border-right: none;
+      border-top: 1px solid theme-color(border);
+    }
+
+    &__pages {
+      flex-direction: row;
+      align-items: flex-end;
+      width: max-content;
+    }
+
+    &__thumb,
+    &__strip-add { width: 76px; }
+    &__strip-add { justify-content: center; }
+    &__thumb-paper { width: 52px; max-height: 70px; }
+    &__thumb--current { width: auto; }
+    &__thumb-actions button { width: 24px; height: 24px; }
+
+    &__nav { bottom: 0.5rem; }
+
+    // Watermark and page numbers slide over the page
+    &__setup {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 6;
+      width: min(320px, 88vw);
+      box-shadow: -12px 0 32px rgba(15, 23, 42, 0.2);
+    }
+
+    &__main { position: relative; }
   }
 }
