@@ -158,21 +158,45 @@ sudo -u dokkiman .venv/bin/python manage_users.py list
 | Someone paid for Pro | `manage_users.py upgrade them@example.com --months 1` (or `--years 1`). Renewing early adds to their current end date; when it passes, they move to Free automatically |
 | Someone paid for Basic | `manage_users.py upgrade them@example.com --plan basic --months 1` |
 
-## Backups
+## Backups and restore
 
-- **Nightly archive:** `dokkiman-backup.timer` saves accounts, the search index,
-  document records and uploaded files to `/opt/dokkiman/backups` at 03:30 and keeps
-  14 days.
-- **Off-server copy (recommended):** these archives are on the same server, so
-  also do one of:
-  - Lightsail instance → **Snapshots** → turn on **automatic snapshots**
-    (a full copy of the server each day; easiest), and/or
-  - Create a Lightsail **bucket**, an access key for it, then on the server:
-    `snap install aws-cli --classic`, `aws configure` (as root), and set
-    `BACKUP_BUCKET=s3://your-bucket-name` in `server/.env`.
-- **Restore an archive:** `systemctl stop dokkiman-index`, unpack the archive into
-  `/opt/dokkiman/app/dokkiman/server/` with `tar -xzf`, run
-  `chown -R dokkiman:dokkiman` on the restored files, then `systemctl start dokkiman-index dokkiman-api`.
+Three layers, from widest to finest:
+
+1. **Lightsail automatic snapshots** (instance → **Snapshots** → automatic, daily
+   at 05:00 UTC; AWS keeps 7). A copy of the whole server, stored by AWS apart
+   from it. Use this if the server is lost or broken: **create a new instance
+   from the snapshot**, then attach the static IP to it.
+2. **Nightly archives** (`dokkiman-backup.timer`, 03:30 UTC): accounts database,
+   search index, uploaded documents and signature requests, in
+   `/opt/dokkiman/backups` (14 days).
+3. **Off-server copies of the archives** in a private S3 bucket (30 days, then a
+   lifecycle rule deletes them). Set up once:
+   - S3 bucket in the server's region (us-east-2), public access blocked, lifecycle
+     rule "expire after 30 days".
+   - An IAM user whose only permission is `s3:PutObject` on that bucket, so even
+     someone with the server can't read or delete the backups.
+   - On the server (AWS CLI from `snap install aws-cli --classic`):
+     `sudo aws configure` with that user's key (stored in `/root/.aws`, root only),
+     and `BACKUP_BUCKET=s3://your-bucket` in `server/.env`.
+
+**If a backup fails** (including the copy to S3), `dokkiman-backup-failed.service`
+emails `SUPPORT_EMAIL`. Check with `sudo journalctl -u dokkiman-backup -n 100`;
+run one by hand with `sudo systemctl start dokkiman-backup`.
+
+**Restore an archive** (for example after losing files, without rolling back the
+whole server):
+
+```bash
+sudo systemctl stop dokkiman-api dokkiman-index
+cd /opt/dokkiman/app/dokkiman/server
+sudo tar -xzf /opt/dokkiman/backups/dokkiman-backup-YYYYMMDD-HHMMSS.tar.gz
+sudo chown -R dokkiman:dokkiman instance saved_index stored_documents.pkl documents signature_requests
+sudo systemctl start dokkiman-index dokkiman-api
+```
+
+To restore from S3, download the archive in the AWS console (S3 → bucket →
+the file → Download), copy it to the server with
+`scp file.tar.gz dokkiman:/tmp/`, and unpack it the same way.
 
 ## Security notes
 

@@ -45,7 +45,12 @@ log "Building the frontend"
 log "Installing services"
 install -m 644 "$DEPLOY_DIR/systemd/dokkiman-index.service" /etc/systemd/system/
 install -m 644 "$DEPLOY_DIR/systemd/dokkiman-api.service" /etc/systemd/system/
+# The nightly backup, and its failure alert
+install -m 644 "$DEPLOY_DIR/systemd/dokkiman-backup.service" /etc/systemd/system/
+install -m 644 "$DEPLOY_DIR/systemd/dokkiman-backup.timer" /etc/systemd/system/
+install -m 644 "$DEPLOY_DIR/systemd/dokkiman-backup-failed.service" /etc/systemd/system/
 systemctl daemon-reload
+systemctl enable --now dokkiman-backup.timer
 systemctl enable dokkiman-index.service dokkiman-api.service
 
 log "Restarting"

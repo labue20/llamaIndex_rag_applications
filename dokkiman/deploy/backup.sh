@@ -6,9 +6,11 @@
 #
 # Keeps 14 days of archives in /opt/dokkiman/backups (readable by root only). If
 # BACKUP_BUCKET is set in server/.env (e.g. s3://my-dokkiman-backups), each archive is
-# also copied there with the AWS CLI.
+# also copied there with the AWS CLI, using root's AWS credentials (/root/.aws).
+# A failed copy fails the backup, and a failed backup emails SUPPORT_EMAIL
+# (dokkiman-backup-failed.service).
 #
-# Restore: stop the services, unpack an archive into the server/ folder, start.
+# Restore: see "Backups and restore" in docs/DEPLOY_AWS_LIGHTSAIL.md.
 
 set -euo pipefail
 
@@ -50,8 +52,10 @@ echo "Backup written: $ARCHIVE ($(du -h "$ARCHIVE" | cut -f1))"
 
 find "$BACKUP_DIR" -name 'dokkiman-backup-*.tar.gz' -mtime +"$KEEP_DAYS" -delete
 
-BUCKET=$(grep -E '^BACKUP_BUCKET=' .env | cut -d= -f2- || true)
+BUCKET=$(grep -E '^BACKUP_BUCKET=' .env | cut -d= -f2- | tr -d "\"'" || true)
 if [ -n "$BUCKET" ]; then
-    aws s3 cp "$ARCHIVE" "$BUCKET/" --only-show-errors
+    # The AWS CLI comes from snap, which isn't always on a timer's PATH
+    AWS=$(command -v aws || echo /snap/bin/aws)
+    "$AWS" s3 cp "$ARCHIVE" "$BUCKET/" --only-show-errors
     echo "Copied to $BUCKET"
 fi
