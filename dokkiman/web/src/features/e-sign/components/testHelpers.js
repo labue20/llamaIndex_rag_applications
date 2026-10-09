@@ -1,6 +1,7 @@
 /**
- * Test helpers for E-Sign: a fake backend that also serves PDF bytes and
- * data: URLs, and a canvas good enough for typed signatures.
+ * Test helpers for E-Sign: a fake backend that also serves PDF bytes (and,
+ * like the browser, refuses to fetch data: URLs), and a canvas good enough
+ * for typed signatures.
  */
 
 import { jsonResponse } from '../../../test-utils/mockFetch';
@@ -10,9 +11,8 @@ import { jsonResponse } from '../../../test-utils/mockFetch';
 export const mockServer = (routes) => {
   const requests = [];
   global.fetch = jest.fn((url, options = {}) => {
-    if (String(url).startsWith('data:')) {
-      return Promise.resolve({ blob: () => Promise.resolve(new Blob(['png'], { type: 'image/png' })) });
-    }
+    // Like the browser, where the Content-Security-Policy doesn't allow fetching data: URLs
+    if (String(url).startsWith('data:')) return Promise.reject(new TypeError('Load failed'));
     const path = new URL(url, 'http://localhost').pathname;
     const method = options.method || 'GET';
     requests.push({ path, method, body: options.body });
