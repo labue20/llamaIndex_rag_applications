@@ -42,7 +42,7 @@ SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "")
 # Requests each account can send per calendar month (UTC); -1 = unlimited.
 SIGNATURE_REQUESTS_PER_MONTH_TRIAL = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_TRIAL", "3"))
 SIGNATURE_REQUESTS_PER_MONTH_FREE = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_FREE", "0"))
-SIGNATURE_REQUESTS_PER_MONTH_BASIC = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_BASIC", "3"))
+SIGNATURE_REQUESTS_PER_MONTH_BASIC = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_BASIC", "10"))
 SIGNATURE_REQUESTS_PER_MONTH_PRO = int(os.environ.get("SIGNATURE_REQUESTS_PER_MONTH_PRO", "-1"))
 # Pro's unlimited requests are subject to fair use (see the Terms)
 PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH = int(os.environ.get("PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH", "200"))

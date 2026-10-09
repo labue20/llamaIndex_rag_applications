@@ -23,7 +23,7 @@ const DEFAULT_PLAN_INFO = {
   yearly_billing: false,
   trial_signature_requests_per_month: 3,
   free_signature_requests_per_month: 0,
-  basic_signature_requests_per_month: 3,
+  basic_signature_requests_per_month: 10,
   pro_signature_requests_per_month: -1,
   online_payments: false,
   guest_max_documents: 1,
