@@ -480,3 +480,68 @@
   &__title { font-weight: 600; font-size: 0.9375rem; overflow-wrap: anywhere; }
   &__where { font-size: 0.8125rem; color: theme-color(text-secondary); }
 }
+
+// --- choosing documents for a folder ---------------------------------------------------------
+.folders__hint {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: theme-color(text-secondary);
+}
+
+.item-picker {
+  width: min(560px, calc(100vw - 2rem));
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  max-height: min(720px, calc(100vh - 3rem));
+
+  .folder-picker__search { margin: 0.25rem 0 0.75rem; }
+
+  &__lists {
+    flex: 1;
+    min-height: 120px;
+    overflow-y: auto;
+  }
+
+  &__list {
+    margin: 0 0 1rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+
+    &:hover { background: theme-color(secondary); }
+    input { width: 16px; height: 16px; flex-shrink: 0; }
+
+    &--here { cursor: default; opacity: 0.6; }
+  }
+
+  &__text { min-width: 0; display: flex; flex-direction: column; text-align: left; }
+  &__name { font-size: 0.875rem; font-weight: 600; overflow-wrap: anywhere; }
+  &__where { font-size: 0.75rem; color: theme-color(text-secondary); }
+  &__none { margin: 1.5rem 0; text-align: center; color: theme-color(text-secondary); font-size: 0.875rem; }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid theme-color(border);
+  }
+
+  &__count {
+    margin-right: auto;
+    font-size: 0.8125rem;
+    color: theme-color(text-secondary);
+  }
+}
+
+.item-picker .folders__heading { text-align: left; }
