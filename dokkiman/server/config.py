@@ -49,6 +49,9 @@ PRO_FAIR_USE_SIGNATURE_REQUESTS_PER_MONTH = int(os.environ.get("PRO_FAIR_USE_SIG
 # On every plan, at most this many requests a day per account (limits misuse
 # of signing emails for spam or phishing)
 SIGNATURE_REQUESTS_PER_DAY = int(os.environ.get("SIGNATURE_REQUESTS_PER_DAY", "10"))
+# "Understand before you sign": signers can read an AI summary of the document
+# and ask questions about it (senders can turn it off per request)
+SIGNING_AI_QUESTIONS_PER_SIGNER = int(os.environ.get("SIGNING_AI_QUESTIONS_PER_SIGNER", "10"))
 SIGNATURE_REQUEST_MAX_SIGNERS = int(os.environ.get("SIGNATURE_REQUEST_MAX_SIGNERS", "10"))
 # Signing links stop working this many days after a request is sent
 SIGNATURE_REQUEST_DAYS = int(os.environ.get("SIGNATURE_REQUEST_DAYS", "30"))

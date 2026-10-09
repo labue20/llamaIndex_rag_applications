@@ -84,7 +84,9 @@ const PrivacyPolicy = ({ plan }) => (
         the time, their network address and their browser type, and keep their signature and initials images.
         This becomes the document&apos;s certificate of completion (its audit trail), which everyone receives with the signed copy. We use
         signers&apos; details only to run the signing and keep its record, never for marketing. Emails are
-        delivered by our email provider.
+        delivered by our email provider. Unless the sender turns it off, signers can read an AI summary of the
+        document and ask questions about it: the document&apos;s text and their questions are sent to OpenAI to
+        answer them, and aren&apos;t used to train AI models.
       </p>
       <h3>Cookies</h3>
       <p>

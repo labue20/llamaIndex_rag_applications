@@ -39,6 +39,8 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
   const [sent, setSent] = useState(null);
   const [folders, setFolders] = useState([]);
   const [folderId, setFolderId] = useState('');
+  // Understand before you sign: signers can read an AI summary and ask questions
+  const [aiHelp, setAiHelp] = useState(true);
 
   // Folders to file the request in (signed copies then show up there)
   useEffect(() => {
@@ -60,6 +62,7 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
     setError('');
     setSent(null);
     setFolderId('');
+    setAiHelp(true);
   }, []);
 
   const loadFile = useCallback(async (selected) => {
@@ -158,6 +161,7 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
         message: message.trim(),
         sequential,
         folder_id: folderId || null,
+        ai_help: aiHelp,
         signers: signers.map((s) => ({ name: s.name.trim(), email: s.email.trim() })),
         fields: fields.map(({ signer, kind, page, x, y, width, height }) => ({ signer, kind, page, x, y, width, height })),
       }));
@@ -364,6 +368,13 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
           The request, and the signed PDF and certificate once everyone has signed, show up in that folder in your
           Document Manager. Create folders there.
         </p>
+        <label className='esign-check esign-check--spaced'>
+          <input type='checkbox' checked={aiHelp} onChange={(e) => setAiHelp(e.target.checked)} />
+          <span>
+            <strong>Let signers ask AI about this document.</strong> They see a plain-English summary of the key
+            terms and can ask a few questions, answered only from the document.
+          </span>
+        </label>
       </section>
 
       {error && (

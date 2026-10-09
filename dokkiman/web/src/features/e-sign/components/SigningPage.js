@@ -18,6 +18,7 @@ import { apiFetch, Icon, readApiError } from '../../../shared';
 import LogoMark from '../../../shared/components/LogoMark';
 import SignatureDialog from '../../sign-pdf/components/SignatureDialog';
 import FieldStage from './FieldStage';
+import SigningAssistant from './SigningAssistant';
 import { fieldLabel, formatDate } from '../fields';
 import '../../../shared/styles/converter.scss';
 import '../../sign-pdf/styles/sign-pdf.scss';
@@ -232,6 +233,9 @@ const SigningPage = () => {
           {info.expires_at && ` This link works until ${formatDate(info.expires_at)}.`}
         </p>
       </section>
+
+      {/* Understand before you sign (when the sender allows it) */}
+      {info.ai_help && <SigningAssistant token={token} questionsLeft={info.ai_questions_left ?? 0} />}
 
       {pdf ? (
         pages.map((page) => (

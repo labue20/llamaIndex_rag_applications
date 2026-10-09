@@ -177,3 +177,46 @@ describe('the signing guide', () => {
     expect(currentField()).toHaveAttribute('data-field-id', '3');
   });
 });
+
+describe('understand before you sign', () => {
+  const openWithAi = (routes = {}) => openLink({
+    'GET /signing/tok123': { body: { ...INFO, ai_help: true, ai_questions_left: 2 } },
+    'GET /signing/tok123/summary': { body: { summary: '### What it is\n- A 12-month lease (page 1)' } },
+    ...routes,
+  });
+
+  test('shows the summary of key terms', async () => {
+    openWithAi();
+    const panel = await screen.findByRole('region', { name: 'Understand this document' });
+    expect(await within(panel).findByRole('heading', { name: 'What it is' })).toBeInTheDocument();
+    expect(within(panel).getByText('A 12-month lease (page 1)')).toBeInTheDocument();
+    expect(within(panel).getByText(/They aren’t legal advice/)).toBeInTheDocument();
+  });
+
+  test('signers can ask questions until they run out', async () => {
+    let left = 2;
+    const requests = openWithAi({
+      'POST /signing/tok123/ask': () => {
+        left -= 1;
+        return { body: { answer: 'Yes, one pet under 40 lb (page 2).', questions_left: left } };
+      },
+    });
+    const panel = await screen.findByRole('region', { name: 'Understand this document' });
+    // A suggested question
+    fireEvent.click(within(panel).getByRole('button', { name: 'What am I responsible for?' }));
+    expect(await within(panel).findByText('Yes, one pet under 40 lb (page 2).')).toBeInTheDocument();
+    expect(within(panel).getByText('1 question left')).toBeInTheDocument();
+
+    fireEvent.change(within(panel).getByLabelText('Ask a question about this document'), { target: { value: 'Can I have a dog?' } });
+    fireEvent.click(within(panel).getByRole('button', { name: 'Ask' }));
+    expect(await within(panel).findByText(/You’ve used all your questions/)).toBeInTheDocument();
+    const asked = requests.filter((r) => r.path === '/signing/tok123/ask').map((r) => JSON.parse(r.body).question);
+    expect(asked).toEqual(['What am I responsible for?', 'Can I have a dog?']);
+  });
+
+  test('is hidden when the sender turned it off', async () => {
+    openLink({ 'GET /signing/tok123': { body: { ...INFO, ai_help: false } } });
+    await screen.findByRole('heading', { name: 'Lease' });
+    expect(screen.queryByRole('region', { name: 'Understand this document' })).toBeNull();
+  });
+});
