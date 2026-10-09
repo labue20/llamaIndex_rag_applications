@@ -7,12 +7,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ChangePasswordDialog from './ChangePasswordDialog';
+import DeleteAccountDialog from './DeleteAccountDialog';
 import { openBillingPortal } from '../../pricing/billing';
 
 const AccountMenu = () => {
   const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [billingError, setBillingError] = useState('');
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
@@ -89,10 +91,22 @@ const AccountMenu = () => {
           <button type='button' role='menuitem' className='account-menu__item' onClick={logout}>
             Log out
           </button>
+          <button
+            type='button'
+            role='menuitem'
+            className='account-menu__item account-menu__item--danger'
+            onClick={() => {
+              setIsOpen(false);
+              setIsDeletingAccount(true);
+            }}
+          >
+            Delete account
+          </button>
         </div>
       )}
 
       {isChangingPassword && <ChangePasswordDialog onClose={() => setIsChangingPassword(false)} />}
+      {isDeletingAccount && <DeleteAccountDialog onClose={() => setIsDeletingAccount(false)} />}
     </div>
   );
 };
