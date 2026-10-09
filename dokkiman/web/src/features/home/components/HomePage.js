@@ -162,7 +162,7 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
             Sign, convert and chat with your <span className='home-hero__highlight'>documents</span>
           </h1>
           <p className='home-hero__text'>
-            Sign documents or send them for signature, convert between PDF and Word, split files, and ask AI questions
+            Sign documents or send them for signature, edit PDFs, convert between PDF and Word, split files, and ask AI questions
             about anything you upload, all in one place.
           </p>
           <div className='home-hero__ctas'>

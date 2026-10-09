@@ -69,6 +69,7 @@ GUEST_PATHS = [
         r"^/convertWordToPdf$",
         r"^/splitPdf$",
         r"^/signPdf$",
+        r"^/editPdf$",
         r"^/uploadFile$",
         r"^/chat$",
         r"^/backgroundIndex/[^/]+$",

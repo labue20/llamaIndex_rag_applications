@@ -7,6 +7,7 @@ import { useDocuments } from './features/document-management';
 import { PdfToWordConverter } from './features/pdf-to-word-converter';
 import { WordToPdfConverter } from './features/word-to-pdf-converter';
 import { SplitPdf } from './features/split-pdf';
+import { EditPdf } from './features/edit-pdf';
 import { ESign } from './features/e-sign';
 import { useAuth, GuestAccountPrompt } from './features/auth';
 import { APP_SECTION_SLUGS, RENAMED_SLUGS, appPath } from './routes';
@@ -32,6 +33,8 @@ function App() {
   const [wordToPdfStatus, setWordToPdfStatus] = useState({ hasFile: false, isBusy: false });
   const splitPdfRef = useRef(null);
   const [splitPdfStatus, setSplitPdfStatus] = useState({ hasFile: false, isBusy: false });
+  const editPdfRef = useRef(null);
+  const [editPdfStatus, setEditPdfStatus] = useState({ hasFile: false, isBusy: false });
   const eSignRef = useRef(null);
   const [eSignStatus, setESignStatus] = useState({ hasFile: false, isBusy: false });
 
@@ -108,6 +111,16 @@ function App() {
       )
     },
     {
+      label: 'Edit PDF',
+      shortLabel: 'Edit',
+      icon: <Icon name='edit' />,
+      title: 'Edit PDF',
+      content: <EditPdf ref={editPdfRef} onStatusChange={setEditPdfStatus} allowDocumentManager={!isGuest} />,
+      headerAction: (
+        <ConverterHeaderActions converterRef={editPdfRef} status={editPdfStatus} acceptedTypes='.pdf' />
+      )
+    },
+    {
       label: 'E-Sign',
       shortLabel: 'E-Sign',
       icon: <Icon name='pen' />,
@@ -118,7 +131,7 @@ function App() {
       )
     }
 
-  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, eSignStatus, isGuest]);
+  ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, editPdfStatus, eSignStatus, isGuest]);
 
   // The section shown comes from the address: /app/<slug>
   const activeIndex = APP_SECTION_SLUGS.indexOf(location.pathname.split('/')[2] || '');

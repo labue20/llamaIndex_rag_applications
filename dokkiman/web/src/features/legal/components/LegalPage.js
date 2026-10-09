@@ -31,7 +31,7 @@ const PrivacyPolicy = ({ plan }) => (
           To answer your questions, the text of your documents is sent to OpenAI. OpenAI doesn&apos;t use it to
           train AI models.
         </li>
-        <li>Files you convert, split or sign are processed and returned to you. We don&apos;t keep them.</li>
+        <li>Files you convert, split, edit or sign are processed and returned to you. We don&apos;t keep them.</li>
         <li>You sign in with Google, so we never see or store a password.</li>
         <li>We don&apos;t sell your data, show ads, or use advertising or analytics trackers.</li>
         <li>Deleting a document removes the file, its text and its search index entries.</li>
@@ -97,9 +97,9 @@ const PrivacyPolicy = ({ plan }) => (
     </section>
 
     <section>
-      <h2>2. Files you convert, split or sign</h2>
+      <h2>2. Files you convert, split, edit or sign</h2>
       <p>
-        PDF to Word, Word to PDF, Split PDF and signing a document yourself with E-Sign process your file in
+        PDF to Word, Word to PDF, Split PDF, Edit PDF and signing a document yourself with E-Sign process your file in
         memory or in a temporary folder, send the result back to your browser, and discard both straight away.
         These files aren&apos;t added to your Document Manager unless you upload them there yourself. Documents
         you send for signature are the exception: we keep them so signers can open them (see above).
@@ -239,7 +239,7 @@ const TermsOfService = ({ plan }) => (
       <h2>2. The service</h2>
       <p>
         The service lets you chat with your PDFs using AI, keep documents in a Document Manager, convert between
-        PDF and Word, split PDFs, and sign PDFs. Some tools can be tried without an account, with limits.
+        PDF and Word, split and edit PDFs, and sign PDFs. Some tools can be tried without an account, with limits.
       </p>
     </section>
 

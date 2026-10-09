@@ -30,6 +30,13 @@ export const TOOLS = [
     text: 'Pull out the pages you need into separate files.',
   },
   {
+    id: 'edit',
+    icon: 'edit',
+    title: 'Edit PDF',
+    text: 'Add text, images and highlights, fill in forms, and reorder or combine pages.',
+    badge: 'New',
+  },
+  {
     id: 'sign',
     icon: 'pen',
     title: 'E-Sign',
