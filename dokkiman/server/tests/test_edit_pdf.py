@@ -1,0 +1,257 @@
+"""Edit PDF: organizing pages, drawing on them, filling forms, and the /editPdf route."""
+
+import io
+import json
+
+import fitz
+import pytest
+from PIL import Image
+
+from edit_pdf_service import EditError, edit_pdf, parse_request
+
+
+def _png(color=(200, 0, 0, 255), size=(100, 50)):
+    buffer = io.BytesIO()
+    Image.new("RGBA", size, color).save(buffer, "PNG")
+    return buffer.getvalue()
+
+
+def _edit(pdf_bytes, pages, items=(), form=None, extras=(), images=()):
+    data = json.dumps({"pages": pages, "items": list(items), "form": form or {}})
+    return fitz.open(stream=edit_pdf(pdf_bytes, list(extras), data, list(images)), filetype="pdf")
+
+
+def _texts(doc):
+    return [" ".join(page.get_text().split()) for page in doc]
+
+
+def _pixel(page, fx, fy):
+    """RGB at a point given as fractions of the page as shown."""
+    pixmap = page.get_pixmap()
+    return pixmap.pixel(int(fx * pixmap.width), int(fy * pixmap.height))[:3]
+
+
+def _form_pdf(tmp_path):
+    doc = fitz.open()
+    page = doc.new_page(width=600, height=800)
+    fields = [
+        ("name", fitz.PDF_WIDGET_TYPE_TEXT, fitz.Rect(50, 50, 300, 80), {}),
+        ("agree", fitz.PDF_WIDGET_TYPE_CHECKBOX, fitz.Rect(50, 100, 70, 120), {}),
+        ("color", fitz.PDF_WIDGET_TYPE_COMBOBOX, fitz.Rect(50, 150, 200, 175), {"choice_values": ["Red", "Blue"]}),
+    ]
+    for name, kind, rect, extra in fields:
+        widget = fitz.Widget()
+        widget.field_name, widget.field_type, widget.rect = name, kind, rect
+        for key, value in extra.items():
+            setattr(widget, key, value)
+        page.add_widget(widget)
+    path = tmp_path / "form.pdf"
+    doc.save(path)
+    return path.read_bytes()
+
+
+def _values(doc):
+    return {w.field_name: w.field_value for page in doc for w in page.widgets()}
+
+
+# --- pages ------------------------------------------------------------------------------
+
+def test_reorder_delete_and_duplicate(make_pdf):
+    doc = _edit(make_pdf(pages=3).read_bytes(),
+                [{"page": 2}, {"page": 0}, {"page": 0}])  # page 2 (index 1) left out
+    assert doc.page_count == 3
+    assert [t.split(".")[0] for t in _texts(doc)] == ["This is page 3", "This is page 1", "This is page 1"]
+
+
+def test_a_duplicated_page_is_a_real_copy(make_pdf):
+    text = {"kind": "text", "x": 0.1, "y": 0.5, "width": 0.6, "height": 0.05, "text": "ONLY ON THE COPY"}
+    doc = _edit(make_pdf(pages=1).read_bytes(), [{"page": 0}, {"page": 0}], [{**text, "page": 1}])
+    assert "ONLY ON THE COPY" not in _texts(doc)[0]
+    assert "ONLY ON THE COPY" in _texts(doc)[1]
+
+
+def test_rotation_adds_to_the_pages_own(make_pdf, tmp_path):
+    source = fitz.open(make_pdf(pages=2))
+    source[1].set_rotation(90)
+    path = tmp_path / "rotated.pdf"
+    source.save(path)
+    doc = _edit(path.read_bytes(), [{"page": 0, "rotate": 90}, {"page": 1, "rotate": 270}])
+    assert [p.rotation for p in doc] == [90, 0]
+
+
+def test_blank_pages_match_the_page_before(make_pdf):
+    doc = _edit(make_pdf(pages=1).read_bytes(), [{"page": 0}, {"blank": True}])
+    assert doc.page_count == 2
+    assert doc[1].get_text().strip() == ""
+    assert doc[1].rect == doc[0].rect
+
+
+def test_merging_other_pdfs(make_pdf):
+    main = make_pdf(pages=2, name="a.pdf", marker="Main").read_bytes()
+    other = make_pdf(pages=2, name="b.pdf", marker="Other").read_bytes()
+    doc = _edit(main, [{"page": 0}, {"file": 1, "page": 1}, {"page": 1}], extras=[other])
+    texts = _texts(doc)
+    assert "Main" in texts[0] and "Other" in texts[1] and "page 2" in texts[1] and "Main" in texts[2]
+
+
+# --- things drawn on pages ------------------------------------------------------------------
+
+def test_text_is_written_into_the_page(make_pdf):
+    doc = _edit(make_pdf(pages=2).read_bytes(), [{"page": 0}, {"page": 1}], [
+        {"kind": "text", "page": 1, "x": 0.1, "y": 0.4, "width": 0.8, "height": 0.1,
+         "text": "Paid in full\nThank you", "font_size": 0.02, "color": "#2563eb", "bold": True},
+    ])
+    assert "Paid in full Thank you" in _texts(doc)[1]
+    assert "Paid in full" not in _texts(doc)[0]
+    assert list(doc[1].annots()) == []  # in the content, not an annotation
+
+
+def test_text_too_big_for_its_box_shrinks_to_fit(make_pdf):
+    doc = _edit(make_pdf(pages=1).read_bytes(), [{"page": 0}], [
+        {"kind": "text", "page": 0, "x": 0.1, "y": 0.5, "width": 0.3, "height": 0.03,
+         "text": "A sentence that is far too long for this small box", "font_size": 0.05},
+    ])
+    assert "far too long" in _texts(doc)[0]
+
+
+def test_shapes_highlights_whiteout_drawings_and_images(make_pdf):
+    doc = _edit(make_pdf(pages=1).read_bytes(), [{"page": 0}], [
+        {"kind": "whiteout", "page": 0, "x": 0.0, "y": 0.0, "width": 1.0, "height": 0.2},
+        {"kind": "highlight", "page": 0, "x": 0.1, "y": 0.3, "width": 0.3, "height": 0.05},
+        {"kind": "rect", "page": 0, "x": 0.5, "y": 0.3, "width": 0.3, "height": 0.1, "color": "#00ff00",
+         "stroke": 0.01},
+        {"kind": "draw", "page": 0, "points": [[0.1, 0.6], [0.9, 0.6]], "color": "#0000ff", "stroke": 0.01},
+        {"kind": "image", "page": 0, "x": 0.1, "y": 0.8, "width": 0.2, "height": 0.1, "image": 0},
+    ], images=[_png()])
+    page = doc[0]
+    # The white-out covers the page's text (still in the file, but hidden)
+    assert min(_pixel(page, 0.15, 0.09)) > 245
+    r, g, b = _pixel(page, 0.2, 0.325)
+    assert r > 200 and g > 200 and b < 200  # see-through yellow
+    r, g, b = _pixel(page, 0.5 + 0.002, 0.35)
+    assert g > 200 and r < 80  # the rectangle's green edge
+    assert min(_pixel(page, 0.65, 0.35)) > 245  # not filled
+    r, g, b = _pixel(page, 0.5, 0.6)
+    assert b > 200 and r < 80  # the blue line
+    r, g, b = _pixel(page, 0.2, 0.85)
+    assert r > 150 and g < 80  # the red image
+
+
+def test_positions_follow_the_page_as_shown_on_rotated_pages(make_pdf):
+    # A red box at the top-left of the page as it will be shown (turned a quarter)
+    doc = _edit(make_pdf(pages=1).read_bytes(), [{"page": 0, "rotate": 90}], [
+        {"kind": "highlight", "page": 0, "x": 0.0, "y": 0.0, "width": 0.2, "height": 0.2, "color": "#ff0000"},
+    ])
+    page = doc[0]
+    assert page.rect.width > page.rect.height  # shown in landscape
+    r, g, b = _pixel(page, 0.1, 0.1)
+    assert r > 200 and g < 200
+    assert min(_pixel(page, 0.9, 0.9)) > 245
+
+
+# --- forms ---------------------------------------------------------------------------
+
+def test_form_fields_are_filled_and_stay_fillable(tmp_path):
+    doc = _edit(_form_pdf(tmp_path), [{"page": 0}],
+                form={"name": "Jordan Avery", "agree": True, "color": "Blue", "unknown": "x"})
+    values = _values(doc)
+    assert values["name"] == "Jordan Avery"
+    assert values["agree"] not in ("Off", "", None, False)
+    assert values["color"] == "Blue"
+    assert "Jordan Avery" in doc[0].get_text() or any(w.field_value == "Jordan Avery" for w in doc[0].widgets())
+
+
+def test_form_choices_must_be_one_of_the_options(tmp_path):
+    values = _values(_edit(_form_pdf(tmp_path), [{"page": 0}], form={"color": "Green", "agree": False}))
+    assert values["color"] != "Green"
+    assert values["agree"] in ("Off", "", None, False)
+
+
+# --- validation ------------------------------------------------------------------------
+
+@pytest.mark.parametrize("data,message", [
+    ("not json", "couldn't be read"),
+    ({"pages": []}, "at least one page"),
+    ({"pages": [{"page": 5}]}, "doesn't exist"),
+    ({"pages": [{"file": 3, "page": 0}]}, "wasn't uploaded"),
+    ({"pages": [{"page": 0, "rotate": 45}]}, "quarter turns"),
+    ({"pages": [{"page": 0}] * 1001}, "at most 1000 pages"),
+    ({"pages": [{"page": 0}], "items": [{"kind": "video", "page": 0}]}, "isn't valid"),
+    ({"pages": [{"page": 0}], "items": [{"kind": "rect", "page": 1, "x": 0, "y": 0, "width": .1, "height": .1}]},
+     "doesn't exist"),
+    ({"pages": [{"page": 0}], "items": [{"kind": "rect", "page": 0, "x": .95, "y": 0, "width": .1, "height": .1}]},
+     "outside the page"),
+    ({"pages": [{"page": 0}], "items": [{"kind": "image", "page": 0, "x": 0, "y": 0, "width": .1, "height": .1,
+                                          "image": 2}]}, "image is missing"),
+    ({"pages": [{"page": 0}], "items": [{"kind": "draw", "page": 0, "points": [[0, 0]]}]}, "drawing isn't valid"),
+    ({"pages": [{"page": 0}], "items": [{"kind": "text", "page": 0, "x": 0, "y": 0, "width": .5, "height": .1,
+                                          "text": "x" * 5001}]}, "at most 5000"),
+])
+def test_validation(data, message):
+    raw = data if isinstance(data, str) else json.dumps(data)
+    with pytest.raises(EditError, match=message):
+        parse_request(raw, page_counts=[1], image_count=1)
+
+
+def test_empty_text_boxes_are_skipped():
+    _, items, _ = parse_request(json.dumps({"pages": [{"page": 0}], "items": [
+        {"kind": "text", "page": 0, "x": 0, "y": 0, "width": .5, "height": .1, "text": "  "}]}), [1], 0)
+    assert items == []
+
+
+def test_damaged_and_locked_pdfs_are_refused(make_pdf, tmp_path):
+    with pytest.raises(EditError, match="couldn't be read"):
+        _edit(b"%PDF-broken", [{"page": 0}])
+    locked = tmp_path / "locked.pdf"
+    fitz.open(make_pdf()).save(locked, encryption=fitz.PDF_ENCRYPT_AES_256, owner_pw="o", user_pw="u")
+    with pytest.raises(EditError, match="password-protected"):
+        _edit(locked.read_bytes(), [{"page": 0}])
+    with pytest.raises(EditError, match="PDF 2 couldn't be read"):
+        _edit(make_pdf().read_bytes(), [{"page": 0}], extras=[b"nope"])
+
+
+def test_bad_images_are_refused(make_pdf):
+    with pytest.raises(EditError, match="image couldn't be read"):
+        _edit(make_pdf().read_bytes(), [{"page": 0}], images=[b"not an image"])
+
+
+# --- the route --------------------------------------------------------------------------
+
+def _post(client, pdf_bytes, edits, extras=(), images=()):
+    data = {"file": (io.BytesIO(pdf_bytes), "lease.pdf"), "edits": json.dumps(edits)}
+    if extras:
+        data["files"] = [(io.BytesIO(e), f"extra{i}.pdf") for i, e in enumerate(extras)]
+    if images:
+        data["images"] = [(io.BytesIO(img), f"img{i}.png") for i, img in enumerate(images)]
+    return client.post("/editPdf", data=data, content_type="multipart/form-data")
+
+
+def test_route_returns_the_edited_pdf(signup, make_pdf):
+    other = make_pdf(pages=1, name="other.pdf", marker="Appendix").read_bytes()
+    response = _post(signup(), make_pdf(pages=2).read_bytes(), {
+        "pages": [{"page": 1}, {"file": 1, "page": 0}],
+        "items": [{"kind": "text", "page": 0, "x": .1, "y": .5, "width": .5, "height": .05, "text": "Approved"},
+                  {"kind": "image", "page": 1, "x": .1, "y": .5, "width": .2, "height": .1, "image": 0}],
+    }, extras=[other], images=[_png()])
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert "lease_edited.pdf" in response.headers["Content-Disposition"]
+    doc = fitz.open(stream=response.data, filetype="pdf")
+    assert doc.page_count == 2
+    assert "Approved" in doc[0].get_text() and "page 2" in doc[0].get_text()
+    assert "Appendix" in doc[1].get_text()
+
+
+def test_guests_can_edit(client, make_pdf):
+    assert _post(client, make_pdf().read_bytes(), {"pages": [{"page": 0}]}).status_code == 200
+
+
+def test_route_reports_problems(signup, make_pdf):
+    user = signup()
+    bad = _post(user, make_pdf().read_bytes(), {"pages": [{"page": 9}]})
+    assert bad.status_code == 400 and "doesn't exist" in bad.get_json()["error"]
+    not_pdf = user.post("/editPdf", data={"file": (io.BytesIO(b"x"), "a.txt"), "edits": "{}"},
+                        content_type="multipart/form-data")
+    assert not_pdf.status_code == 400
+    bad_extra = _post(user, make_pdf().read_bytes(), {"pages": [{"page": 0}]}, extras=[b"x"])
+    assert bad_extra.status_code == 400

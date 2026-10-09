@@ -9,6 +9,7 @@ from pdf_to_word_service import convert_pdf_to_word_document, validate_pdf_file
 from word_to_pdf_service import ConversionError, converter
 from split_pdf_service import SPLIT_MODES, SplitError, split_pdf, zip_parts
 from sign_pdf_service import SignError, sign_pdf
+from edit_pdf_service import EditError, edit_pdf
 from signature_log import save_signature_record
 from pathlib import Path
 import tempfile
@@ -506,6 +507,44 @@ def sign_pdf_route():
     response.headers["X-Document-SHA256"] = record["final_sha256"]
     response.headers["X-Audit-Record-Id"] = record["id"]
     return response
+
+
+@app.route("/editPdf", methods=["POST"])
+@limit_conversions
+def edit_pdf_route():
+    """Organize pages and add text, images, highlights, shapes, white-out and
+    drawings to a PDF, and fill in its form fields.
+
+    Form fields: file (the PDF); files (PDFs merged in, in order); images
+    (PNG/JPEG files, in order); edits (JSON: pages, items, form; see
+    edit_pdf_service.py). Returns the edited PDF.
+    """
+    uploaded_file = request.files.get("file")
+    is_valid, error_message = validate_pdf_file(uploaded_file)
+    if not is_valid:
+        return jsonify({"error": error_message}), 400
+    extras = request.files.getlist("files")
+    for extra in extras:
+        is_valid, error_message = validate_pdf_file(extra)
+        if not is_valid:
+            return jsonify({"error": f"{extra.filename or 'A PDF to combine'}: {error_message}"}), 400
+
+    stem = secure_filename(Path(uploaded_file.filename).stem) or "document"
+    try:
+        edited = edit_pdf(
+            uploaded_file.read(),
+            [extra.read() for extra in extras],
+            request.form.get("edits", ""),
+            [image.read() for image in request.files.getlist("images")],
+        )
+    except EditError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        app.logger.exception("Edit PDF error")
+        return jsonify({"error": "The PDF could not be edited."}), 500
+
+    return send_file(io.BytesIO(edited), as_attachment=True,
+                     download_name=f"{stem}_edited.pdf", mimetype="application/pdf")
 
 
 @app.route("/plans", methods=["GET"])

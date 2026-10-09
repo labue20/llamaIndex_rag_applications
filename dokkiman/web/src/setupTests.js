@@ -15,8 +15,16 @@ const mockPdfjs = () => ({
     promise: Promise.resolve({
       numPages: 3,
       getPage: () => Promise.resolve({
-        getViewport: ({ scale = 1 } = {}) => ({ width: 600 * scale, height: 800 * scale }),
+        rotate: 0,
+        getViewport: ({ scale = 1 } = {}) => ({
+          width: 600 * scale,
+          height: 800 * scale,
+          // PDF space (origin bottom-left) to the screen
+          convertToViewportRectangle: ([x1, y1, x2, y2]) => [x1 * scale, (800 - y1) * scale, x2 * scale, (800 - y2) * scale],
+        }),
         render: () => ({ promise: Promise.resolve(), cancel: () => {} }),
+        // Tests with form fields set global.mockPdfAnnotations
+        getAnnotations: () => Promise.resolve(global.mockPdfAnnotations || []),
       }),
       destroy: () => {},
     }),
