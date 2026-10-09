@@ -10,21 +10,32 @@ import React, { useState } from 'react';
 import { Icon } from '../../../shared';
 // Straight from the modules (not the e-sign index) to avoid an import cycle
 import { downloadRequestDocument } from '../../e-sign/requestsApi';
+import ItemPicker from './ItemPicker';
 import { REQUEST_STATUS } from '../../e-sign/fields';
 
 const count = (number, word) => `${number} ${word}${number === 1 ? '' : 's'}`;
 
-const NewFolderForm = ({ onCreate, onCancel }) => {
+// "2 documents and 1 signature request"
+const describeSelection = ({ documentIds, requestIds }) => [
+  documentIds.length && count(documentIds.length, 'document'),
+  requestIds.length && count(requestIds.length, 'signature request'),
+].filter(Boolean).join(' and ');
+
+const NewFolderForm = ({ onCreate, onCancel, pickerProps }) => {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Documents and requests to move into the new folder (optional)
+  const [selection, setSelection] = useState({ documentIds: [], requestIds: [] });
+  const [isPicking, setIsPicking] = useState(false);
+  const chosen = describeSelection(selection);
 
   const submit = async (event) => {
     event.preventDefault();
     setBusy(true);
     setError('');
     try {
-      await onCreate(name);
+      await onCreate(name, selection);
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -43,11 +54,30 @@ const NewFolderForm = ({ onCreate, onCancel }) => {
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && onCancel()}
       />
-      <button type='submit' className='folders__btn folders__btn--primary' disabled={busy || !name.trim()}>
-        Create
+      <button type='button' className='folders__btn' onClick={() => setIsPicking(true)} disabled={busy}>
+        {chosen ? `Change documents (${selection.documentIds.length + selection.requestIds.length})` : 'Choose documents…'}
       </button>
-      <button type='button' className='folders__btn' onClick={onCancel}>Cancel</button>
+      <button type='submit' className='folders__btn folders__btn--primary' disabled={busy || !name.trim()}>
+        {busy ? 'Creating…' : 'Create'}
+      </button>
+      <button type='button' className='folders__btn' onClick={onCancel} disabled={busy}>Cancel</button>
+      {chosen && <p className='folders__hint'>{chosen} will be moved into the new folder.</p>}
       {error && <p className='folders__error' role='alert'>{error}</p>}
+      {isPicking && (
+        <ItemPicker
+          {...pickerProps}
+          title='Choose documents for the new folder'
+          confirmLabel={(n) => (n ? `Use ${n} selected` : 'Continue without documents')}
+          allowEmpty
+          initialDocumentIds={selection.documentIds}
+          initialRequestIds={selection.requestIds}
+          onClose={() => setIsPicking(false)}
+          onConfirm={async (picked) => {
+            setSelection(picked);
+            setIsPicking(false);
+          }}
+        />
+      )}
     </form>
   );
 };
@@ -98,9 +128,10 @@ const RequestRow = ({ request }) => {
 
 const FolderBrowser = ({
   folders, currentFolder, trail, subfolders, requests, onOpen, onCreate, onRename, onDelete, error, uploadButton,
-  sort = 'name', onSortChange,
+  sort = 'name', onSortChange, pickerProps, onAddItems,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   // One level of subfolders: new folders can be made at the top and inside a top folder
   const canCreate = !currentFolder || !currentFolder.parent_id;
 
@@ -128,16 +159,35 @@ const FolderBrowser = ({
               + New folder
             </button>
           )}
+          {currentFolder && pickerProps && (
+            <button type='button' className='folders__btn' onClick={() => setIsAdding(true)}>
+              Add documents
+            </button>
+          )}
           {uploadButton}
         </div>
       </div>
 
       {isCreating && (
         <NewFolderForm
+          pickerProps={pickerProps}
           onCancel={() => setIsCreating(false)}
-          onCreate={async (name) => {
-            await onCreate(name);
+          onCreate={async (name, selection) => {
+            await onCreate(name, selection);
             setIsCreating(false);
+          }}
+        />
+      )}
+      {isAdding && currentFolder && (
+        <ItemPicker
+          {...pickerProps}
+          title={`Add documents to ${currentFolder.name}`}
+          confirmLabel={(n) => (n ? `Move ${n} here` : 'Move here')}
+          targetFolderId={currentFolder.id}
+          onClose={() => setIsAdding(false)}
+          onConfirm={async (picked) => {
+            await onAddItems(currentFolder.id, picked);
+            setIsAdding(false);
           }}
         />
       )}

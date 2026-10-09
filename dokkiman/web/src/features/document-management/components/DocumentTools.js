@@ -109,9 +109,27 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
     refreshDocuments?.();
   };
 
-  const createFolder = async (name) => {
-    await folderApi.create(name, folderId);
+  // A new folder, optionally with documents and requests moved into it straight away
+  const createFolder = async (name, selection = { documentIds: [], requestIds: [] }) => {
+    const folder = await folderApi.create(name, folderId);
+    if (selection.documentIds.length || selection.requestIds.length) {
+      await folderApi.move(folder.id, selection);
+      refreshDocuments?.();
+    }
     await loadFolders();
+  };
+
+  // Pull documents and requests from anywhere into a folder
+  const addItems = async (targetId, selection) => {
+    await folderApi.move(targetId, selection);
+    refreshAll();
+  };
+
+  const pickerProps = {
+    documents: documents || [],
+    requests,
+    nameOf,
+    whereOf: (id) => (id ? `in ${folderPath(folders, id)}` : 'in All documents'),
   };
 
   const renameFolder = async (folder) => {
@@ -193,6 +211,8 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
       ) : (
       <>
       <FolderBrowser
+        pickerProps={pickerProps}
+        onAddItems={addItems}
         sort={sort}
         onSortChange={changeSort}
         folders={folders}

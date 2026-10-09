@@ -25,6 +25,8 @@ Public routes (the token in the link is the signer's proof of identity):
 - GET  /signing/<token>/document         the PDF
 - POST /signing/<token>                  sign (signature/initials images, consent)
 - POST /signing/<token>/decline
+- GET  /signing/<token>/summary          AI summary of the key terms (made once per request)
+- POST /signing/<token>/ask              a question about the document (a few per signer)
 
 Only a hash of each token is stored. Sending a reminder gives the signer a
 new link (the old one stops working). Links stop working once the request is
@@ -53,6 +55,7 @@ from folders import owned_folder
 from pdf_to_word_service import validate_pdf_file
 from plans import signature_request_limit_error
 from sign_pdf_service import SignError, certificate_of_completion, load_image, open_pdf, sha256, stamp
+import signing_ai
 
 log = logging.getLogger(__name__)
 
@@ -140,6 +143,12 @@ def init_signature_requests():
                 height REAL NOT NULL
             )"""
         )
+        # "Understand before you sign" (added later: existing databases get the columns here)
+        for table, column, kind in (("signature_requests", "ai_help", "INTEGER NOT NULL DEFAULT 1"),
+                                    ("signature_requests", "ai_summary", "TEXT"),
+                                    ("signature_request_signers", "ai_questions", "INTEGER NOT NULL DEFAULT 0")):
+            if column not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
         conn.execute(
             """CREATE TABLE IF NOT EXISTS signature_request_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -455,6 +464,7 @@ def _request_json(req, signers, events=None):
         "created_at": req["created_at"], "expires_at": req["expires_at"], "completed_at": req["completed_at"],
         "final_sha256": req["final_sha256"],
         "folder_id": req.get("folder_id"),
+        "ai_help": bool(req.get("ai_help", 1)),
         "signers": [_signer_json(s) for s in signers],
     }
     if events is not None:
@@ -554,6 +564,7 @@ def create_request():
     message_text = str(data.get("message") or "").strip()[:MAX_MESSAGE]
     sequential = bool(data.get("sequential")) and len(signers) > 1
     folder_id = data.get("folder_id") or None
+    ai_help = data.get("ai_help", True) is not False
     if folder_id:
         with connect_db() as conn:
             if owned_folder(conn, g.user["id"], folder_id) is None:
@@ -565,11 +576,12 @@ def create_request():
     with connect_db() as conn:
         conn.execute(
             "INSERT INTO signature_requests (id, owner_id, owner_email, title, message, file_name, page_count,"
-            " sequential, status, created_at, expires_at, original_sha256, folder_id)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " sequential, status, created_at, expires_at, original_sha256, folder_id, ai_help)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (request_id, g.user["id"], g.user["email"], title, message_text, file_name, page_count,
              int(sequential), SENT, created.isoformat(),
-             (created + timedelta(days=config.SIGNATURE_REQUEST_DAYS)).isoformat(), sha256(pdf_bytes), folder_id),
+             (created + timedelta(days=config.SIGNATURE_REQUEST_DAYS)).isoformat(), sha256(pdf_bytes), folder_id,
+             int(ai_help)),
         )
         signer_ids = []
         for position, signer in enumerate(signers):
@@ -784,6 +796,8 @@ def signing_info(token):
         "can_sign": reason is None,
         "reason": reason,
         "expires_at": req["expires_at"],
+        "ai_help": _ai_available(req),
+        "ai_questions_left": max(0, config.SIGNING_AI_QUESTIONS_PER_SIGNER - (signer.get("ai_questions") or 0)),
     })
 
 
@@ -878,3 +892,75 @@ def decline(token):
               f"{signer['name']} ({signer['email']}) declined to sign \"{req['title']}\".\n"
               + (f"Their reason: {text}\n" if text else "They didn't give a reason.\n"))
     return jsonify({"declined": True})
+
+
+# --- "Understand before you sign" ---------------------------------------------------------
+
+def _ai_available(req):
+    """The sender allowed it, and the AI is set up."""
+    return bool(req.get("ai_help", 1)) and bool(os.environ.get("OPENAI_API_KEY"))
+
+
+def _ai_request(token):
+    """(request, signer) for an AI route, or an error response."""
+    found = _by_token(token)
+    if found is None:
+        return None, None, _error(LINK_GONE, 404, "invalid_link")
+    req, signer, _signers = found
+    if not _ai_available(req):
+        return None, None, _error("The sender turned off AI help for this document.", 404, "ai_off")
+    if _status(req) != SENT or signer["status"] == SIGNER_DECLINED:
+        return None, None, _error("This request is no longer open.", 409)
+    return req, signer, None
+
+
+@requests_bp.route("/signing/<token>/summary", methods=["GET"])
+def signing_summary(token):
+    req, _signer, error = _ai_request(token)
+    if error:
+        return error
+    if not req.get("ai_summary"):
+        # Made once and shared by every signer of the request
+        try:
+            summary = signing_ai.summarize(_file(req["id"], "original.pdf"), req["title"])
+        except signing_ai.SigningAIError as e:
+            return _error(str(e), 502)
+        with connect_db() as conn:
+            conn.execute("UPDATE signature_requests SET ai_summary = ? WHERE id = ? AND ai_summary IS NULL",
+                         (summary, req["id"]))
+            row = conn.execute("SELECT ai_summary FROM signature_requests WHERE id = ?", (req["id"],)).fetchone()
+        req["ai_summary"] = row["ai_summary"]
+    return jsonify({"summary": req["ai_summary"]})
+
+
+@requests_bp.route("/signing/<token>/ask", methods=["POST"])
+def signing_ask(token):
+    req, signer, error = _ai_request(token)
+    if error:
+        return error
+    question = str((request.get_json(silent=True) or {}).get("question", "")).strip()
+    if not question:
+        return _error("Type a question about the document.", 400)
+    if len(question) > signing_ai.MAX_QUESTION_CHARS:
+        return _error(f"Keep questions under {signing_ai.MAX_QUESTION_CHARS} characters.", 400)
+    # Count the question first, so parallel requests can't go over the limit
+    with connect_db() as conn:
+        counted = conn.execute(
+            "UPDATE signature_request_signers SET ai_questions = ai_questions + 1 WHERE id = ? AND ai_questions < ?",
+            (signer["id"], config.SIGNING_AI_QUESTIONS_PER_SIGNER),
+        ).rowcount
+    if not counted:
+        return _error(f"You've asked {config.SIGNING_AI_QUESTIONS_PER_SIGNER} questions about this document, the most "
+                      "allowed. For anything else, ask the sender.", 429, "ai_limit")
+    try:
+        answer = signing_ai.answer(_file(req["id"], "original.pdf"), req["title"], question)
+    except signing_ai.SigningAIError as e:
+        # A failed answer doesn't use up a question
+        with connect_db() as conn:
+            conn.execute("UPDATE signature_request_signers SET ai_questions = ai_questions - 1 WHERE id = ?",
+                         (signer["id"],))
+        return _error(str(e), 502)
+    with connect_db() as conn:
+        used = conn.execute("SELECT ai_questions FROM signature_request_signers WHERE id = ?",
+                            (signer["id"],)).fetchone()[0]
+    return jsonify({"answer": answer, "questions_left": max(0, config.SIGNING_AI_QUESTIONS_PER_SIGNER - used)})

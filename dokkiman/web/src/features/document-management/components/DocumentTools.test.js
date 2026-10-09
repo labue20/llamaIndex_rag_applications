@@ -192,3 +192,63 @@ test('folders sort A–Z or by recent activity, and the choice is remembered', a
   expect(names()).toEqual(['Bravo', 'Alpha']);
   expect(window.localStorage.getItem('dokkiman.folderSort')).toBe('recent');
 });
+
+const movesOf = (fetchMock) => fetchMock.mock.calls
+  .filter(([url, options = {}]) => url.endsWith('/folders/move') && options.method === 'POST')
+  .map(([, options]) => JSON.parse(options.body));
+
+test('a new folder can be created with documents from anywhere moved into it', async () => {
+  const fetchMock = renderManager('/app/documents', {
+    '/folders': (url, options) => (options.method === 'POST'
+      ? { status: 201, body: { folder: { id: 'f9', name: 'Oak Street', parent_id: null } } }
+      : { body: { folders: FOLDERS } }),
+    '/folders/move': { body: { moved: 2, folder_id: 'f9' } },
+  }).fetchMock;
+  fireEvent.click(await screen.findByRole('button', { name: '+ New folder' }));
+  fireEvent.change(screen.getByLabelText('Folder name'), { target: { value: 'Oak Street' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Choose documents…' }));
+
+  const picker = screen.getByRole('dialog', { name: 'Choose documents for the new folder' });
+  // Documents from the top level and from folders, each saying where it is
+  expect(within(picker).getByText('in 214 Willow Lane')).toBeInTheDocument();
+  expect(within(picker).getByText('in All documents')).toBeInTheDocument();
+  fireEvent.click(within(picker).getByRole('checkbox', { name: /inspection\.pdf/ }));
+  fireEvent.click(within(picker).getByRole('checkbox', { name: /^Lease/ }));
+  fireEvent.click(within(picker).getByRole('button', { name: 'Use 2 selected' }));
+
+  expect(screen.getByText('1 document and 1 signature request will be moved into the new folder.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+  await waitFor(() => expect(movesOf(fetchMock)).toHaveLength(1));
+  expect(movesOf(fetchMock)[0]).toEqual({ folder_id: 'f9', document_ids: ['d1'], request_ids: ['r1'] });
+});
+
+test('inside a folder, Add documents pulls in documents from elsewhere', async () => {
+  const { fetchMock, refreshDocuments } = renderManager('/app/documents?folder=f2', {
+    '/folders/move': { body: { moved: 1, folder_id: 'f2' } },
+  });
+  fireEvent.click(await screen.findByRole('button', { name: 'Add documents' }));
+  const picker = screen.getByRole('dialog', { name: 'Add documents to Leases' });
+  const move = within(picker).getByRole('button', { name: 'Move here' });
+  expect(move).toBeDisabled(); // nothing chosen yet
+
+  // Search narrows the list
+  fireEvent.change(within(picker).getByLabelText('Search documents to add'), { target: { value: 'unfiled' } });
+  expect(within(picker).queryByText('inspection.pdf')).toBeNull();
+  fireEvent.click(within(picker).getByRole('checkbox', { name: /unfiled\.pdf/ }));
+  fireEvent.click(within(picker).getByRole('button', { name: 'Move 1 here' }));
+
+  await waitFor(() => expect(movesOf(fetchMock)).toHaveLength(1));
+  expect(movesOf(fetchMock)[0]).toEqual({ folder_id: 'f2', document_ids: ['d2'], request_ids: [] });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(refreshDocuments).toHaveBeenCalled();
+});
+
+test('items already in the folder are shown but can’t be picked', async () => {
+  renderManager('/app/documents?folder=f1');
+  fireEvent.click(await screen.findByRole('button', { name: 'Add documents' }));
+  const picker = screen.getByRole('dialog', { name: 'Add documents to 214 Willow Lane' });
+  const already = within(picker).getByRole('checkbox', { name: /inspection\.pdf/ });
+  expect(already).toBeDisabled();
+  expect(already).toBeChecked();
+  expect(within(picker).getAllByText('Already in this folder').length).toBeGreaterThan(0);
+});
