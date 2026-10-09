@@ -194,7 +194,7 @@ def test_validation(data, message):
 
 
 def test_empty_text_boxes_are_skipped():
-    _, items, _ = parse_request(json.dumps({"pages": [{"page": 0}], "items": [
+    _, items, _, _ = parse_request(json.dumps({"pages": [{"page": 0}], "items": [
         {"kind": "text", "page": 0, "x": 0, "y": 0, "width": .5, "height": .1, "text": "  "}]}), [1], 0)
     assert items == []
 
@@ -365,7 +365,7 @@ def test_validation_of_the_new_kinds(item, message):
 
 
 def test_unknown_styles_fall_back_to_the_defaults():
-    _, [item], _ = parse_request(json.dumps({"pages": [{"page": 0}], "items": [
+    _, [item], _, _ = parse_request(json.dumps({"pages": [{"page": 0}], "items": [
         {"kind": "text", "page": 0, "x": 0, "y": 0, "width": .5, "height": .1, "text": "Hi", "font": "comic",
          "align": "justify"}]}), [1], 0)
     assert item["font"] == "sans" and item["align"] == "left"
@@ -379,3 +379,115 @@ def test_pdf_text_route(client, tmp_path):
     assert [line["text"] for line in lines][0] == "Monthly rent is $1,700"
     bad = client.post("/pdfText", data={"file": (io.BytesIO(b"nope"), "x.pdf")}, content_type="multipart/form-data")
     assert bad.status_code == 400
+
+
+# --- Release B: notes, watermark, page numbers, opening Word and images ----------------------
+
+def _edit_with(pdf_bytes, page_count, options=None, items=()):
+    return _edit(pdf_bytes, [{"page": i} for i in range(page_count)], items) if options is None else \
+        fitz.open(stream=edit_pdf(pdf_bytes, [], json.dumps({"pages": [{"page": i} for i in range(page_count)],
+                                                             "items": list(items), "options": options}), []),
+                  filetype="pdf")
+
+
+def test_sticky_notes_are_real_pdf_comments(make_pdf):
+    doc = _edit(make_pdf(pages=1).read_bytes(), [{"page": 0}], [
+        {"kind": "note", "page": 0, "x": 0.8, "y": 0.1, "width": 0.03, "height": 0.03, "text": "Check this clause",
+         "color": "#2563eb"},
+        {"kind": "note", "page": 0, "x": 0.8, "y": 0.3, "width": 0.03, "height": 0.03, "text": "   "},
+    ])
+    page = doc[0]
+    [annot] = list(page.annots())
+    assert annot.type[1] == "Text"
+    assert annot.info["content"] == "Check this clause"
+
+
+@pytest.mark.parametrize("rotation", [0, 90])
+def test_watermark_on_every_page_upright_and_see_through(make_pdf, tmp_path, rotation):
+    source = fitz.open(make_pdf(pages=2))
+    for page in source:
+        page.set_rotation(rotation)
+    path = tmp_path / "rotated.pdf"
+    source.save(path)
+    doc = _edit_with(path.read_bytes(), 2, {"watermark": {"text": "CONFIDENTIAL", "color": "#ff0000", "opacity": 0.3}})
+    for page in doc:
+        [line] = [l for b in page.get_text("dict")["blocks"] for l in b.get("lines", [])
+                  if "CONFIDENTIAL" in "".join(s["text"] for s in l["spans"])]
+        turn = page.rotation_matrix
+        direction = fitz.Point(line["dir"]) * fitz.Matrix(turn.a, turn.b, turn.c, turn.d, 0, 0)
+        assert direction.x > 0.3 and direction.y < -0.3  # rising left to right, as shown
+        box = fitz.Rect(line["bbox"]) * page.rotation_matrix
+        center = fitz.Point(box.x0 + box.width / 2, box.y0 + box.height / 2)
+        assert abs(center.x - page.rect.width / 2) < 20 and abs(center.y - page.rect.height / 2) < 20
+    # See-through: the red is pale, not solid
+    pixmap = doc[0].get_pixmap()
+    reds = [pixmap.pixel(x, y)[:3] for x in range(0, pixmap.width, 3) for y in range(0, pixmap.height, 3)]
+    tinted = [p for p in reds if p[0] > 200 and p[1] < 240]
+    assert tinted and all(p[1] > 120 for p in tinted)
+
+
+def test_page_numbers(make_pdf):
+    doc = _edit_with(make_pdf(pages=3).read_bytes(), 3, {"page_numbers": {
+        "format": "page_n_of", "position": "bottom-right", "start": 1, "skip_first": True}})
+    assert "Page" not in doc[0].get_text()
+    assert "Page 1 of 2" in doc[1].get_text() and "Page 2 of 2" in doc[2].get_text()
+    word = next(w for w in doc[2].get_text("words") if w[4] == "2" and w[1] > doc[2].rect.height * 0.8)
+    assert word[0] > doc[2].rect.width * 0.7  # bottom right
+
+
+def test_page_numbers_can_start_later_and_sit_at_the_top(make_pdf):
+    doc = _edit_with(make_pdf(pages=2).read_bytes(), 2, {"page_numbers": {
+        "format": "n", "position": "top-center", "start": 5}})
+    words = [w for w in doc[1].get_text("words") if w[4] == "6"]
+    assert words and words[0][1] < doc[1].rect.height * 0.1
+
+
+def test_options_are_checked():
+    _, _, _, options = parse_request(json.dumps({"pages": [{"page": 0}], "options": {
+        "watermark": {"text": "  ", "opacity": 7}, "page_numbers": {"format": "roman", "position": "middle",
+                                                                      "start": -4, "size": 500}}}), [1], 0)
+    assert "watermark" not in options  # no text, no watermark
+    assert options["page_numbers"] == {"format": "n", "position": "bottom-center", "start": 1, "skip_first": False,
+                                       "size": 36}
+
+
+def test_images_become_pdf_pages(tmp_path):
+    from edit_pdf_service import images_to_pdf
+    buffer = io.BytesIO()
+    image = Image.new("RGB", (400, 200), (0, 0, 255))
+    exif = image.getexif()
+    exif[0x0112] = 6  # a phone photo taken sideways
+    image.save(buffer, "JPEG", exif=exif)
+    doc = fitz.open(stream=images_to_pdf(buffer.getvalue()), filetype="pdf")
+    page = doc[0]
+    assert page.rect.width == 612
+    assert page.rect.height == pytest.approx(612 * 400 / 200)  # turned the right way up: taller than wide
+    with pytest.raises(EditError, match="couldn't be read as an image"):
+        images_to_pdf(b"not an image", "photo.jpg")
+
+
+def test_to_pdf_route(client, monkeypatch):
+    import flask_demo
+
+    response = client.post("/toPdf", data={"file": (io.BytesIO(_png()), "receipt.png")},
+                           content_type="multipart/form-data")
+    assert response.status_code == 200 and response.mimetype == "application/pdf"
+    assert fitz.open(stream=response.data, filetype="pdf").page_count == 1
+
+    def fake_convert(input_path, output_path):
+        doc = fitz.open()
+        doc.new_page().insert_text((72, 72), "From Word")
+        doc.save(output_path)
+    monkeypatch.setattr(flask_demo.converter, "convert_docx_to_pdf", fake_convert)
+    import zipfile as zf
+    docx = io.BytesIO()
+    with zf.ZipFile(docx, "w") as archive:
+        archive.writestr("word/document.xml", "<w/>")
+    response = client.post("/toPdf", data={"file": (io.BytesIO(docx.getvalue()), "letter.docx")},
+                           content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert "From Word" in fitz.open(stream=response.data, filetype="pdf")[0].get_text()
+
+    for name, data in (("notes.txt", b"hello"), ("fake.docx", b"not a zip"), ("bad.png", b"nope")):
+        bad = client.post("/toPdf", data={"file": (io.BytesIO(data), name)}, content_type="multipart/form-data")
+        assert bad.status_code == 400, name

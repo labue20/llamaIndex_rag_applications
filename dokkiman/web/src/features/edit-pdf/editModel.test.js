@@ -1,4 +1,6 @@
-import { buildEdits, fieldValue, formFieldsFrom, rotateBy, shownSize } from './editModel';
+import {
+  buildEdits, DEFAULT_OPTIONS, fieldValue, formFieldsFrom, optionsForServer, pageNumberLabel, rotateBy, shownSize,
+} from './editModel';
 
 test('rotating swaps the shown size', () => {
   expect(shownSize({ width: 600, height: 800, rotate: 0 })).toEqual({ width: 600, height: 800 });
@@ -26,6 +28,7 @@ test('edits follow the pages’ new order and leave out deleted pages', () => {
     { kind: 'image', x: 0, y: 0, width: 0.2, height: 0.1, page: 0, image: 0 },
   ]);
   expect(edits.form).toEqual({ name: 'Sam' });
+  expect(edits.options).toEqual({});
 });
 
 test('form fields come from the PDF’s widgets', () => {
@@ -52,4 +55,24 @@ test('form fields come from the PDF’s widgets', () => {
   expect(fieldValue(fields[0], {})).toBe('Jo');
   expect(fieldValue(fields[0], { name: 'Sam' })).toBe('Sam');
   expect(fieldValue(fields[1], {})).toBe(false);
+});
+
+test('page number labels follow the options', () => {
+  const numbers = { ...DEFAULT_OPTIONS.page_numbers, enabled: true, format: 'page_n_of', skip_first: true, start: 1 };
+  expect([0, 1, 2].map((i) => pageNumberLabel(numbers, i, 3))).toEqual([null, 'Page 1 of 2', 'Page 2 of 2']);
+  expect(pageNumberLabel({ ...numbers, enabled: false }, 1, 3)).toBeNull();
+  expect(pageNumberLabel({ ...numbers, format: 'n', skip_first: false, start: 5 }, 0, 3)).toBe('5');
+});
+
+test('only the options that are on go to the server', () => {
+  expect(optionsForServer(DEFAULT_OPTIONS)).toEqual({});
+  const on = {
+    watermark: { ...DEFAULT_OPTIONS.watermark, enabled: true, text: 'DRAFT' },
+    page_numbers: { ...DEFAULT_OPTIONS.page_numbers, enabled: true, start: '' },
+  };
+  expect(optionsForServer(on)).toEqual({
+    watermark: { text: 'DRAFT', color: '#dc2626', opacity: 0.25, size: 0.1, diagonal: true },
+    page_numbers: { format: 'n', position: 'bottom-center', start: 1, skip_first: false, size: 10 },
+  });
+  expect(optionsForServer({ ...on, watermark: { ...on.watermark, text: '  ' } }).watermark).toBeUndefined();
 });

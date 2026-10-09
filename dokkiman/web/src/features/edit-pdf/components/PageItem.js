@@ -9,7 +9,7 @@ import { fontCss } from '../editModel';
 
 const LABELS = {
   text: 'text', image: 'image', highlight: 'highlight', rect: 'box', ellipse: 'ellipse', line: 'line',
-  draw: 'drawing', mark: 'mark', whiteout: 'white-out', redact: 'redaction',
+  draw: 'drawing', mark: 'mark', whiteout: 'white-out', redact: 'redaction', note: 'note',
 };
 
 const MARK_PATHS = {
@@ -39,7 +39,7 @@ const PageItem = ({
   item, image, selected, stageWidth, stageHeight, onPointerDown, onResize, onKeyDown, onFocus, onRemove, onText,
   onTextFocus,
 }) => {
-  const label = `${LABELS[item.kind]}${item.kind === 'text' && item.text ? `: ${item.text.slice(0, 30)}` : ''}`;
+  const label = `${LABELS[item.kind]}${(item.kind === 'text' || item.kind === 'note') && item.text ? `: ${item.text.slice(0, 30)}` : ''}`;
   const common = {
     role: 'button', tabIndex: 0, 'aria-label': label, 'aria-pressed': selected, onKeyDown, onFocus,
   };
@@ -145,6 +145,23 @@ const PageItem = ({
           </span>
         ))}
         {item.kind === 'image' && <img src={image?.dataUrl} alt='' draggable={false} />}
+        {item.kind === 'note' && (
+          <>
+            <span className='edit-pdf__note-icon' style={{ background: item.color }} aria-hidden='true' />
+            {selected && (
+              <textarea
+                className='edit-pdf__note-text'
+                aria-label='Note'
+                value={item.text}
+                placeholder='Write a note'
+                autoFocus
+                onPointerDown={(e) => e.stopPropagation()}
+                onFocus={onTextFocus}
+                onChange={(e) => onText(e.target.value)}
+              />
+            )}
+          </>
+        )}
         {item.kind === 'mark' && (
           <svg viewBox='0 0 100 100' preserveAspectRatio='none' aria-hidden='true' className='edit-pdf__mark'
             style={{ color: item.color }}>

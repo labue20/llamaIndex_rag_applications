@@ -1,10 +1,12 @@
 /**
  * Edit PDF
  * Change the PDF's own text, add text, signatures, images, shapes, marks,
- * highlights, drawings, white-out and redactions, fill in its form fields,
- * and organize pages (reorder, turn, copy, remove, add blank pages, combine
- * PDFs). The server makes the new PDF (/editPdf); the text lines to edit come
- * from /pdfText.
+ * notes, highlights, drawings, white-out and redactions, fill in its form
+ * fields, add a watermark and page numbers, and organize pages (reorder,
+ * turn, copy, remove, add blank pages, combine files). Word documents and
+ * images open too (made into PDFs by /toPdf). The server makes the new PDF
+ * (/editPdf); the text lines to edit come from /pdfText. Afterwards the result
+ * can be saved to the Document Manager or sent for signature.
  */
 
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
@@ -14,9 +16,10 @@ import {
 } from '../../../shared';
 import SignatureDialog from '../../sign-pdf/components/SignatureDialog';
 import {
-  buildEdits, clamp, DEFAULT_COLORS, MARKS, MAX_FILES, newKey, POINTS_PER_PAGE, rotateBy, SHAPES, shownSize,
-  STROKES, textItemForLine, TOOLS,
+  buildEdits, clamp, DEFAULT_COLORS, DEFAULT_OPTIONS, MARKS, MAX_FILES, newKey, pageNumberLabel, POINTS_PER_PAGE,
+  rotateBy, SHAPES, shownSize, STROKES, textItemForLine, TOOLS,
 } from '../editModel';
+import DocumentOptions from './DocumentOptions';
 import PageEditor from './PageEditor';
 import PageStrip from './PageStrip';
 import StyleBar from './StyleBar';
@@ -26,6 +29,23 @@ import '../styles/edit-pdf.scss';
 
 const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 const isImage = (file) => /^image\/(png|jpeg)$/.test(file.type) || /\.(png|jpe?g)$/i.test(file.name);
+// Opened by making them into PDFs first
+const CONVERTIBLE = /\.(docx|png|jpe?g|webp)$/i;
+const OPENS = '.pdf,.docx,.png,.jpg,.jpeg,.webp';
+
+/** A PDF, or a Word document or image turned into one by the server. */
+const asPdf = async (file) => {
+  if (isPdf(file)) return file;
+  if (!CONVERTIBLE.test(file.name)) {
+    throw new Error('Open a PDF, a Word document (.docx) or an image (PNG or JPEG).');
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await apiFetch('/toPdf', { method: 'POST', body: formData });
+  if (!response.ok) throw new Error(await readApiError(response, `${file.name} couldn’t be opened.`));
+  const blob = await response.blob();
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.pdf`, { type: 'application/pdf' });
+};
 const HISTORY = 50;
 let nextItemId = 1;
 let nextImageId = 1;
@@ -51,8 +71,16 @@ const readImage = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
+// File.arrayBuffer(), with a fallback for older browsers
+const bytesOf = (file) => (file.arrayBuffer ? file.arrayBuffer() : new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(reader.error);
+  reader.readAsArrayBuffer(file);
+}));
+
 const loadPdf = async (file, fileIndex) => {
-  const doc = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const doc = await pdfjsLib.getDocument({ data: await bytesOf(file) }).promise;
   const pages = [];
   for (let i = 0; i < doc.numPages; i += 1) {
     const page = await doc.getPage(i + 1);
@@ -70,7 +98,9 @@ const kindOfTool = (tool, shapeId) => {
   return ['text', 'highlight', 'draw'].includes(tool) ? tool : null;
 };
 
-const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref) => {
+const EditPdf = forwardRef(({
+  onStatusChange, allowDocumentManager = true, onSaveToDocuments, onSendForSignature,
+}, ref) => {
   const [files, setFiles] = useState([]); // File objects: [0] the main PDF, then PDFs added
   const [docs, setDocs] = useState([]); // pdf.js documents, same order
   const [pages, setPages] = useState([]);
@@ -93,6 +123,9 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
   const [textLines, setTextLines] = useState({}); // file index -> { status, pages }
   const [signImages, setSignImages] = useState({}); // signature / initials -> imageId
   const [signDialog, setSignDialog] = useState(null); // { kind, place }
+  const [options, setOptions] = useState(DEFAULT_OPTIONS);
+  const [saved, setSaved] = useState(null); // the last saved PDF: { file, inDocuments }
+  const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -118,20 +151,26 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     setTool('select');
     setTextLines({});
     setSignImages({});
+    setOptions(DEFAULT_OPTIONS);
+    setSaved(null);
     setError('');
     setResult('');
   }, [docs]);
 
   const loadFile = useCallback(async (selectedFile) => {
-    if (!isPdf(selectedFile)) {
-      setError('Please choose a PDF file.');
-      return;
-    }
     reset();
     setIsLoading(true);
+    let pdfFile;
     try {
-      const loaded = await loadPdf(selectedFile, 0);
-      setFiles([selectedFile]);
+      pdfFile = await asPdf(selectedFile);
+    } catch (err) {
+      setError(err.message);
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const loaded = await loadPdf(pdfFile, 0);
+      setFiles([pdfFile]);
       setDocs([loaded.doc]);
       setPages(loaded.pages);
       setCurrentKey(loaded.pages[0]?.key ?? null);
@@ -255,17 +294,17 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
   };
 
   const addPdfs = async (newFiles) => {
-    const pdfs = newFiles.filter(isPdf);
-    if (pdfs.length !== newFiles.length) setError('Only PDF files can be added.');
-    if (files.length + pdfs.length > MAX_FILES) {
-      setError(`Combine at most ${MAX_FILES} PDFs at once.`);
+    if (files.length + newFiles.length > MAX_FILES) {
+      setError(`Combine at most ${MAX_FILES} files at once.`);
       return;
     }
     setIsLoading(true);
+    setError('');
     try {
       let index = files.length;
       const loaded = [];
-      for (const pdf of pdfs) {
+      for (const added of newFiles) {
+        const pdf = await asPdf(added);
         loaded.push({ file: pdf, ...(await loadPdf(pdf, index)) });
         index += 1;
       }
@@ -275,8 +314,9 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
       setPages((prev) => [...prev, ...loaded.flatMap((l) => l.pages)]);
       if (loaded[0]?.pages[0]) setCurrentKey(loaded[0].pages[0].key);
     } catch (err) {
-      console.error('Could not add PDF:', err);
-      setError('One of those PDFs couldn’t be opened. It may be damaged or password-protected.');
+      console.error('Could not add file:', err);
+      setError(/couldn’t be opened|Open a PDF/.test(err.message)
+        ? err.message : 'One of those files couldn’t be opened. It may be damaged or password-protected.');
     } finally {
       setIsLoading(false);
     }
@@ -337,11 +377,11 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     const item = { id: nextItemId++, pageKey: currentPage.key, ...styleFor(spec.kind), ...spec };
     if (item.kind === 'text' && item.text === undefined) item.text = '';
     setItems((prev) => [...prev, item]);
-    // Text and images are adjusted straight away; with the other tools, the
-    // next drag on the page adds another one
-    if (item.kind === 'text' || item.kind === 'image') setSelectedId(item.id);
-    // After placing a text box, type into it
-    if (item.kind === 'text') setTool('select');
+    // Text, notes and images are adjusted straight away; with the other
+    // tools, the next drag on the page adds another one
+    if (['text', 'image', 'note'].includes(item.kind)) setSelectedId(item.id);
+    // After placing a text box or note, type into it
+    if (item.kind === 'text' || item.kind === 'note') setTool('select');
     return item;
   };
 
@@ -440,7 +480,7 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     try {
       const usedImages = [...new Set(items.filter((i) => i.kind === 'image' && pages.some((p) => p.key === i.pageKey))
         .map((i) => i.imageId))];
-      const edits = buildEdits(pages, items, formValues, (id) => usedImages.indexOf(id));
+      const edits = buildEdits(pages, items, formValues, (id) => usedImages.indexOf(id), options);
       const formData = new FormData();
       formData.append('file', file);
       files.slice(1).forEach((extra) => formData.append('files', extra));
@@ -460,11 +500,26 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
       );
       downloadBlob(blob, fileName);
       setResult(`Saved and downloaded ${fileName}.`);
+      setSaved({ file: new File([blob], fileName, { type: 'application/pdf' }), inDocuments: false });
     } catch (err) {
       console.error('Edit failed:', err);
       setError(err.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // After saving: keep it in the Document Manager, or send it for signature
+  const saveToDocuments = async () => {
+    setIsSending(true);
+    setError('');
+    try {
+      await onSaveToDocuments(saved.file);
+      setSaved((prev) => ({ ...prev, inDocuments: true }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -476,7 +531,7 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
           <div className='upload-area'>
             <input
               type='file'
-              accept='.pdf'
+              accept={OPENS}
               id='edit-pdf-file-input'
               onChange={(e) => {
                 const picked = e.target.files[0];
@@ -485,18 +540,18 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
               }}
             />
             <div className='upload-actions'>
-              <label htmlFor='edit-pdf-file-input' className='upload-label'>Choose PDF File</label>
+              <label htmlFor='edit-pdf-file-input' className='upload-label'>Choose File</label>
               {allowDocumentManager && (
-                <DocumentPicker acceptedExtensions={['.pdf']} onSelect={(picked) => picked && loadFile(picked)} />
+                <DocumentPicker acceptedExtensions={['.pdf', '.docx']} onSelect={(picked) => picked && loadFile(picked)} />
               )}
             </div>
             <p className='upload-hint'>
-              Change text, add text, signatures, images and shapes, fill in forms, redact, and reorder or combine
-              pages • Max 50MB
+              PDF, Word or image. Change text, add text, signatures and shapes, fill in forms, redact, add page
+              numbers, and reorder or combine pages • Max 50MB
             </p>
           </div>
         </div>
-        {isLoading && <p className='edit-pdf__loading'>Opening the PDF…</p>}
+        {isLoading && <p className='edit-pdf__loading'>Opening…</p>}
         {error && (
           <div className='converter-message converter-message--error' role='alert'>
             <Icon name='alert' size={16} />
@@ -550,86 +605,119 @@ const EditPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
             pageLabel={`Page ${pageIndex + 1} of ${pages.length}`}
             lines={pageLines}
             onEditLine={editLine}
+            watermark={options.watermark.enabled && options.watermark.text.trim() ? options.watermark : null}
+            pageNumber={(() => {
+              const label = pageNumberLabel(options.page_numbers, pageIndex, pages.length);
+              return label && { ...options.page_numbers, label };
+            })()}
           />
         )}
 
         {/* Tools on the right (on phones, above the page), so the page gets the room */}
         <aside className='edit-pdf__panel' aria-label='Editing tools'>
-          <div className='edit-pdf__toolbar' role='toolbar' aria-label='Edit tools'>
-            {TOOLS.map((t) => (
-              <button
-                key={t.id}
-                type='button'
-                className={`edit-pdf__tool ${tool === t.id ? 'edit-pdf__tool--active' : ''}`}
-                aria-pressed={tool === t.id}
-                onClick={() => {
-                  setTool(t.id);
-                  setSelectedId(null);
-                }}
-                disabled={isSaving}
-              >
-                <Icon name={t.icon} size={18} />
-                <span className='edit-pdf__tool-label'>{t.label}</span>
-              </button>
-            ))}
-            <label className='edit-pdf__tool'>
-              <Icon name='image' size={18} />
-              <span className='edit-pdf__tool-label'>Image</span>
-              <input
-                type='file'
-                accept='image/png,image/jpeg'
-                hidden
-                aria-label='Add an image'
-                onChange={(e) => {
-                  const picked = e.target.files[0];
-                  e.target.value = '';
-                  if (picked) addImage(picked);
-                }}
-              />
-            </label>
-            <span className='edit-pdf__history'>
-              <button type='button' className='edit-pdf__tool edit-pdf__tool--row' onClick={undo}
-                disabled={!history.length || isSaving} title='Undo (Ctrl+Z)'>
-                <Icon name='undo' size={16} />
-                <span className='edit-pdf__tool-label'>Undo</span>
-              </button>
-              <button type='button' className='edit-pdf__tool edit-pdf__tool--row' onClick={redo}
-                disabled={!future.length || isSaving} title='Redo (Ctrl+Shift+Z)'>
-                <Icon name='redo' size={16} />
-                <span className='edit-pdf__tool-label'>Redo</span>
-              </button>
-            </span>
+          {/* Scrolls when it's long; Save stays below it, always in view */}
+          <div className='edit-pdf__panel-body'>
+            <div className='edit-pdf__toolbar' role='toolbar' aria-label='Edit tools'>
+              {TOOLS.map((t) => (
+                <button
+                  key={t.id}
+                  type='button'
+                  className={`edit-pdf__tool ${tool === t.id ? 'edit-pdf__tool--active' : ''}`}
+                  aria-pressed={tool === t.id}
+                  onClick={() => {
+                    setTool(t.id);
+                    setSelectedId(null);
+                  }}
+                  disabled={isSaving}
+                >
+                  <Icon name={t.icon} size={18} />
+                  <span className='edit-pdf__tool-label'>{t.label}</span>
+                </button>
+              ))}
+              <label className='edit-pdf__tool'>
+                <Icon name='image' size={18} />
+                <span className='edit-pdf__tool-label'>Image</span>
+                <input
+                  type='file'
+                  accept='image/png,image/jpeg'
+                  hidden
+                  aria-label='Add an image'
+                  onChange={(e) => {
+                    const picked = e.target.files[0];
+                    e.target.value = '';
+                    if (picked) addImage(picked);
+                  }}
+                />
+              </label>
+              <span className='edit-pdf__history'>
+                <button type='button' className='edit-pdf__tool edit-pdf__tool--row' onClick={undo}
+                  disabled={!history.length || isSaving} title='Undo (Ctrl+Z)'>
+                  <Icon name='undo' size={16} />
+                  <span className='edit-pdf__tool-label'>Undo</span>
+                </button>
+                <button type='button' className='edit-pdf__tool edit-pdf__tool--row' onClick={redo}
+                  disabled={!future.length || isSaving} title='Redo (Ctrl+Shift+Z)'>
+                  <Icon name='redo' size={16} />
+                  <span className='edit-pdf__tool-label'>Redo</span>
+                </button>
+              </span>
+            </div>
+
+            <StyleBar
+              tool={tool}
+              selected={selected}
+              styleKind={styleKind}
+              style={currentStyle}
+              onStyle={setStyle}
+              shapeId={shapeId}
+              onShape={setShapeId}
+              markId={markId}
+              onMark={setMarkId}
+              onSign={sign}
+              hasSignature={!!signImages.signature}
+              hasInitials={!!signImages.initials}
+              onChangeSignature={(kind) => setSignDialog({ kind, place: false })}
+              hint={editTextHint}
+            />
+
+            <DocumentOptions options={options} onChange={(changes) => {
+              setOptions((prev) => ({ ...prev, ...changes }));
+              setResult('');
+            }} />
+
+            {error && (
+              <div className='converter-message converter-message--error' role='alert'>
+                <Icon name='alert' size={16} />
+                <span>{error}</span>
+              </div>
+            )}
+            {result && !error && (
+              <div className='converter-message converter-message--success' role='status'>
+                <Icon name='checkCircle' size={16} />
+                <span>{result}</span>
+              </div>
+            )}
+            {result && saved && (
+              <div className='edit-pdf__after'>
+                {onSendForSignature ? (
+                  <>
+                    <button type='button' className='edit-pdf__after-btn' onClick={() => onSendForSignature(saved.file)}>
+                      <Icon name='pen' size={16} /> Send for signature
+                    </button>
+                    <button type='button' className='edit-pdf__after-btn' onClick={saveToDocuments}
+                      disabled={isSending || saved.inDocuments}>
+                      <Icon name='folder' size={16} />
+                      {saved.inDocuments ? 'Saved to Documents' : isSending ? 'Saving…' : 'Save to Document Manager'}
+                    </button>
+                  </>
+                ) : (
+                  <p className='edit-pdf__after-note'>
+                    Create a free account to keep your PDFs or send them for signature.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-
-          <StyleBar
-            tool={tool}
-            selected={selected}
-            styleKind={styleKind}
-            style={currentStyle}
-            onStyle={setStyle}
-            shapeId={shapeId}
-            onShape={setShapeId}
-            markId={markId}
-            onMark={setMarkId}
-            onSign={sign}
-            hasSignature={!!signImages.signature}
-            hasInitials={!!signImages.initials}
-            onChangeSignature={(kind) => setSignDialog({ kind, place: false })}
-            hint={editTextHint}
-          />
-
-          {error && (
-            <div className='converter-message converter-message--error' role='alert'>
-              <Icon name='alert' size={16} />
-              <span>{error}</span>
-            </div>
-          )}
-          {result && !error && (
-            <div className='converter-message converter-message--success' role='status'>
-              <Icon name='checkCircle' size={16} />
-              <span>{result}</span>
-            </div>
-          )}
 
           <button type='button' className='convert-btn edit-pdf__save' onClick={save} disabled={isSaving || isLoading}>
             <span className='btn-icon' aria-hidden='true'>
