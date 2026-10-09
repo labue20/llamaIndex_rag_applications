@@ -14,7 +14,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist/webpack';
-import { apiFetch, Icon, readApiError } from '../../../shared';
+import { apiFetch, dataUrlToBlob, Icon, readApiError } from '../../../shared';
 import LogoMark from '../../../shared/components/LogoMark';
 import SignatureDialog from '../../sign-pdf/components/SignatureDialog';
 import FieldStage from './FieldStage';
@@ -23,8 +23,6 @@ import { fieldLabel, formatDate } from '../fields';
 import '../../../shared/styles/converter.scss';
 import '../../sign-pdf/styles/sign-pdf.scss';
 import '../styles/esign.scss';
-
-const dataUrlToBlob = async (dataUrl) => (await fetch(dataUrl)).blob();
 
 // Fields the signer has to fill themselves (date and name fill automatically)
 const needsSigner = (field) => field.kind === 'signature' || field.kind === 'initials';
@@ -160,7 +158,7 @@ const SigningPage = () => {
       const formData = new FormData();
       formData.append('consent', 'true');
       for (const kind of needed) {
-        formData.append(kind, await dataUrlToBlob(images[kind].dataUrl), `${kind}.png`);
+        formData.append(kind, dataUrlToBlob(images[kind].dataUrl), `${kind}.png`);
       }
       const response = await apiFetch(`/signing/${encodeURIComponent(token)}`, { method: 'POST', body: formData });
       if (!response.ok) throw new Error(await readApiError(response, 'Your signature couldn’t be saved.'));

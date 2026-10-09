@@ -11,6 +11,7 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef,
 import * as pdfjsLib from 'pdfjs-dist/webpack';
 import {
   apiFetch,
+  dataUrlToBlob,
   DocumentPicker,
   downloadBlob,
   filenameFromDisposition,
@@ -23,8 +24,6 @@ import '../styles/sign-pdf.scss';
 
 const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
-const dataUrlToBlob = async (dataUrl) => (await fetch(dataUrl)).blob();
 
 let nextItemId = 1;
 
@@ -250,7 +249,7 @@ const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
         ...(i.type === 'image' ? { image: kinds.indexOf(i.kind) } : { text: i.text }),
       }))));
       for (const kind of kinds) {
-        formData.append('images', await dataUrlToBlob(images[kind].dataUrl), `${kind}.png`);
+        formData.append('images', dataUrlToBlob(images[kind].dataUrl), `${kind}.png`);
       }
 
       const response = await apiFetch('/signPdf', { method: 'POST', body: formData });

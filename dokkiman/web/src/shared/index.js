@@ -15,6 +15,7 @@ export { default as DocumentPicker } from './components/DocumentPicker';
 // Utilities
 export { downloadBlob, filenameFromDisposition } from './utils/downloadBlob';
 export { getPdfPageCount } from './utils/pdfPageCount';
+export { dataUrlToBlob } from './utils/dataUrlToBlob';
 
 // Services
 export {

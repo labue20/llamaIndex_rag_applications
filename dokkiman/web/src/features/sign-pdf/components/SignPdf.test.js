@@ -7,13 +7,12 @@ const pdf = (name = 'lease.pdf') => {
   return file;
 };
 
-// Fake /signPdf (and data: URLs, which the page fetches to turn signatures into blobs)
+// Fake /signPdf. Fetching a data: URL fails, as it does in the browser (the
+// Content-Security-Policy's connect-src doesn't allow it)
 const mockSignServer = ({ status = 200, error } = {}) => {
   const requests = [];
   global.fetch = jest.fn((url, options) => {
-    if (String(url).startsWith('data:')) {
-      return Promise.resolve({ blob: () => Promise.resolve(new Blob(['png'], { type: 'image/png' })) });
-    }
+    if (String(url).startsWith('data:')) return Promise.reject(new TypeError('Load failed'));
     requests.push({ url, form: options.body });
     if (status !== 200) {
       return Promise.resolve({ ok: false, status, json: () => Promise.resolve({ error }) });
