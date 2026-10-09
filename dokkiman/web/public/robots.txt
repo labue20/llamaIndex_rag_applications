@@ -1,3 +1,9 @@
-# https://www.robotstxt.org/robotstxt.html
+# The public pages are open to search engines; the app, the admin portal and
+# the API are not. Signing links, log in and sign up stay crawlable so search
+# engines see their "noindex" header (deploy/Caddyfile) and leave them out.
 User-agent: *
-Disallow:
+Disallow: /app
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://dokkiman.com/sitemap.xml

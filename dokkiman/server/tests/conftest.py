@@ -147,6 +147,45 @@ def make_pdf(tmp_path):
 
 
 @pytest.fixture
+def xfa_form_pdf():
+    """A fillable PDF built like IRS forms: on each page, rows that each hold a
+    field with the same short name (Row1[0].Dependent[0].c1[0] and
+    Row2[0].Dependent[0].c1[0]), plus Adobe's XFA copy of the form."""
+    import fitz
+
+    def _make(pages=2):
+        doc = fitz.open()
+        page_fields = []
+        for number in range(1, pages + 1):
+            page = doc.new_page()
+            page.insert_text((72, 72), f"This is page {number}.")
+            page_field, rows, boxes = doc.get_new_xref(), [], []
+            for row in (1, 2):
+                row_field, dependent, box = doc.get_new_xref(), doc.get_new_xref(), doc.get_new_xref()
+                y = 100 + row * 40
+                doc.update_object(box, f"<< /Type /Annot /Subtype /Widget /FT /Tx /T (c1[0]) /V (row {row}) "
+                                       f"/Rect [72 {y} 272 {y + 20}] /P {page.xref} 0 R /Parent {dependent} 0 R /F 4 >>")
+                doc.update_object(dependent, f"<< /T (Dependent[0]) /Parent {row_field} 0 R /Kids [{box} 0 R] >>")
+                doc.update_object(row_field, f"<< /T (Row{row}[0]) /Parent {page_field} 0 R /Kids [{dependent} 0 R] >>")
+                rows.append(f"{row_field} 0 R")
+                boxes.append(f"{box} 0 R")
+            doc.update_object(page_field, f"<< /T (Page{number}[0]) /Kids [{' '.join(rows)}] >>")
+            doc.xref_set_key(page.xref, "Annots", f"[{' '.join(boxes)}]")
+            page_fields.append(f"{page_field} 0 R")
+        xfa = doc.get_new_xref()
+        doc.update_object(xfa, "<< >>")
+        doc.update_stream(xfa, b"<xdp:xdp xmlns:xdp='http://ns.adobe.com/xdp/'><template/></xdp:xdp>", new=True)
+        form = doc.get_new_xref()
+        doc.update_object(form, f"<< /Fields [{' '.join(page_fields)}] /XFA {xfa} 0 R /DA (/Helv 0 Tf 0 g) >>")
+        doc.xref_set_key(doc.pdf_catalog(), "AcroForm", f"{form} 0 R")
+        data = doc.tobytes()
+        doc.close()
+        return data
+
+    return _make
+
+
+@pytest.fixture
 def fresh_db(tmp_path, monkeypatch):
     """A new, empty accounts database for each test."""
     import auth

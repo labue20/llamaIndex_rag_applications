@@ -24,7 +24,11 @@ const openPdf = async () => {
 };
 
 const pages = () => within(screen.getByRole('list', { name: 'Pages' })).getAllByRole('button', { name: /^Page \d/ });
-const save = () => fireEvent.click(screen.getByRole('button', { name: /Save & download/ }));
+const done = (action) => {
+  fireEvent.click(screen.getByRole('button', { name: /Done/ }));
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Done' })).getByRole('menuitem', { name: action }));
+};
+const save = () => done(/Download/);
 
 // Drag on the page (the overlay is 600 x 800 on screen)
 const dragOnPage = (from, to) => {
@@ -70,7 +74,7 @@ test('pages can be reordered, turned, copied and removed', async () => {
   fireEvent.click(screen.getByRole('button', { name: '+ Blank page' })); // a blank after the current page
   save();
 
-  await screen.findByText(/Saved and downloaded lease_edited.pdf/);
+  await screen.findByText(/Downloaded lease_edited.pdf/);
   expect(sentEdits(fetchMock).edits.pages).toEqual([
     { file: 0, page: 0, rotate: 90 },
     { file: 0, page: 2, rotate: 0 },
@@ -91,7 +95,7 @@ test('text is placed where the page is clicked, then typed', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Color #dc2626' }));
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   const [item] = sentEdits(fetchMock).edits.items;
   expect(item).toMatchObject({ kind: 'text', page: 0, text: 'Paid in full', x: 0.1, color: '#dc2626', bold: false });
   expect(item.font_size).toBeCloseTo(18 / 792);
@@ -114,7 +118,7 @@ test('highlights, boxes, white-out and drawings follow the drag', async () => {
   dragOnPage([300, 400], [120, 200]); // dragged up and left
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   const { items } = sentEdits(fetchMock).edits;
   expect(items.map((i) => [i.kind, i.page])).toEqual([['highlight', 0], ['whiteout', 0], ['draw', 0], ['rect', 1]]);
   expect(items[0]).toMatchObject({ x: 0.1, y: 0.1, width: 0.4, color: '#fde047' });
@@ -138,7 +142,7 @@ test('undo takes back the last change', async () => {
   fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   expect(sentEdits(fetchMock).edits.items).toEqual([]);
 });
 
@@ -150,7 +154,7 @@ test('removing a page removes what was added to it', async () => {
   dragOnPage([60, 80], [300, 120]);
   fireEvent.click(screen.getByRole('button', { name: 'Remove page 1' }));
   save();
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   expect(sentEdits(fetchMock).edits.items).toEqual([]);
   expect(sentEdits(fetchMock).edits.pages).toHaveLength(2);
 });
@@ -164,7 +168,7 @@ test('images are uploaded with the edits', async () => {
   await screen.findByRole('button', { name: 'image' }, { timeout: 3000 });
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   const { edits, body } = sentEdits(fetchMock);
   expect(edits.items).toEqual([expect.objectContaining({ kind: 'image', page: 0, image: 0 })]);
   expect(body.getAll('images')).toHaveLength(1);
@@ -180,7 +184,7 @@ test('other PDFs can be added to combine them', async () => {
   expect(screen.getAllByText(/PDF 2/)).toHaveLength(3);
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   const { edits, body } = sentEdits(fetchMock);
   expect(edits.pages.slice(3)).toEqual([0, 1, 2].map((page) => ({ file: 1, page, rotate: 0 })));
   expect(body.getAll('files').map((f) => f.name)).toEqual(['appendix.pdf']);
@@ -200,7 +204,7 @@ test('the PDF’s form fields can be filled in', async () => {
   fireEvent.click(screen.getByRole('checkbox', { name: 'Form field pets' }));
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   expect(sentEdits(fetchMock).edits.form).toEqual({ tenant: 'Jordan Avery', pets: true });
 });
 
@@ -233,7 +237,7 @@ test('the PDF’s own text can be changed, line by line', async () => {
   fireEvent.change(screen.getAllByRole('textbox', { name: 'Text' })[0], { target: { value: '' } }); // delete the line
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   const { items } = sentEdits(fetchMock).edits;
   expect(items).toEqual([
     { kind: 'erase', page: 0, x: 0.1, y: 0.2, width: 0.4, height: 0.02 },
@@ -258,7 +262,7 @@ test('text can be styled', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Align center' }));
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   expect(sentEdits(fetchMock).edits.items[0]).toMatchObject({
     kind: 'text', text: 'Note', font: 'mono', italic: true, underline: true, align: 'center', bold: false,
   });
@@ -282,7 +286,7 @@ test('shapes, arrows, marks and redactions', async () => {
   dragOnPage([60, 700], [360, 720]);
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   const { items } = sentEdits(fetchMock).edits;
   expect(items.map((i) => i.kind)).toEqual(['ellipse', 'line', 'mark', 'redact']);
   expect(items[1]).toMatchObject({ arrow: true, points: [[0.1, 0.5], [0.5, 0.5]] });
@@ -299,7 +303,7 @@ test('the date can be added from Sign', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
   fireEvent.click(screen.getByRole('button', { name: 'Date' }));
   save();
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   expect(sentEdits(fetchMock).edits.items[0]).toMatchObject({ kind: 'text', text: new Date().toLocaleDateString() });
 });
 
@@ -314,7 +318,7 @@ test('redo puts back what undo took away', async () => {
   fireEvent.keyDown(window, { key: 'z', ctrlKey: true, shiftKey: true });
   expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
   save();
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   expect(sentEdits(fetchMock).edits.items.map((i) => i.kind)).toEqual(['highlight']);
 });
 
@@ -326,7 +330,7 @@ test('sticky notes', async () => {
   dragOnPage([300, 400], [300, 400]);
   fireEvent.change(await screen.findByRole('textbox', { name: 'Note' }), { target: { value: 'Ask about parking' } });
   save();
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   expect(sentEdits(fetchMock).edits.items).toEqual([
     expect.objectContaining({ kind: 'note', page: 0, text: 'Ask about parking', color: '#f59e0b', width: 0.03 }),
   ]);
@@ -336,9 +340,9 @@ test('a watermark and page numbers are previewed and sent with the edits', async
   const fetchMock = mockServer();
   render(<EditPdf />);
   await openPdf();
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Watermark' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Watermark' }));
   fireEvent.change(screen.getByRole('textbox', { name: 'Watermark text' }), { target: { value: 'DRAFT' } });
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Page numbers' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Page numbers' }));
   fireEvent.change(screen.getByRole('combobox', { name: /Style/ }), { target: { value: 'page_n_of' } });
   fireEvent.click(screen.getByRole('checkbox', { name: 'Not on the first page' }));
   // Page 1 isn't numbered; page 2 is "Page 1 of 2"
@@ -348,7 +352,7 @@ test('a watermark and page numbers are previewed and sent with the edits', async
   expect(await screen.findByLabelText('Page number: Page 1 of 2')).toBeInTheDocument();
   save();
 
-  await screen.findByText(/Saved and downloaded/);
+  await screen.findByText(/Downloaded/);
   expect(sentEdits(fetchMock).edits.options).toEqual({
     watermark: { text: 'DRAFT', color: '#dc2626', opacity: 0.25, size: 0.1, diagonal: true },
     page_numbers: { format: 'page_n_of', position: 'bottom-center', start: 1, skip_first: true, size: 10 },
@@ -372,28 +376,99 @@ test('other files can’t be opened', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('Open a PDF, a Word document');
 });
 
-test('after saving: send for signature, or keep it in the Document Manager', async () => {
-  mockServer();
+test('Done: download, send for signature, or keep it in the Document Manager; the PDF is made once', async () => {
+  const fetchMock = mockServer();
   const onSend = jest.fn();
   const onKeep = jest.fn(() => Promise.resolve());
   render(<EditPdf onSendForSignature={onSend} onSaveToDocuments={onKeep} />);
   await openPdf();
-  save();
-  await screen.findByText(/Saved and downloaded/);
 
-  fireEvent.click(screen.getByRole('button', { name: /Send for signature/ }));
-  expect(onSend).toHaveBeenCalledWith(expect.objectContaining({ name: 'lease_edited.pdf', type: 'application/pdf' }));
-  fireEvent.click(screen.getByRole('button', { name: /Save to Document Manager/ }));
-  expect(await screen.findByRole('button', { name: /Saved to Documents/ })).toBeDisabled();
+  done(/Save to Document Manager/);
+  expect(await screen.findByRole('status')).toHaveTextContent('Saved lease_edited.pdf to your Document Manager.');
   expect(onKeep.mock.calls[0][0].name).toBe('lease_edited.pdf');
+  expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole('button', { name: /Done/ }));
+  expect(screen.getByRole('menuitem', { name: /Saved to Document Manager/ })).toBeDisabled();
+  fireEvent.click(screen.getByRole('menuitem', { name: /Send for signature/ }));
+  await waitFor(() => expect(onSend).toHaveBeenCalledWith(
+    expect.objectContaining({ name: 'lease_edited.pdf', type: 'application/pdf' })
+  ));
+  // Nothing changed in between, so the server made the PDF once
+  expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/editPdf'))).toHaveLength(1);
+
+  // After a change, Done makes it again
+  fireEvent.click(screen.getByRole('button', { name: 'Turn page 1' }));
+  save();
+  await screen.findByText(/Downloaded/);
+  expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/editPdf'))).toHaveLength(2);
 });
 
-test('guests are asked to sign up to keep or send their PDF', async () => {
+test('guests can download, and are asked to sign up to keep or send their PDF', async () => {
   mockServer();
   render(<EditPdf />);
   await openPdf();
+  fireEvent.click(screen.getByRole('button', { name: /Done/ }));
+  const menu = screen.getByRole('menu', { name: 'Done' });
+  expect(within(menu).getByText(/Create a free account to keep your PDFs/)).toBeInTheDocument();
+  expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+    'DownloadSave the PDF to this device',
+  ]);
+});
+
+test('the editor fills the window; closing asks first when there are unsaved changes', async () => {
+  mockServer();
+  render(<EditPdf />);
+  await openPdf();
+  expect(screen.getByRole('region', { name: 'PDF editor' })).toHaveClass('edit-pdf--fullscreen');
+  expect(screen.getByText('lease.pdf')).toBeInTheDocument();
+  expect(screen.getByText('3 pages')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Turn page 1' }));
+  const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Close editor' }));
+  expect(confirm).toHaveBeenCalledWith('Close without saving? Your changes will be lost.');
+  expect(screen.getByRole('region', { name: 'PDF editor' })).toBeInTheDocument();
+
+  // Once downloaded, it closes straight away
   save();
-  await screen.findByText(/Saved and downloaded/);
-  expect(screen.getByText(/Create a free account to keep your PDFs/)).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: /Send for signature/ })).not.toBeInTheDocument();
+  await screen.findByText(/Downloaded/);
+  confirm.mockClear();
+  fireEvent.click(screen.getByRole('button', { name: 'Close editor' }));
+  expect(confirm).not.toHaveBeenCalled();
+  expect(screen.queryByRole('region', { name: 'PDF editor' })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Choose File')).toBeInTheDocument();
+});
+
+test('pages and zoom from the floating bar', async () => {
+  render(<EditPdf />);
+  await openPdf();
+  const nav = screen.getByRole('group', { name: 'Page and zoom' });
+  expect(within(nav).getByText('1 / 3')).toBeInTheDocument();
+  expect(within(nav).getByRole('button', { name: 'Previous page' })).toBeDisabled();
+
+  fireEvent.click(within(nav).getByRole('button', { name: 'Next page' }));
+  expect(within(nav).getByText('2 / 3')).toBeInTheDocument();
+  expect(pages()[1]).toHaveAttribute('aria-current', 'page');
+
+  // Zoom steps from the fitted size; Fit goes back
+  expect(within(nav).getByRole('button', { name: 'Fit to width' })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(within(nav).getByRole('button', { name: 'Zoom in' }));
+  expect(within(nav).getByRole('button', { name: 'Fit to width' })).toHaveAttribute('aria-pressed', 'false');
+  const zoomed = within(nav).getByLabelText('Zoom').textContent;
+  expect(['25%', '50%', '75%', '100%', '125%', '150%', '200%', '300%']).toContain(zoomed);
+  fireEvent.click(within(nav).getByRole('button', { name: 'Fit to width' }));
+  expect(within(nav).getByRole('button', { name: 'Fit to width' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('Watermark and Page numbers in the tools turn them on and open their settings', async () => {
+  render(<EditPdf />);
+  await openPdf();
+  expect(screen.queryByRole('complementary', { name: 'Watermark and page numbers' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Watermark' }));
+  const panel = screen.getByRole('complementary', { name: 'Watermark and page numbers' });
+  expect(within(panel).getByRole('checkbox', { name: 'Watermark' })).toBeChecked();
+  expect(within(panel).getByRole('checkbox', { name: 'Page numbers' })).not.toBeChecked();
+  fireEvent.click(within(panel).getByRole('button', { name: 'Close watermark and page numbers' }));
+  expect(screen.queryByRole('complementary', { name: 'Watermark and page numbers' })).not.toBeInTheDocument();
 });

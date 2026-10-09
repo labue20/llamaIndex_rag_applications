@@ -13,6 +13,8 @@ import zipfile
 
 import fitz  # PyMuPDF
 
+from pdf_forms import remove_xfa
+
 SPLIT_MODES = ("every", "ranges", "extract")
 
 # Guards against pathological requests (e.g. "1-1000000")
@@ -58,14 +60,19 @@ def _range_label(start, end):
     return f"page_{start}" if start == end else f"pages_{start}-{end}"
 
 
-def _pdf_bytes(source, page_ranges):
-    """A new PDF containing the given (start, end) page ranges of source, in order."""
-    output = fitz.open()
-    for start, end in page_ranges:
-        output.insert_pdf(source, from_page=start - 1, to_page=end - 1)
-    data = output.tobytes(garbage=3, deflate=True)
-    output.close()
-    return data
+def _pdf_bytes(pdf_bytes, page_ranges):
+    """A new PDF containing the given (start, end) page ranges, in order.
+
+    Made by keeping those pages of a fresh copy rather than copying pages into
+    an empty PDF: copying renames form fields that share a name, which breaks
+    forms (Adobe shows "Malformed SOM expression")."""
+    output = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        output.select([page - 1 for start, end in page_ranges for page in range(start, end + 1)])
+        remove_xfa(output)
+        return output.tobytes(garbage=3, deflate=True)
+    finally:
+        output.close()
 
 
 def open_pdf(pdf_bytes):
@@ -93,14 +100,14 @@ def split_pdf(pdf_bytes, mode, ranges_spec=""):
         if mode == "every":
             if page_count == 1:
                 raise SplitError("This PDF has only one page, so there's nothing to split.")
-            return [(_range_label(n, n), _pdf_bytes(document, [(n, n)])) for n in range(1, page_count + 1)]
+            return [(_range_label(n, n), _pdf_bytes(pdf_bytes, [(n, n)])) for n in range(1, page_count + 1)]
 
         ranges = parse_ranges(ranges_spec, page_count)
         if mode == "ranges":
-            return [(_range_label(start, end), _pdf_bytes(document, [(start, end)])) for start, end in ranges]
+            return [(_range_label(start, end), _pdf_bytes(pdf_bytes, [(start, end)])) for start, end in ranges]
 
         # extract: everything selected, combined into one file
-        return [("extracted", _pdf_bytes(document, ranges))]
+        return [("extracted", _pdf_bytes(pdf_bytes, ranges))]
     finally:
         document.close()
 

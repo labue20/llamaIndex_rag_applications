@@ -5,7 +5,8 @@
  * redaction), a line or arrow, or draw freehand; click to add a mark. With
  * Edit text, the page's own lines of text can be clicked to change them.
  * Things added can be moved, resized and removed with any tool. The PDF's own
- * form fields can be filled in place.
+ * form fields can be filled in place. Shown fitted to the width of the screen,
+ * or at a chosen zoom (1 = the page's real size).
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -13,6 +14,8 @@ import { clamp, fieldValue, formFieldsFrom, shownSize } from '../editModel';
 import PageItem, { pointsBox } from './PageItem';
 
 const MIN_SIZE = 0.01;
+// Screen pixels per PDF point at 100%
+const PIXELS_PER_POINT = 96 / 72;
 
 // What a drag on the page makes with each tool
 const creation = (tool, shape, mark) => {
@@ -30,22 +33,29 @@ const CLICK_SIZES = { text: [0.4, 0.045], highlight: [0.25, 0.025], mark: [0.035
 
 const PageEditor = ({
   page, pdf, items, images, tool, shape, mark, selectedId, onSelect, onCreate, onChange, onBeginChange, onRemove,
-  formValues, onFormChange, pageLabel, lines, onEditLine, watermark, pageNumber,
+  formValues, onFormChange, pageLabel, lines, onEditLine, watermark, pageNumber, zoom = null, onScale,
 }) => {
   const stageRef = useRef(null);
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
-  const [stageWidth, setStageWidth] = useState(0);
+  const [fitWidth, setFitWidth] = useState(0);
   const [fields, setFields] = useState([]);
   const [draft, setDraft] = useState(null); // a box, line or drawing being made
   const size = shownSize(page);
   const ratio = size.height / size.width;
+  // The page's width on screen: fitted, or zoomed
+  const stageWidth = zoom ? Math.round(size.width * PIXELS_PER_POINT * zoom) : fitWidth;
   const stageHeight = stageWidth ? stageWidth * ratio : undefined;
+
+  // Tell the zoom control what "fitted" works out to
+  useEffect(() => {
+    if (stageWidth) onScale?.(stageWidth / (size.width * PIXELS_PER_POINT));
+  }, [stageWidth, size.width, onScale]);
 
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return undefined;
-    const measure = () => setStageWidth(Math.min(stage.clientWidth - 24, 1100));
+    const measure = () => setFitWidth(Math.max(0, stage.clientWidth - 24));
     measure();
     if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(measure);
@@ -297,7 +307,8 @@ const PageEditor = ({
 
   return (
     <div className='edit-pdf__stage' ref={stageRef}>
-      <div className='edit-pdf__page' style={{ width: stageWidth || undefined, height: stageHeight }}>
+      <div className={`edit-pdf__page ${zoom ? 'edit-pdf__page--zoomed' : ''}`}
+        style={{ width: stageWidth || undefined, height: stageHeight }}>
         <canvas ref={canvasRef} className='edit-pdf__canvas' aria-label={pageLabel} />
         <div
           className={`edit-pdf__overlay edit-pdf__overlay--${tool} ${creation(tool, shape, mark) ? 'edit-pdf__overlay--creating' : ''}`}

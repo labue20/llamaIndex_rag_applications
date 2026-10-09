@@ -2,20 +2,58 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
-    <link rel="icon" href="%PUBLIC_URL%/logo.svg" type="image/svg+xml" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico?v=2" sizes="any" />
+    <link rel="icon" href="%PUBLIC_URL%/logo.svg?v=2" type="image/svg+xml" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#2563eb" />
+    <!--
+      Search engines and link previews. These are the homepage's; scripts/seo.js
+      writes a copy of this file for each public page (src/seo/pages.json) with
+      that page's title, description and address.
+    -->
     <meta
       name="description"
-      content="Sign, convert and chat with your documents. Sign PDFs with an audit trail, convert between PDF and Word, split PDFs, and ask AI questions about your files. Free to start."
+      content="Free online PDF tools: edit PDFs, sign them or send them for signature with an audit trail, compress and split PDFs, convert between PDF and Word, and ask AI questions about your documents."
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="canonical" href="https://dokkiman.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Dokkiman" />
+    <meta property="og:url" content="https://dokkiman.com/" />
+    <meta property="og:title" content="Dokkiman · Edit, sign, convert and chat with your PDFs" />
+    <meta
+      property="og:description"
+      content="Free online PDF tools: edit PDFs, sign them or send them for signature with an audit trail, compress and split PDFs, convert between PDF and Word, and ask AI questions about your documents."
+    />
+    <meta property="og:image" content="https://dokkiman.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Dokkiman: edit, sign, convert and chat with your PDFs" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dokkiman · Edit, sign, convert and chat with your PDFs" />
+    <meta
+      name="twitter:description"
+      content="Free online PDF tools: edit PDFs, sign them or send them for signature with an audit trail, compress and split PDFs, convert between PDF and Word, and ask AI questions about your documents."
+    />
+    <meta name="twitter:image" content="https://dokkiman.com/og-image.png" />
+    <!-- Tells Google this is a web app with a free plan (homepage only) -->
+    <script type="application/ld+json" id="structured-data">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Dokkiman",
+        "url": "https://dokkiman.com/",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Any (web browser)",
+        "description": "Online PDF tools: edit, sign and send for signature, compress, split, convert between PDF and Word, and chat with documents using AI.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png?v=2" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json?v=2" />
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.
@@ -25,7 +63,7 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>Dokkiman · Sign, convert and chat with your documents</title>
+    <title>Dokkiman · Edit, sign, convert and chat with your PDFs</title>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

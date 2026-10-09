@@ -118,3 +118,17 @@ test('the session is checked once on load, not on every page change', async () =
   const sessionChecks = fetchMock.mock.calls.filter(([url]) => url.endsWith('/auth/me'));
   expect(sessionChecks).toHaveLength(1);
 });
+
+test.each([
+  ['/pricing', 'Pricing · Dokkiman', 'https://dokkiman.com/pricing', /^Start free/],
+  ['/', 'Dokkiman · Edit, sign, convert and chat with your PDFs', 'https://dokkiman.com/', /^Free online PDF tools/],
+])('%s has its own title, description and canonical address', async (route, title, canonical, description) => {
+  const descriptionTag = Object.assign(document.createElement('meta'), { name: 'description' });
+  const canonicalTag = Object.assign(document.createElement('link'), { rel: 'canonical' });
+  document.head.replaceChildren(descriptionTag, canonicalTag);
+  mockFetch({ '/auth/me': { status: 401 }, '/plans': { body: {} } });
+  renderSite(route);
+  await waitFor(() => expect(document.title).toBe(title));
+  expect(canonicalTag).toHaveAttribute('href', canonical);
+  expect(descriptionTag.getAttribute('content')).toMatch(description);
+});
