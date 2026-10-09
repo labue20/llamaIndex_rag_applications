@@ -8,6 +8,7 @@
  *   /pricing       Free, Basic and Pro plans
  *   /privacy       Privacy Policy
  *   /terms         Terms of Service
+ *   /admin         Admin portal (admins only; the server checks)
  */
 
 import React from 'react';
@@ -21,6 +22,7 @@ import { LegalPage } from '../../legal';
 import { PricingPage } from '../../pricing';
 import { HOME_AFTER_LOGIN } from '../../../routes';
 import { SigningPage } from '../../e-sign';
+import { AdminPage } from '../../admin';
 
 const AuthGate = ({ children }) => {
   const { user, isCheckingSession, showHome, showAuth, tryTool, pathAfterAuth } = useAuth();
@@ -75,6 +77,7 @@ const AuthGate = ({ children }) => {
       <Route path='/terms' element={<LegalPage doc='terms' />} />
       {/* Signing a document someone sent: no account needed */}
       <Route path='/sign/:token' element={<SigningPage />} />
+      <Route path='/admin' element={user?.is_admin ? <AdminPage /> : <Navigate to='/' replace />} />
       <Route path='/login' element={authPage('login')} />
       <Route path='/signup' element={authPage('signup')} />
       <Route

@@ -36,6 +36,7 @@ from auth_limits import (
     record_failed_login,
     signup_blocked,
 )
+from admin import init_admin, is_admin, record_seen
 from db import connect_db, enable_wal
 from plans import init_plans, new_trial_end, plan_status, signature_request_usage
 from signature_log import init_signature_log
@@ -149,6 +150,7 @@ def init_db():
     init_folders()
     init_auth_limits()
     init_billing()
+    init_admin()
 
 
 def _require_login():
@@ -162,6 +164,8 @@ def _require_login():
         user = _guest_identity()
     if user is None:
         return jsonify({"error": "Authentication required"}), 401
+    if not user.get("guest"):
+        record_seen(user["id"])
     g.user = user
     return None
 
@@ -207,7 +211,7 @@ def _user_payload(user):
     status = plan_status(user["id"])
     plan = {**status, "billing": billing_info(user["id"]),
             "signature_requests": signature_request_usage(user["id"], status["state"])}
-    return {**user, "plan": plan, "has_password": bool(row and row["password_hash"])}
+    return {**user, "plan": plan, "has_password": bool(row and row["password_hash"]), "is_admin": is_admin(user)}
 
 
 def _session_version(user_id):

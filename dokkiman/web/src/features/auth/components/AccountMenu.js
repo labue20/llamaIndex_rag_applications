@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ChangePasswordDialog from './ChangePasswordDialog';
 import DeleteAccountDialog from './DeleteAccountDialog';
@@ -12,6 +13,7 @@ import { openBillingPortal } from '../../pricing/billing';
 
 const AccountMenu = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -62,6 +64,11 @@ const AccountMenu = () => {
           <p className='account-menu__signed-in'>
             Signed in as <strong>{user.email}</strong>
           </p>
+          {user.is_admin && (
+            <button type='button' role='menuitem' className='account-menu__item' onClick={() => navigate('/admin')}>
+              Admin portal
+            </button>
+          )}
           {/* Accounts that have paid through Stripe: cancel, change card, invoices */}
           {user.plan?.billing && (
             <button

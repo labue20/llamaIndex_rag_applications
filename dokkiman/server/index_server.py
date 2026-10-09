@@ -976,6 +976,17 @@ def get_documents_list(owner_id):
     return documents_list
 
 
+
+def document_counts():
+    """How many documents each account has, {owner_id: count} (for the admin stats)."""
+    counts = {}
+    for doc_info in list(stored_docs.values()):
+        owner_id = doc_info.get("owner_id") if isinstance(doc_info, dict) else None
+        if owner_id:
+            counts[owner_id] = counts.get(owner_id, 0) + 1
+    return counts
+
+
 def _remove_document_nodes(doc_ids):
     """Delete every chunk belonging to the given document IDs from the index.
 
@@ -1074,6 +1085,7 @@ if __name__ == "__main__":
     manager.register('get_document_file', get_document_file)
     manager.register('ping', ping)
     manager.register('claim_guest_documents', claim_guest_documents)
+    manager.register('document_counts', document_counts)
     server = manager.get_server()
 
     print("server started...")

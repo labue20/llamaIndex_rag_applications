@@ -11,7 +11,7 @@ import LogoMark from '../../../shared/components/LogoMark';
 import { usePlanInfo } from '../../auth/hooks/usePlanInfo';
 import '../styles/legal.scss';
 
-export const LAST_UPDATED = 'October 7, 2026';
+export const LAST_UPDATED = 'October 9, 2026';
 const SERVICE = 'Dokkiman';
 
 const Contact = ({ supportEmail }) =>
@@ -43,8 +43,8 @@ const PrivacyPolicy = ({ plan }) => (
       <h3>Your account</h3>
       <p>
         When you sign in with Google, Google tells us your email address and a Google account ID. We don&apos;t
-        receive your Google password. We also keep the date you created your account, your plan and your free
-        trial dates.
+        receive your Google password. We also keep the date you created your account, the day you last used the service,
+        your plan and your free trial dates.
       </p>
       <h3>Documents you upload</h3>
       <p>

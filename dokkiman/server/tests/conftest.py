@@ -112,6 +112,13 @@ class FakeIndexServer:
                 moved += 1
         return _Value(moved)
 
+    def document_counts(self):
+        counts = {}
+        for doc in self.docs.values():
+            if doc["owner_id"]:
+                counts[doc["owner_id"]] = counts.get(doc["owner_id"], 0) + 1
+        return _Value(counts)
+
     def claim_unowned_documents(self, owner_id):
         claimed = 0
         for doc in self.docs.values():
