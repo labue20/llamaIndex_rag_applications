@@ -33,6 +33,12 @@ as_app git -C "$APP_DIR" checkout "$BRANCH"
 as_app git -C "$APP_DIR" pull --ff-only origin "$BRANCH"
 echo "Now at: $(as_app git -C "$APP_DIR" log --oneline -1)"
 
+# The pull may have changed this script: carry on with the new version (bash
+# would otherwise keep running the old one it already started reading)
+if [ -z "${DOKKIMAN_DEPLOY_RESTARTED:-}" ]; then
+    DOKKIMAN_DEPLOY_RESTARTED=1 exec bash "$DEPLOY_DIR/deploy.sh" "$BRANCH"
+fi
+
 log "Installing Python dependencies"
 as_app "$SERVER_DIR/.venv/bin/pip" install --quiet --upgrade pip
 as_app "$SERVER_DIR/.venv/bin/pip" install --quiet -r "$SERVER_DIR/requirements.txt"

@@ -67,8 +67,16 @@ apt-get install -y python3.10 python3.10-venv caddy nodejs
 apt-get install -y --no-install-recommends libreoffice-writer \
     fonts-liberation fonts-dejavu-core fonts-crosextra-carlito fonts-crosextra-caladea
 
-# Automatic security updates
+# Automatic security updates; when one needs a restart (e.g. a new kernel), reboot
+# at midnight in the server's timezone (TIMEZONE, default US Central). The site is
+# down for about a minute.
 dpkg-reconfigure -f noninteractive unattended-upgrades
+timedatectl set-timezone "${TIMEZONE:-America/Chicago}"
+cat > /etc/apt/apt.conf.d/52dokkiman-auto-reboot <<'CONF'
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+Unattended-Upgrade::Automatic-Reboot-Time "00:00";
+CONF
 
 log "Creating the '$APP_USER' user and downloading the app"
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
