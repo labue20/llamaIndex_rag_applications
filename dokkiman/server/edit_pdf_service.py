@@ -43,6 +43,8 @@ import re
 import fitz  # PyMuPDF
 from PIL import Image
 
+from pdf_forms import remove_xfa
+
 MAX_PAGES = 1000
 MAX_FILES = 10
 MAX_ITEMS = 500
@@ -604,6 +606,8 @@ def edit_pdf(main_bytes, extra_bytes, raw_request, image_bytes):
             if item["kind"] not in ("erase", "redact"):
                 draw_item(doc[item["page"]], item, pngs)
         apply_options(doc, options)
+        # Adobe's own copy of the form no longer matches the pages and values
+        remove_xfa(doc)
 
         return doc.tobytes(garbage=3, deflate=True)
     finally:

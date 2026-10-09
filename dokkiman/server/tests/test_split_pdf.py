@@ -160,3 +160,40 @@ def test_route_lets_the_browser_read_the_file_name(signup, make_pdf):
         headers={"Origin": "http://localhost:3000"},
     )
     assert "Content-Disposition" in response.headers["Access-Control-Expose-Headers"]
+
+
+# --- fillable forms ---------------------------------------------------------------
+
+def _form(pdf_bytes):
+    """Each page's field names and values, and whether Adobe's XFA copy is there."""
+    document = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pages = [[(w.field_name, w.field_value) for w in page.widgets()] for page in document]
+    has_xfa = document.xref_get_key(document.pdf_catalog(), "AcroForm/XFA")[0] != "null"
+    document.close()
+    return pages, has_xfa
+
+
+@pytest.mark.parametrize("mode,ranges", [("every", ""), ("ranges", "2, 1"), ("extract", "2, 1-2")])
+def test_form_fields_keep_their_names(xfa_form_pdf, mode, ranges):
+    # Fields that share a short name under different parents used to be renamed
+    # ("Dependent[0] [16]"), and Adobe then showed "Malformed SOM expression"
+    original = xfa_form_pdf()
+    original_pages, has_xfa = _form(original)
+    assert has_xfa
+
+    for _, data in split_pdf(original, mode, ranges):
+        pages, has_xfa = _form(data)
+        assert not has_xfa  # Adobe's copy of the form would no longer match
+        for fields in pages:
+            assert fields in original_pages
+            assert not any(" [" in name for name, _ in fields)
+
+
+def test_split_parts_hold_only_their_pages(xfa_form_pdf):
+    parts = split_pdf(xfa_form_pdf(pages=3), "every")
+    for number, (_, data) in enumerate(parts, start=1):
+        pages, _ = _form(data)
+        assert _page_texts(data) == [f"This is page {number}"]
+        assert [name for name, _ in pages[0]] == [
+            f"Page{number}[0].Row1[0].Dependent[0].c1[0]", f"Page{number}[0].Row2[0].Dependent[0].c1[0]",
+        ]

@@ -54,6 +54,23 @@ def _values(doc):
     return {w.field_name: w.field_value for page in doc for w in page.widgets()}
 
 
+def test_forms_built_like_irs_forms_still_open_in_adobe(xfa_form_pdf):
+    # IRS-style forms carry Adobe's XFA copy of the form, which goes out of date
+    # once fields are filled or pages move. It's removed (Adobe then uses the
+    # standard form), and no field is renamed.
+    doc = _edit(
+        xfa_form_pdf(), [{"page": 1}, {"page": 0}],
+        form={"Page1[0].Row2[0].Dependent[0].c1[0]": "Jane"},
+    )
+    assert doc.xref_get_key(doc.pdf_catalog(), "AcroForm/XFA")[0] == "null"
+    assert _values(doc) == {
+        "Page2[0].Row1[0].Dependent[0].c1[0]": "row 1",
+        "Page2[0].Row2[0].Dependent[0].c1[0]": "row 2",
+        "Page1[0].Row1[0].Dependent[0].c1[0]": "row 1",
+        "Page1[0].Row2[0].Dependent[0].c1[0]": "Jane",
+    }
+
+
 # --- pages ------------------------------------------------------------------------------
 
 def test_reorder_delete_and_duplicate(make_pdf):
