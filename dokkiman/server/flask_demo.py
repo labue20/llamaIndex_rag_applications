@@ -6,7 +6,7 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import fitz  # PyMuPDF for PDF to Word conversion
 from pdf_to_word_service import convert_pdf_to_word_document, validate_pdf_file
-from word_to_pdf_service import converter
+from word_to_pdf_service import ConversionError, converter
 from split_pdf_service import SPLIT_MODES, SplitError, split_pdf, zip_parts
 from sign_pdf_service import SignError, sign_pdf
 from signature_log import save_signature_record
@@ -18,6 +18,7 @@ from auth import init_auth, current_user_id
 from billing import billing_bp
 from signature_requests import requests_bp
 from folders import document_folder_map, folders_bp, forget_document
+from account import account_bp
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config
 from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES, TRUSTED_PROXY_COUNT
@@ -111,6 +112,7 @@ init_auth(app)
 app.register_blueprint(billing_bp)
 app.register_blueprint(requests_bp)
 app.register_blueprint(folders_bp)
+app.register_blueprint(account_bp)
 # Blueprints reach the index server through this (tests swap `manager`)
 app.config["INDEX_MANAGER"] = lambda: manager
 if config.STRIPE_CONFIG_ERROR:
@@ -197,9 +199,11 @@ def upload_file():
                 "error": result.get("error", "Unknown error occurred")
             }), 500
             
-    except Exception as e:
+    except Exception:
+        # Details go to the log, not to the browser (they can reveal internals)
+        app.logger.exception("Upload failed")
         return jsonify({
-            "error": f"Processing failed: {str(e)}"
+            "error": "The file couldn't be processed. Please try again, or try another file."
         }), 500
 
     finally:
@@ -253,9 +257,10 @@ def chat_with_document():
             "note": result.get("note")
         })), 200
         
-    except Exception as e:
+    except Exception:
+        app.logger.exception("Chat failed")
         return make_response(jsonify({
-            "error": f"Chat request failed: {str(e)}"
+            "error": "Something went wrong answering that. Please try again."
         })), 500
 
 
@@ -283,9 +288,10 @@ def get_full_document(doc_id):
             
         return make_response(jsonify(result)), 200
         
-    except Exception as e:
+    except Exception:
+        app.logger.exception("Couldn't load a document")
         return make_response(jsonify({
-            "error": f"Failed to retrieve document: {str(e)}"
+            "error": "The document couldn't be loaded. Please try again."
         })), 500
 
 
@@ -320,9 +326,10 @@ def delete_document(doc_id):
             
         return make_response(jsonify(result)), 200
         
-    except Exception as e:
+    except Exception:
+        app.logger.exception("Couldn't delete a document")
         return make_response(jsonify({
-            "error": f"Failed to delete document: {str(e)}"
+            "error": "The document couldn't be deleted. Please try again."
         })), 500
 
 
@@ -360,9 +367,9 @@ def convert_pdf_to_word():
         
     except fitz.FileDataError:
         return jsonify({"error": "Invalid PDF file or corrupted PDF"}), 400
-    except Exception as e:
-        app.logger.error(f"PDF to Word conversion failed: {str(e)}")
-        return jsonify({"error": f"Conversion failed: {str(e)}"}), 500
+    except Exception:
+        app.logger.exception("PDF to Word conversion failed")
+        return jsonify({"error": "The PDF couldn't be converted. It may be damaged or unusual."}), 500
 
 
 @app.route("/convertWordToPdf", methods=["POST"])
@@ -396,9 +403,13 @@ def convert_word_to_pdf():
 
             converter.convert_docx_to_pdf(input_path, output_path)
             pdf_bytes = output_path.read_bytes()
-    except Exception as e:
-        app.logger.error(f"Word to PDF conversion error: {str(e)}")
-        return jsonify({'error': f'Conversion failed: {str(e)}'}), 500
+    except ConversionError as e:
+        # Written for people ("took too long", "may be damaged"): safe to show
+        app.logger.error(f"Word to PDF conversion error: {e}")
+        return jsonify({'error': str(e)}), 500
+    except Exception:
+        app.logger.exception("Word to PDF conversion failed")
+        return jsonify({'error': "The document couldn't be converted. Please try again."}), 500
 
     return send_file(
         io.BytesIO(pdf_bytes),
@@ -527,9 +538,10 @@ def background_index(doc_id):
             "status": "processing"
         }), 200
         
-    except Exception as e:
+    except Exception:
+        app.logger.exception("Couldn't start background indexing")
         return jsonify({
-            "error": f"Failed to start background indexing: {str(e)}"
+            "error": "Couldn't start processing the document. Please try again."
         }), 500
 
 
