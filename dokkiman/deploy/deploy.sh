@@ -46,7 +46,8 @@ as_app "$SERVER_DIR/.venv/bin/pip" install --quiet -r "$SERVER_DIR/requirements.
 log "Building the frontend"
 # The API is served from the same site under /api (see the Caddyfile)
 (cd "$FRONTEND_DIR" && as_app npm ci --no-audit --no-fund --loglevel=error)
-(cd "$FRONTEND_DIR" && as_app env REACT_APP_API_URL=/api GENERATE_SOURCEMAP=false npm run build)
+# INLINE_RUNTIME_CHUNK=false: no inline script, which the Content-Security-Policy would block
+(cd "$FRONTEND_DIR" && as_app env REACT_APP_API_URL=/api GENERATE_SOURCEMAP=false INLINE_RUNTIME_CHUNK=false npm run build)
 
 log "Installing services"
 install -m 644 "$DEPLOY_DIR/systemd/dokkiman-index.service" /etc/systemd/system/
@@ -63,6 +64,21 @@ log "Restarting"
 # Restarting the index server also restarts the API (PartOf=)
 systemctl restart dokkiman-index.service
 systemctl start dokkiman-api.service
+# Refresh Caddy's config from the repo (security headers, log settings), for the
+# domain setup.sh configured. Checked as the caddy user before it's used, so a
+# mistake can't take the site down.
+DOMAIN=$(grep -m1 -oE '^[a-z0-9.-]+\.[a-z]{2,} \{' /etc/caddy/Caddyfile | cut -d' ' -f1 || true)
+if [ -n "$DOMAIN" ]; then
+    NEW_CADDYFILE=$(mktemp)
+    sed "s/__DOMAIN__/$DOMAIN/g" "$DEPLOY_DIR/Caddyfile" > "$NEW_CADDYFILE"
+    chmod 644 "$NEW_CADDYFILE"
+    if sudo -u caddy caddy validate --config "$NEW_CADDYFILE" --adapter caddyfile >/dev/null 2>&1; then
+        install -m 644 "$NEW_CADDYFILE" /etc/caddy/Caddyfile
+    else
+        echo "Warning: the new Caddyfile didn't validate; keeping the current one." >&2
+    fi
+    rm -f "$NEW_CADDYFILE"
+fi
 systemctl reload caddy || systemctl restart caddy
 
 log "Checking health"

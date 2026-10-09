@@ -35,6 +35,10 @@ __DOMAIN__ {
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# Only this site's own code may run, plus Google sign-in; styles and fonts
+		# from Google Fonts; blob: for in-browser PDF previews and downloads.
+		# Tested with every tool (see the CSP note in docs/DEPLOY_AWS_LIGHTSAIL.md).
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' blob: https://accounts.google.com/gsi/; frame-src 'self' blob: https://accounts.google.com/gsi/; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		-Server
 	}
 
@@ -42,6 +46,11 @@ __DOMAIN__ {
 		output file /var/log/caddy/dokkiman-access.log {
 			roll_size 20MiB
 			roll_keep 5
+		}
+		# Signing links let whoever has them sign: keep their tokens out of the log
+		format filter {
+			request>uri regexp "(/sign(?:ing)?/)[A-Za-z0-9_-]{20,}" "${1}[token]"
+			request>headers>Referer regexp "(/sign(?:ing)?/)[A-Za-z0-9_-]{20,}" "${1}[token]"
 		}
 	}
 }
