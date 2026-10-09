@@ -150,6 +150,8 @@ $tool-colors: (
     gap: 0.25rem;
     flex: 1;
 
+    // Links to each tool's page
+    a,
     button {
       padding: 0.4375rem 0.75rem;
       border: none;
@@ -159,6 +161,7 @@ $tool-colors: (
       font: inherit;
       font-size: 0.875rem;
       font-weight: 500;
+      text-decoration: none;
       white-space: nowrap;
       cursor: pointer;
 

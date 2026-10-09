@@ -1,7 +1,7 @@
 /**
  * Home Nav
  * Top bar of the public pages: logo and tools on the left; Pricing and the
- * account buttons on the right
+ * account buttons on the right. The tools link to their public pages.
  */
 
 import React from 'react';
@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 import LogoMark from '../../../shared/components/LogoMark';
 import { TRYABLE_TOOLS } from '../tools';
 
-const HomeNav = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false, onOpenApp }) => (
+const HomeNav = ({ onLogin, onSignup, isLoggedIn = false, onOpenApp }) => (
   <header className='home-nav'>
     <div className='home-nav__inner'>
       <Link to='/' className='home-nav__brand' aria-label='Dokkiman home'>
@@ -20,9 +20,7 @@ const HomeNav = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false, onOpenApp 
       </Link>
       <nav className='home-nav__links' aria-label='Tools'>
         {TRYABLE_TOOLS.map((tool) => (
-          <button key={tool.id} type='button' onClick={() => onOpenTool(tool.id)}>
-            {tool.title}
-          </button>
+          <Link key={tool.id} to={tool.page}>{tool.title}</Link>
         ))}
       </nav>
       <div className='home-nav__actions'>

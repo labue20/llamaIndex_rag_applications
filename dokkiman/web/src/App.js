@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Header, Footer, SidebarLayout, Icon, ConverterHeaderActions } from './shared';
+import { Header, Footer, SidebarLayout, Icon, ConverterHeaderActions, takeFilesForTool } from './shared';
 import { DocumentTools } from './features/document-management';
 import { AiPdfTools, ChatHeaderActions } from './features/ai-pdf';
 import { documentApi, useDocuments } from './features/document-management';
@@ -171,6 +171,19 @@ function App() {
       navigate(appPath(RENAMED_SLUGS[slug] || (isGuest ? 'chat' : 'documents')), { replace: true });
     }
   }, [activeIndex, slug, isGuest, navigate]);
+
+  // Files chosen on a tool's public page (e.g. /compress-pdf): open them in the tool
+  useEffect(() => {
+    const files = takeFilesForTool(slug);
+    if (!files) return;
+    const toolRefs = {
+      'pdf-to-word': pdfToWordRef, 'word-to-pdf': wordToPdfRef, 'split-pdf': splitPdfRef,
+      'compress-pdf': compressPdfRef, 'edit-pdf': editPdfRef, 'e-sign': eSignRef,
+    };
+    const tool = toolRefs[slug]?.current;
+    if (tool?.openFiles) tool.openFiles(files);
+    else tool?.selectFile(files[0]);
+  }, [slug]);
 
   // Name the browser tab after the current tool
   const activeTitle = sections[Math.max(activeIndex, 0)].title;

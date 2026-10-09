@@ -1,0 +1,256 @@
+/**
+ * Tool Page Styles (public pages for each tool, like /compress-pdf)
+ */
+
+@import '../../../shared/styles/variables';
+
+$tool-width: 1040px;
+$violet: #7c3aed;
+
+// Scoped to the page, so these win over the homepage's resets (.home h2, .home p)
+.tool-page {
+  .tool-hero {
+    padding: 4.5rem 1.5rem 3.5rem;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(theme-color(accent), 0.12), transparent 60%),
+      radial-gradient(circle at 90% 30%, rgba($violet, 0.07), transparent 35%);
+
+    @media (max-width: 640px) { padding-top: 2.75rem; }
+
+    &__icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 60px;
+      height: 60px;
+      margin-bottom: 1.25rem;
+      border-radius: 16px;
+      background: theme-color(accent);
+      color: theme-color(text-contrast);
+      box-shadow: 0 10px 24px -10px rgba(theme-color(accent), 0.7);
+    }
+
+    &__title {
+      max-width: 760px;
+      margin: 0 auto 1rem !important;
+      font-size: clamp(2.25rem, 5.5vw, 3.5rem);
+      line-height: 1.08;
+      font-weight: 800;
+      letter-spacing: -0.035em;
+    }
+
+    &__lead {
+      max-width: 620px;
+      margin: 0 auto;
+      color: theme-color(text-secondary);
+      font-size: 1.125rem;
+      line-height: 1.6;
+    }
+
+    &__note {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      margin: 1rem 0 0;
+      color: theme-color(text-secondary);
+      font-size: 0.875rem;
+    }
+  }
+
+  // The big "choose a file" area: click, or drop files on it
+  .tool-drop {
+    max-width: 620px;
+    margin: 2rem auto 0;
+    padding: 2.25rem 1.5rem;
+    border: 2px dashed rgba(theme-color(accent), 0.35);
+    border-radius: 20px;
+    background: theme-color(primary);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+
+    &--active {
+      border-color: theme-color(accent);
+      background: theme-color(accent-light);
+    }
+
+    // Hidden, but still reachable from its label
+    &__input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &__button {
+      gap: 0.5rem;
+      cursor: pointer;
+    }
+
+    &__input:focus-visible + &__button {
+      outline: 2px solid theme-color(accent);
+      outline-offset: 3px;
+    }
+
+    &__hint {
+      margin: 0.875rem 0 0;
+      color: theme-color(text-secondary);
+      font-size: 0.875rem;
+    }
+  }
+
+  .tool-section {
+    padding: 4rem 1.5rem;
+
+    @media (max-width: 640px) { padding: 3rem 1.25rem; }
+
+    &--tinted { background: theme-color(secondary); }
+
+    > * {
+      max-width: $tool-width;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  }
+
+  .tool-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin-top: 2.5rem;
+    padding: 0;
+    list-style: none;
+
+    @media (max-width: 760px) { grid-template-columns: minmax(0, 1fr); }
+
+    &__item {
+      padding: 1.5rem;
+      border: 1px solid theme-color(border);
+      border-radius: 16px;
+      background: theme-color(primary);
+
+      h3 { margin: 0.875rem 0 0.375rem; font-size: 1.0625rem; }
+      p { margin: 0; color: theme-color(text-secondary); line-height: 1.55; }
+    }
+
+    &__number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: theme-color(accent-light);
+      color: theme-color(accent);
+      font-weight: 700;
+    }
+  }
+
+  .tool-features {
+    display: grid;
+    // Two to a row: every tool has four or six
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 2.5rem;
+
+    @media (max-width: 680px) { grid-template-columns: minmax(0, 1fr); }
+
+    &__item {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1.25rem;
+      border-radius: 14px;
+      background: theme-color(primary);
+
+      > .icon { flex-shrink: 0; margin-top: 2px; color: darken(theme-color(success), 6%); }
+      h3 { margin: 0 0 0.25rem; font-size: 1rem; }
+      p { margin: 0; color: theme-color(text-secondary); line-height: 1.55; font-size: 0.9375rem; }
+    }
+  }
+
+  .tool-faq {
+    max-width: 760px !important;
+    margin-top: 2rem;
+
+    &__item {
+      border-bottom: 1px solid theme-color(border);
+
+      summary {
+        position: relative;
+        padding: 1.125rem 2rem 1.125rem 0;
+        font-weight: 600;
+        cursor: pointer;
+        list-style: none;
+
+        &::-webkit-details-marker { display: none; }
+
+        // A plus that turns into a minus when open
+        &::after {
+          content: '+';
+          position: absolute;
+          right: 0.25rem;
+          top: 50%;
+          transform: translateY(-50%);
+          color: theme-color(accent);
+          font-size: 1.375rem;
+          font-weight: 400;
+        }
+
+        &:focus-visible { outline: 2px solid theme-color(accent); outline-offset: 2px; }
+      }
+
+      &[open] summary::after { content: '−'; }
+
+      p {
+        margin: 0 0 1.125rem;
+        color: theme-color(text-secondary);
+        line-height: 1.6;
+      }
+    }
+  }
+
+  .tool-related {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+
+    &__item {
+      display: flex;
+      gap: 0.875rem;
+      padding: 1.25rem;
+      border: 1px solid theme-color(border);
+      border-radius: 14px;
+      background: theme-color(primary);
+      color: theme-color(text-primary);
+      text-decoration: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+      &:hover {
+        border-color: rgba(theme-color(accent), 0.5);
+        box-shadow: 0 8px 24px -16px rgba(15, 23, 42, 0.35);
+      }
+
+      strong { display: block; margin-bottom: 0.25rem; }
+    }
+
+    &__icon {
+      display: inline-flex;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: theme-color(accent-light);
+      color: theme-color(accent);
+    }
+
+    &__text {
+      display: block;
+      color: theme-color(text-secondary);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+  }
+}

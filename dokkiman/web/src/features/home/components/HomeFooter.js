@@ -6,7 +6,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import LogoMark from '../../../shared/components/LogoMark';
-import { TOOLS } from '../tools';
+import TOOL_PAGES from '../../../seo/toolPages.json';
 
 const HomeFooter = ({ onLogin, onSignup, onOpenTool }) => (
   <footer className='home-footer'>
@@ -17,16 +17,15 @@ const HomeFooter = ({ onLogin, onSignup, onOpenTool }) => (
         </span>
         <div>
           <strong>Dokkiman</strong>
-          <p>Chat with and convert your PDFs.</p>
+          <p>Edit, sign, convert and chat with your PDFs.</p>
         </div>
       </div>
       <div className='home-footer__col'>
         <h4>Tools</h4>
-        {TOOLS.map((tool) => (
-          <button key={tool.id} type='button' onClick={() => onOpenTool(tool.id)}>
-            {tool.title}
-          </button>
+        {TOOL_PAGES.map((page) => (
+          <Link key={page.path} to={page.path}>{page.name}</Link>
         ))}
+        <button type='button' onClick={() => onOpenTool('manager')}>Document Manager</button>
       </div>
       <div className='home-footer__col'>
         <h4>Account</h4>

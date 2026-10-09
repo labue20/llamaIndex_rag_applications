@@ -228,7 +228,6 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
       <HomeNav
         onLogin={onLogin}
         onSignup={onSignup}
-        onOpenTool={openTool}
         isLoggedIn={!!user}
         onOpenApp={onOpenApp}
       />

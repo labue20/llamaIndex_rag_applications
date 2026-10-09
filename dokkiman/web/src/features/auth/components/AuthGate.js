@@ -9,10 +9,11 @@
  *   /privacy       Privacy Policy
  *   /terms         Terms of Service
  *   /admin         Admin portal (admins only; the server checks)
+ *   /compress-pdf, /edit-pdf...  a public page for each tool (src/seo/toolPages.json)
  */
 
 import React from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthPage from './AuthPage';
 import UpgradeDialog from './UpgradeDialog';
@@ -20,17 +21,24 @@ import UpgradeReturnNotice from './UpgradeReturnNotice';
 import { HomePage } from '../../home';
 import { LegalPage } from '../../legal';
 import { PricingPage } from '../../pricing';
-import { HOME_AFTER_LOGIN } from '../../../routes';
+import { HOME_AFTER_LOGIN, appPath } from '../../../routes';
 import { SigningPage } from '../../e-sign';
 import { AdminPage } from '../../admin';
 import usePageMeta from '../../../seo/usePageMeta';
+import TOOL_PAGES from '../../../seo/toolPages.json';
+import { ToolPage } from '../../tool-pages';
+import { handFilesToTool } from '../../../shared/utils/toolHandOff';
 
 const AuthGate = ({ children }) => {
   const { user, isCheckingSession, showHome, showAuth, tryTool, pathAfterAuth } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   usePageMeta();
 
-  if (isCheckingSession) {
+  // Tool pages arrive with their content already in the HTML: show it at once,
+  // rather than a spinner while the session is checked
+  const isToolPage = TOOL_PAGES.some((page) => page.path === pathname);
+  if (isCheckingSession && !isToolPage) {
     return (
       <div className='auth-page'>
         <span className='auth-form__spinner auth-form__spinner--large' aria-label='Loading' />
@@ -75,6 +83,27 @@ const AuthGate = ({ children }) => {
           />
         }
       />
+      {TOOL_PAGES.map((page) => (
+        <Route
+          key={page.path}
+          path={page.path}
+          element={
+            <ToolPage
+              page={page}
+              isLoggedIn={!!user}
+              onLogin={() => showAuth('login')}
+              onSignup={() => showAuth('signup')}
+              onOpenManager={() => showAuth('signup')}
+              onOpenApp={() => navigate(HOME_AFTER_LOGIN)}
+              // Open the tool, with the files chosen here
+              onOpen={(files) => {
+                if (files.length) handFilesToTool(page.app, files);
+                navigate(appPath(page.app));
+              }}
+            />
+          }
+        />
+      ))}
       <Route path='/privacy' element={<LegalPage doc='privacy' />} />
       <Route path='/terms' element={<LegalPage doc='terms' />} />
       {/* Signing a document someone sent: no account needed */}

@@ -23,19 +23,19 @@ test('lists every tool', () => {
   });
 });
 
-test('the top bar links to every tool that can be tried without an account', () => {
+test('the top bar links to each tool’s public page', () => {
   mockFetch({});
-  const { onTryTool } = renderHome();
-  const links = within(screen.getByRole('navigation', { name: 'Tools' })).getAllByRole('button');
-  expect(links.map((link) => link.textContent)).toEqual(
-    ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Compress PDF', 'Edit PDF', 'E-Sign']
-  );
-  fireEvent.click(links[4]);
-  expect(onTryTool).toHaveBeenLastCalledWith('compress');
-  fireEvent.click(links[5]);
-  expect(onTryTool).toHaveBeenLastCalledWith('edit');
-  fireEvent.click(links[6]);
-  expect(onTryTool).toHaveBeenLastCalledWith('sign');
+  renderHome();
+  const links = within(screen.getByRole('navigation', { name: 'Tools' })).getAllByRole('link');
+  expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+    ['Chat with PDF', '/chat-with-pdf'],
+    ['PDF to Word', '/pdf-to-word'],
+    ['Word to PDF', '/word-to-pdf'],
+    ['Split PDF', '/split-pdf'],
+    ['Compress PDF', '/compress-pdf'],
+    ['Edit PDF', '/edit-pdf'],
+    ['E-Sign', '/sign-pdf'],
+  ]);
 });
 
 test('shows the trial terms from the server', async () => {
