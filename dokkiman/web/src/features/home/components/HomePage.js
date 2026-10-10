@@ -153,10 +153,13 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
 
       <main>
         <section className='home-hero'>
-          <span className='home-hero__eyebrow'>
-            <Icon name='sparkle' size={14} />
-            {trialLabel} · No credit card needed
-          </span>
+          {/* The trial offer is for visitors; people who are signed in already have an account */}
+          {!isLoggedIn && (
+            <span className='home-hero__eyebrow'>
+              <Icon name='sparkle' size={14} />
+              {trialLabel} · No credit card needed
+            </span>
+          )}
           <h1 className='home-hero__title'>
             Sign, convert and chat with your <span className='home-hero__highlight'>documents</span>
           </h1>
@@ -244,6 +247,7 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
           </div>
         </section>
 
+        {!isLoggedIn && (
         <section className='home-cta'>
           <h2>Try it free for {planInfo.trial_days} days</h2>
           <p>
@@ -255,9 +259,10 @@ const HomePage = ({ onLogin, onSignup, onTryTool = onSignup, isLoggedIn = false,
             Start free trial
           </button>
         </section>
+        )}
       </main>
 
-      <HomeFooter onLogin={onLogin} onSignup={onSignup} onOpenTool={openTool} />
+      <HomeFooter onLogin={onLogin} onSignup={onSignup} onOpenTool={openTool} isLoggedIn={isLoggedIn} />
     </div>
   );
 };

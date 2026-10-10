@@ -79,9 +79,11 @@ const ToolPage = ({ page, onOpen, onLogin, onSignup, onOpenApp, onOpenManager, i
               <p className='tool-drop__hint'>{page.hint}</p>
             </div>
           )}
-          <p className='tool-hero__note'>
-            <Icon name='lock' size={14} /> Free to try, no sign-up needed
-          </p>
+          {!isLoggedIn && (
+            <p className='tool-hero__note'>
+              <Icon name='lock' size={14} /> Free to try, no sign-up needed
+            </p>
+          )}
         </section>
 
         <section className='tool-section' aria-labelledby='tool-steps-title'>
@@ -142,7 +144,7 @@ const ToolPage = ({ page, onOpen, onLogin, onSignup, onOpenApp, onOpenManager, i
         </section>
       </main>
 
-      <HomeFooter onLogin={onLogin} onSignup={onSignup} onOpenTool={onOpenManager} />
+      <HomeFooter onLogin={onLogin} onSignup={onSignup} onOpenTool={onOpenManager} isLoggedIn={isLoggedIn} />
     </div>
   );
 };

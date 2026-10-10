@@ -3,7 +3,7 @@
  */
 
 // /app/<slug> for each section of the app, in sidebar order
-export const APP_SECTION_SLUGS = ['documents', 'chat', 'pdf-to-word', 'word-to-pdf', 'split-pdf', 'compress-pdf', 'edit-pdf', 'e-sign'];
+export const APP_SECTION_SLUGS = ['documents', 'chat', 'e-sign', 'pdf-to-word', 'word-to-pdf', 'split-pdf', 'compress-pdf', 'edit-pdf'];
 
 // Old addresses that moved: /app/sign-pdf is now /app/e-sign
 export const RENAMED_SLUGS = { 'sign-pdf': 'e-sign' };

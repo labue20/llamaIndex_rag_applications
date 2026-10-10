@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import LogoMark from '../../../shared/components/LogoMark';
 import TOOL_PAGES from '../../../seo/toolPages.json';
 
-const HomeFooter = ({ onLogin, onSignup, onOpenTool }) => (
+const HomeFooter = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false }) => (
   <footer className='home-footer'>
     <div className='home-footer__inner'>
       <div className='home-footer__brand'>
@@ -29,8 +29,12 @@ const HomeFooter = ({ onLogin, onSignup, onOpenTool }) => (
       </div>
       <div className='home-footer__col'>
         <h4>Account</h4>
-        <button type='button' onClick={onLogin}>Log in</button>
-        <button type='button' onClick={onSignup}>Start free trial</button>
+        {!isLoggedIn && (
+          <>
+            <button type='button' onClick={onLogin}>Log in</button>
+            <button type='button' onClick={onSignup}>Start free trial</button>
+          </>
+        )}
         <Link to='/pricing'>Pricing</Link>
       </div>
       <div className='home-footer__col'>

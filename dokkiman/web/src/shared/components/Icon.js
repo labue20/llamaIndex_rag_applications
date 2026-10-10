@@ -142,6 +142,7 @@ const PATHS = {
   ),
   undo: <path d='M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3' />,
   close: <path d='M6 6l12 12M18 6L6 18' />,
+  more: <path d='M5 12h.01M12 12h.01M19 12h.01' strokeWidth='3' />,
   chevronLeft: <path d='M15 18l-6-6 6-6' />,
   chevronRight: <path d='M9 18l6-6-6-6' />,
   chevronDown: <path d='M6 9l6 6 6-6' />,

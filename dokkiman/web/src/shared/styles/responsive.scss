@@ -15,6 +15,7 @@ $tab-bar-height: 58px;
 // Hidden on desktop, shown on small screens
 .split-layout__tabs,
 .sidebar-layout__nav-short,
+.sidebar-layout__more,
 .viewer__file-meta {
   display: none;
 }
@@ -171,14 +172,24 @@ $tab-bar-height: 58px;
     display: none;
   }
 
-  // Page title with its toolbar underneath
+  // Page title and its buttons on one row; the buttons show icons only
   .sidebar-layout__header {
+    flex-wrap: nowrap;
     min-height: 0;
-    padding: 0.625rem 1rem;
+    padding: 0.5rem 0.75rem 0.5rem 1rem;
+  }
+
+  .sidebar-layout__title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.0625rem;
   }
 
   .sidebar-layout__header-actions {
-    width: 100%;
+    flex-shrink: 0;
+    margin-left: auto;
   }
 
   .sidebar-layout__body {
@@ -186,14 +197,87 @@ $tab-bar-height: 58px;
   }
 
   .page-actions {
+    flex-wrap: nowrap;
     gap: 0.375rem;
   }
 
   .page-actions__btn,
   .page-actions__upload.file-selector--compact .file-selector__btn {
-    height: 34px;
-    padding: 0 0.75rem;
-    font-size: 0.8125rem;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  // Nothing to clear or close yet: no button
+  .page-actions__btn:disabled {
+    display: none;
+  }
+
+  // Labels stay for screen readers
+  .page-actions__label,
+  .page-actions__upload .file-selector__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  // Bottom tab bar: the main tools, and More for the rest
+  .sidebar-layout__nav-container--more {
+    display: none;
+  }
+
+  .sidebar-layout__more {
+    display: block;
+  }
+
+  .sidebar-layout__more-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(15, 23, 42, 0.35);
+  }
+
+  .sidebar-layout__more-sheet {
+    position: fixed;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: calc(#{$tab-bar-height} + 0.75rem + env(safe-area-inset-bottom));
+    z-index: 41;
+    display: flex;
+    flex-direction: column;
+    padding: 0.375rem;
+    border: 1px solid theme-color(border);
+    border-radius: 14px;
+    background: theme-color(primary);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+  }
+
+  .sidebar-layout__more-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 0.75rem;
+    border: none;
+    border-radius: 10px;
+    background: none;
+    color: theme-color(text-primary);
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible { background: theme-color(secondary); outline: none; }
+
+    &--active {
+      background: theme-color(accent-light);
+      color: theme-color(accent);
+    }
   }
 
   // Upload buttons stacked at full width inside the upload box

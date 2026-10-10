@@ -126,7 +126,7 @@ const FileSelector = ({
         htmlFor={inputId}
       >
         {variant === 'compact' && <Icon name='upload' size={18} />}
-        <span>{isUploading ? 'Uploading...' : label}</span>
+        <span className='file-selector__label'>{isUploading ? 'Uploading...' : label}</span>
       </label>
       
       {selectedFile && !autoUpload && onUploadSuccess && (

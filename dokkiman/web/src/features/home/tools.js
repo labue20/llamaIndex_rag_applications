@@ -14,6 +14,13 @@ export const TOOLS = [
     badge: 'AI',
   },
   {
+    id: 'sign',
+    page: '/sign-pdf',
+    icon: 'pen',
+    title: 'E-Sign',
+    text: 'Sign documents yourself, or send them to others to sign by email, with an audit trail.',
+  },
+  {
     id: 'pdf-word',
     page: '/pdf-to-word',
     icon: 'fileToWord',
@@ -49,13 +56,6 @@ export const TOOLS = [
     title: 'Edit PDF',
     text: 'Add text, images and highlights, fill in forms, and reorder or combine pages.',
     badge: 'New',
-  },
-  {
-    id: 'sign',
-    page: '/sign-pdf',
-    icon: 'pen',
-    title: 'E-Sign',
-    text: 'Sign documents yourself, or send them to others to sign by email, with an audit trail.',
   },
   {
     id: 'manager',
