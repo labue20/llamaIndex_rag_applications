@@ -85,14 +85,14 @@
     "app": "e-sign",
     "icon": "pen",
     "accept": ".pdf,.docx",
-    "name": "Sign PDF & Word",
-    "title": "Sign PDF & Word Documents Online · Dokkiman",
-    "description": "Sign PDFs and Word documents online, or send them to others to sign by email. Draw, type or upload your signature, with an audit trail of who signed and when.",
-    "h1": "Sign PDF and Word documents online",
-    "lead": "Sign a PDF or Word document yourself in seconds, or send it to others to sign by email. Every signature comes with an audit trail of who signed and when.",
+    "name": "Sign Documents",
+    "title": "Sign Documents Online · PDF & Word · Dokkiman",
+    "description": "Sign documents online, or send them to others to sign by email. Works with PDF and Word files. Draw, type or upload your signature, with an audit trail.",
+    "h1": "Sign documents online",
+    "lead": "Sign a document yourself in seconds, or send it to others to sign by email. Every signature comes with an audit trail of who signed and when.",
     "cta": "Choose a document to sign",
     "hint": "PDF or Word (.docx) • Up to 50 MB",
-    "howTo": "How to sign a PDF or Word document",
+    "howTo": "How to sign a document",
     "steps": [
       {
         "title": "Open your document",
@@ -472,7 +472,7 @@
       },
       {
         "title": "Ready to sign",
-        "text": "Need a signature? You can also sign a Word document directly with Sign PDF & Word, or send it for signature."
+        "text": "Need a signature? You can also sign a Word document directly with Sign Documents, or send it for signature."
       },
       {
         "title": "Nothing to install",
