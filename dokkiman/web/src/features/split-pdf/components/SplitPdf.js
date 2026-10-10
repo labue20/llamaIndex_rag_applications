@@ -1,19 +1,22 @@
 /**
  * Split PDF Component
  * Split a PDF into one file per page, into page ranges, or extract selected
- * pages into one file. The server does the splitting (/splitPdf).
+ * pages into one file. Every page is previewed, and pages can be picked by
+ * clicking them as well as typed. The server does the splitting (/splitPdf).
  */
 
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import * as pdfjsLib from 'pdfjs-dist/webpack';
 import {
   apiFetch,
   DocumentPicker,
   downloadBlob,
   filenameFromDisposition,
-  getPdfPageCount,
   Icon,
   readApiError,
 } from '../../../shared';
+import { formatRanges, parseRanges, partOfPage, togglePage } from '../pageSelection';
+import PageGrid from './PageGrid';
 import '../../../shared/styles/converter.scss';
 
 const MODES = [
@@ -27,6 +30,7 @@ const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase
 const SplitPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref) => {
   const [file, setFile] = useState(null);
   const [pageCount, setPageCount] = useState(null); // filled in once the PDF has been read
+  const [pdf, setPdf] = useState(null); // pdf.js document, for the page previews
   const [mode, setMode] = useState('every');
   const [ranges, setRanges] = useState('');
   const [isSplitting, setIsSplitting] = useState(false);
@@ -43,20 +47,28 @@ const SplitPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, re
     }
     setFile(selectedFile);
     setPageCount(null);
+    setPdf(null);
     setError('');
     setDownloaded('');
     currentFileRef.current = selectedFile;
 
     try {
-      const numPages = await getPdfPageCount(selectedFile);
+      const data = selectedFile.arrayBuffer ? await selectedFile.arrayBuffer() : new ArrayBuffer(0);
+      const doc = await pdfjsLib.getDocument({ data }).promise;
       // Ignore the result if another file was chosen in the meantime
       if (currentFileRef.current === selectedFile) {
-        setPageCount(numPages);
+        setPdf(doc);
+        setPageCount(doc.numPages);
+      } else {
+        doc.destroy();
       }
     } catch (err) {
       console.error('Error reading PDF info:', err);
     }
   };
+
+  // Free the previous PDF's memory when another is opened or it's closed
+  useEffect(() => () => pdf?.destroy?.(), [pdf]);
 
   const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
@@ -67,6 +79,7 @@ const SplitPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, re
   const reset = () => {
     setFile(null);
     setPageCount(null);
+    setPdf(null);
     setRanges('');
     setError('');
     setDownloaded('');
@@ -79,6 +92,18 @@ const SplitPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, re
   useEffect(() => {
     onStatusChange?.({ hasFile: !!file, isBusy: isSplitting });
   }, [onStatusChange, file, isSplitting]);
+
+  // Pages picked on the previews and typed in the Pages box stay in step
+  const pickedRanges = pageCount ? parseRanges(ranges, pageCount) : [];
+  const parts = mode === 'every' ? new Map() : partOfPage(pickedRanges);
+  const pickPage = (page) => {
+    setError('');
+    setDownloaded('');
+    // From "Every page", picking a page means choosing pages to extract
+    const pickMode = mode === 'every' ? 'extract' : mode;
+    if (mode === 'every') setMode('extract');
+    setRanges(formatRanges(togglePage(mode === 'every' ? [] : pickedRanges, page, pickMode)));
+  };
 
   const splitPdf = async () => {
     if (!file) return;
@@ -204,8 +229,26 @@ const SplitPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, re
               />
               <span className="split-ranges__hint" id="split-ranges-hint">
                 {pageCount ? `This PDF has ${pageCount} ${pageCount === 1 ? 'page' : 'pages'}. ` : ''}
-                Separate pages and ranges with commas.
+                Separate pages and ranges with commas, or click the pages below.
               </span>
+            </div>
+          )}
+
+          {pdf && pageCount && (
+            <div className="split-preview">
+              <p className="split-preview__caption">
+                {mode === 'every' && `Each of the ${pageCount} pages becomes its own PDF. Click pages to keep only some.`}
+                {mode === 'ranges' && 'Click pages to add or remove them. Each range becomes its own PDF.'}
+                {mode === 'extract' && 'Click the pages to keep. They’re combined into one PDF.'}
+              </p>
+              <PageGrid
+                pdf={pdf}
+                pageCount={pageCount}
+                mode={mode}
+                parts={parts}
+                disabled={isSplitting}
+                onToggle={pickPage}
+              />
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SplitPdf from './SplitPdf';
 import { ConverterHeaderActions } from '../../../shared';
 
@@ -29,6 +29,8 @@ const choosePdf = (file = pdf()) =>
 const splitButton = () => screen.getByRole('button', { name: /Split PDF/ });
 
 beforeEach(() => {
+  // jsdom can't draw; the page previews only need a context to exist
+  jest.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ({}));
   window.URL.createObjectURL = jest.fn(() => 'blob:fake');
   window.URL.revokeObjectURL = jest.fn();
   jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -137,8 +139,51 @@ test('shows the page count and a readable Document Information box', async () =>
   choosePdf(pdf('wilfred_2024_tax_transcript.pdf'));
 
   expect(screen.getByText('wilfred_2024_tax_transcript.pdf')).toBeInTheDocument();
-  expect(await screen.findByText('3')).toBeInTheDocument();
+  expect(await screen.findByText('3', { selector: '.info-value' })).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('radio', { name: /Custom ranges/ }));
   expect(screen.getByText(/This PDF has 3 pages/)).toBeInTheDocument();
+});
+
+test('every page is previewed, and pages can be picked by clicking', async () => {
+  const requests = mockSplitServer({ type: 'application/pdf', fileName: 'report_extracted.pdf' });
+  render(<SplitPdf />);
+  choosePdf();
+
+  // The fake pdf.js has 3 pages
+  const grid = await screen.findByRole('list', { name: 'Page previews' });
+  expect(within(grid).getAllByRole('button', { name: /^Page \d$/ })).toHaveLength(3);
+  expect(within(grid).getByText('File 3')).toBeInTheDocument(); // Every page: a file each
+
+  // Clicking a page switches to picking pages to extract
+  fireEvent.click(within(grid).getByRole('button', { name: 'Page 3' }));
+  expect(screen.getByRole('radio', { name: /Extract pages/ })).toBeChecked();
+  fireEvent.click(within(grid).getByRole('button', { name: 'Page 1' }));
+  expect(screen.getByLabelText('Pages')).toHaveValue('1, 3');
+  expect(within(grid).getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-pressed', 'false');
+
+  // Typing updates the previews too
+  fireEvent.change(screen.getByLabelText('Pages'), { target: { value: '1-2' } });
+  expect(within(grid).getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-pressed', 'true');
+  expect(within(grid).getByRole('button', { name: 'Page 3' })).toHaveAttribute('aria-pressed', 'false');
+
+  fireEvent.click(splitButton());
+  await screen.findByRole('status');
+  expect(requests[0].form.get('ranges')).toBe('1-2');
+});
+
+test('custom ranges show which file each page goes into', async () => {
+  mockSplitServer();
+  render(<SplitPdf />);
+  choosePdf();
+  const grid = await screen.findByRole('list', { name: 'Page previews' });
+
+  fireEvent.click(screen.getByRole('radio', { name: /Custom ranges/ }));
+  fireEvent.change(screen.getByLabelText('Pages'), { target: { value: '1-2, 3' } });
+  expect(within(within(grid).getByRole('button', { name: 'Page 2' })).getByText('File 1')).toBeInTheDocument();
+  expect(within(within(grid).getByRole('button', { name: 'Page 3' })).getByText('File 2')).toBeInTheDocument();
+
+  // Taking page 2 out keeps page 3 as its own file
+  fireEvent.click(within(grid).getByRole('button', { name: 'Page 2' }));
+  expect(screen.getByLabelText('Pages')).toHaveValue('1, 3');
 });
