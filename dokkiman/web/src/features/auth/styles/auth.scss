@@ -854,3 +854,66 @@
   line-height: 1.55;
   color: theme-color(text-secondary);
 }
+
+// "Check your email" after signing up with an email
+.auth-check {
+  text-align: center;
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.75rem;
+    border-radius: 50%;
+    background: theme-color(accent-light);
+    color: theme-color(accent);
+  }
+
+  &__title {
+    margin: 0 0 0.5rem;
+    font-size: 1.125rem;
+  }
+
+  p { margin: 0 0 0.75rem; color: theme-color(text-secondary); line-height: 1.5; }
+
+  &__small { font-size: 0.8125rem; }
+
+  &__actions {
+    display: flex;
+    justify-content: center;
+    gap: 1.25rem;
+    margin-top: 0.5rem;
+  }
+}
+
+// Forgot password: the email for the reset link and its button
+.auth-forgot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  &__row {
+    display: flex;
+    gap: 0.5rem;
+
+    .auth-form__input { flex: 1; min-width: 0; }
+  }
+
+  &__send {
+    flex-shrink: 0;
+    padding: 0 0.875rem;
+    border: none;
+    border-radius: 8px;
+    background: theme-color(accent);
+    color: theme-color(text-contrast);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled { opacity: 0.7; cursor: progress; }
+  }
+
+  &__error { color: theme-color(error); font-size: 0.8125rem; }
+}

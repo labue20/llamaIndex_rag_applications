@@ -1,7 +1,8 @@
 /**
  * Auth Page
- * Sign in / start the free trial with Google. Email + password is shown only
- * when the server allows it (local development).
+ * Sign in / start the free trial with Google, or with an email and password
+ * (when the server allows it). A new email account is confirmed through an
+ * emailed link before it exists; forgotten passwords are reset by email.
  */
 
 import React, { useRef, useState } from 'react';
@@ -18,18 +19,97 @@ import '../styles/auth.scss';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-const ForgotPasswordHelp = ({ supportEmail }) => (
-  <div className='auth-form__help' role='note'>
-    {supportEmail ? (
-      <>
-        Email <a href={`mailto:${supportEmail}?subject=Password%20reset`}>{supportEmail}</a> from the address
-        you signed up with, and we&apos;ll send you a temporary password.
-      </>
-    ) : (
-      <>Contact the person who runs this site and they can give you a temporary password.</>
-    )}
-  </div>
-);
+// Forgot password: email a reset link (the answer is the same whether or not there's an account)
+const ForgotPasswordForm = ({ initialEmail }) => {
+  const { requestPasswordReset } = useAuth();
+  const [email, setEmail] = useState(initialEmail);
+  const [sentTo, setSentTo] = useState('');
+  const [error, setError] = useState('');
+  const [isSending, setIsSending] = useState(false);
+
+  const send = async () => {
+    const trimmed = email.trim();
+    if (!EMAIL_RE.test(trimmed)) {
+      setError('Enter the email address you signed up with.');
+      return;
+    }
+    setIsSending(true);
+    setError('');
+    try {
+      await requestPasswordReset(trimmed);
+      setSentTo(trimmed);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (sentTo) {
+    return (
+      <div className='auth-form__help' role='status'>
+        If there&apos;s an account for <strong>{sentTo}</strong>, we&apos;ve emailed it a link to choose a new
+        password. The link works for 60 minutes. Check your spam folder if it doesn&apos;t arrive.
+      </div>
+    );
+  }
+  return (
+    <div className='auth-form__help auth-forgot' role='group' aria-label='Reset your password'>
+      <span>We&apos;ll email you a link to choose a new password.</span>
+      <div className='auth-forgot__row'>
+        <input
+          type='email'
+          className='auth-form__input'
+          aria-label='Email for the reset link'
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder='you@example.com'
+          maxLength={254}
+        />
+        <button type='button' className='auth-forgot__send' onClick={send} disabled={isSending}>
+          {isSending ? 'Sending…' : 'Email me a link'}
+        </button>
+      </div>
+      {error && <span className='auth-forgot__error' role='alert'>{error}</span>}
+    </div>
+  );
+};
+
+// After signing up with an email: the account is made once the emailed link is used
+const CheckYourEmail = ({ email, onResend, onChangeEmail }) => {
+  const [note, setNote] = useState('');
+  const [isResending, setIsResending] = useState(false);
+  const resend = async () => {
+    setIsResending(true);
+    setNote('');
+    try {
+      await onResend();
+      setNote('Sent again. It can take a minute to arrive.');
+    } catch (err) {
+      setNote(err.message);
+    } finally {
+      setIsResending(false);
+    }
+  };
+  return (
+    <div className='auth-check' role='status'>
+      <span className='auth-check__icon' aria-hidden='true'><Icon name='check' size={22} /></span>
+      <h2 className='auth-check__title'>Check your email</h2>
+      <p>
+        We sent a link to <strong>{email}</strong>. Click it to confirm your email and finish creating your
+        account. The link works for 24 hours.
+      </p>
+      <p className='auth-check__small'>Can&apos;t find it? Check your spam or promotions folder.</p>
+      <div className='auth-check__actions'>
+        <button type='button' className='auth-form__link' onClick={resend} disabled={isResending}>
+          {isResending ? 'Sending…' : 'Send it again'}
+        </button>
+        <button type='button' className='auth-form__link' onClick={onChangeEmail}>Use a different email</button>
+      </div>
+      {note && <p className='auth-check__small'>{note}</p>}
+    </div>
+  );
+};
 
 const ErrorMessage = ({ error, onSignInInstead }) => (
   <div className='auth-form__error' role='alert'>
@@ -49,13 +129,14 @@ const ErrorMessage = ({ error, onSignInInstead }) => (
 );
 
 // Email + password (only when the server has PASSWORD_LOGIN_ENABLED)
-const PasswordForm = ({ isSignup, switchMode, supportEmail }) => {
+const PasswordForm = ({ isSignup, switchMode }) => {
   const { login, signup } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null); // { message, code }
   const [showForgot, setShowForgot] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sentTo, setSentTo] = useState(''); // a sign-up waiting for its email to be confirmed
   const passwordRef = useRef(null);
 
   // "This email already has an account": keep the email and move to Sign in
@@ -84,12 +165,33 @@ const PasswordForm = ({ isSignup, switchMode, supportEmail }) => {
 
     setIsSubmitting(true);
     try {
-      await (isSignup ? signup : login)(trimmedEmail, password);
+      if (isSignup) {
+        const result = await signup(trimmedEmail, password);
+        if (result.verificationSent) {
+          setSentTo(result.email);
+          setIsSubmitting(false);
+        }
+      } else {
+        await login(trimmedEmail, password);
+      }
     } catch (err) {
       setError({ message: err.message, code: err.code });
       setIsSubmitting(false);
     }
   };
+
+  if (isSignup && sentTo) {
+    return (
+      <CheckYourEmail
+        email={sentTo}
+        onResend={() => signup(sentTo, password)}
+        onChangeEmail={() => {
+          setSentTo('');
+          setPassword('');
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -154,7 +256,7 @@ const PasswordForm = ({ isSignup, switchMode, supportEmail }) => {
             describedBy={isSignup ? 'auth-password-checks' : undefined}
           />
           {isSignup && <PasswordChecklist id='auth-password-checks' password={password} email={email} />}
-          {!isSignup && showForgot && <ForgotPasswordHelp supportEmail={supportEmail} />}
+          {!isSignup && showForgot && <ForgotPasswordForm initialEmail={email.trim()} />}
         </div>
 
         {error && <ErrorMessage error={error} onSignInInstead={signInInstead} />}
@@ -174,7 +276,7 @@ const PasswordForm = ({ isSignup, switchMode, supportEmail }) => {
 
 const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
   const { loginWithGoogle } = useAuth();
-  const { trial_days: trialDays, support_email: supportEmail } = usePlanInfo();
+  const { trial_days: trialDays } = usePlanInfo();
   const authConfig = useAuthConfig();
   const [mode, setMode] = useState(initialMode);
   const [googleError, setGoogleError] = useState('');
@@ -267,7 +369,7 @@ const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
         {authConfig.password_login && (
           <>
             {hasGoogle && <div className='auth-sso__divider'><span>or use email</span></div>}
-            <PasswordForm isSignup={isSignup} switchMode={switchMode} supportEmail={supportEmail} />
+            <PasswordForm isSignup={isSignup} switchMode={switchMode} />
           </>
         )}
 

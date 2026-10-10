@@ -22,6 +22,12 @@ SIGNUP_WINDOW_SECONDS = 24 * 60 * 60
 KIND_LOGIN_ACCOUNT = "login-account"
 KIND_LOGIN_ADDRESS = "login-address"
 KIND_SIGNUP_ADDRESS = "signup-address"
+# Confirmation and password reset emails, per email address and per network address
+KIND_ACCOUNT_EMAIL = "account-email"
+KIND_ACCOUNT_EMAIL_ADDRESS = "account-email-address"
+MAX_ACCOUNT_EMAILS_PER_EMAIL = int(os.environ.get("MAX_ACCOUNT_EMAILS_PER_EMAIL", "3"))
+MAX_ACCOUNT_EMAILS_PER_ADDRESS = int(os.environ.get("MAX_ACCOUNT_EMAILS_PER_ADDRESS", "10"))
+ACCOUNT_EMAIL_WINDOW_SECONDS = 3600
 
 MIN_PASSWORD_LENGTH = 8
 # Hashing very long inputs is slow; nobody needs more than this
@@ -98,6 +104,20 @@ def address_blocked(address):
 def record_failed_login(email, address):
     record_attempt(KIND_LOGIN_ACCOUNT, email)
     record_attempt(KIND_LOGIN_ADDRESS, address)
+
+
+def account_email_blocked(email, address):
+    """Too many confirmation or reset emails lately (so nobody can flood an inbox)."""
+    return (
+        recent_attempts(KIND_ACCOUNT_EMAIL, email, ACCOUNT_EMAIL_WINDOW_SECONDS) >= MAX_ACCOUNT_EMAILS_PER_EMAIL
+        or recent_attempts(KIND_ACCOUNT_EMAIL_ADDRESS, address, ACCOUNT_EMAIL_WINDOW_SECONDS)
+        >= MAX_ACCOUNT_EMAILS_PER_ADDRESS
+    )
+
+
+def record_account_email(email, address):
+    record_attempt(KIND_ACCOUNT_EMAIL, email)
+    record_attempt(KIND_ACCOUNT_EMAIL_ADDRESS, address)
 
 
 def signup_blocked(address):

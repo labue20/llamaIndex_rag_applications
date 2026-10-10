@@ -131,7 +131,13 @@ const PrivacyPolicy = ({ plan }) => (
           from Google&apos;s servers, which see your network address when they&apos;re loaded.
         </li>
         <li>
-          <strong>Our hosting provider</strong> runs the servers where your account and documents are stored.
+          <strong>Amazon Web Services (AWS)</strong> runs the servers where your account and documents are stored,
+          in the United States (Ohio), and stores our encrypted backups.
+        </li>
+        <li>
+          <strong>Resend</strong> delivers the emails E-Sign sends (signing requests, reminders and, once everyone
+          has signed, the signed document), so it receives the names and email addresses of the people involved
+          and the content of those emails.
         </li>
         {plan.online_payments && (
           <li>
@@ -141,6 +147,12 @@ const PrivacyPolicy = ({ plan }) => (
           </li>
         )}
       </ul>
+      <p>
+        <strong>Where it&apos;s processed.</strong> Dokkiman&apos;s servers and the providers above are in the
+        United States, so your information is stored and processed there. If you&apos;re in the European Economic
+        Area, the UK or Switzerland, these transfers are covered by the safeguards in our agreements with these
+        providers, such as the EU Standard Contractual Clauses or the EU–US Data Privacy Framework.
+      </p>
       <p>
         We may also disclose information if the law requires it, or to protect the safety of our users or the
         service.

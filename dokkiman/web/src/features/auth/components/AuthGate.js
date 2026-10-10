@@ -9,6 +9,7 @@
  *   /privacy       Privacy Policy
  *   /terms         Terms of Service
  *   /admin         Admin portal (admins only; the server checks)
+ *   /verify-email, /reset-password  where the links in account emails lead
  *   /compress-pdf, /edit-pdf...  a public page for each tool (src/seo/toolPages.json)
  */
 
@@ -16,6 +17,7 @@ import React from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthPage from './AuthPage';
+import { ResetPasswordPage, VerifyEmailPage } from './EmailLinkPages';
 import UpgradeDialog from './UpgradeDialog';
 import UpgradeReturnNotice from './UpgradeReturnNotice';
 import { HomePage } from '../../home';
@@ -111,6 +113,8 @@ const AuthGate = ({ children }) => {
       <Route path='/admin' element={user?.is_admin ? <AdminPage /> : <Navigate to='/' replace />} />
       <Route path='/login' element={authPage('login')} />
       <Route path='/signup' element={authPage('signup')} />
+      <Route path='/verify-email' element={<VerifyEmailPage />} />
+      <Route path='/reset-password' element={<ResetPasswordPage />} />
       <Route
         path='/app/*'
         element={

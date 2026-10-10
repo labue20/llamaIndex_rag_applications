@@ -202,3 +202,21 @@ test('a PDF sent from Edit PDF opens in Request signatures', async () => {
   expect(await screen.findByRole('tab', { name: 'Request signatures' })).toHaveAttribute('aria-selected', 'true');
   expect(await screen.findByRole('toolbar', { name: 'Add a field' })).toBeInTheDocument();
 });
+
+test('requests are saved in the Signature requests folder unless another is chosen', async () => {
+  showESign({
+    'GET /folders': { body: { folders: [
+      { id: 'sr', name: 'Signature requests', parent_id: null },
+      { id: 'f1', name: '214 Willow Lane', parent_id: null },
+    ] } },
+  });
+  await openRequestTab();
+
+  const folder = screen.getByRole('group', { name: 'Save in folder' });
+  expect(within(folder).getByRole('button', { name: /Signature requests/ })).toBeInTheDocument();
+  fireEvent.click(within(folder).getByRole('button', { name: /Signature requests/ }));
+  // The default isn't listed twice; other folders can be chosen
+  const options = (await screen.findAllByRole('option')).map((o) => o.textContent);
+  expect(options.filter((o) => /Signature requests/.test(o))).toHaveLength(1);
+  expect(options.some((o) => /214 Willow Lane/.test(o))).toBe(true);
+});

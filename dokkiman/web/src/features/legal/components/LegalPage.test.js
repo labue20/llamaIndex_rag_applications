@@ -30,6 +30,10 @@ test('the privacy policy has its own address and states what happens to document
   expect(document.title).toBe('Privacy Policy · Dokkiman');
   expect(screen.getByRole('heading', { name: '4. Who else processes your information' })).toBeInTheDocument();
   expect(await screen.findByText(/deleted after 24 hours/)).toBeInTheDocument();
+  // Every provider that handles personal data is named, and where it's processed
+  expect(screen.getByText('Amazon Web Services (AWS)')).toBeInTheDocument();
+  expect(screen.getByText('Resend')).toBeInTheDocument();
+  expect(screen.getByText(/EU Standard Contractual Clauses/)).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: 'help@example.com' }).length).toBeGreaterThan(0);
 
   fireEvent.click(screen.getByRole('link', { name: 'Terms of Service' }));

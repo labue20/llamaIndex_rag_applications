@@ -13,7 +13,7 @@ import { DocumentViewer } from '../index';
 import { useDocuments } from '../hooks/useDocuments';
 import { folderApi, folderPath } from '../services/folderApi';
 import { fetchSignatureRequests } from '../../e-sign/requestsApi';
-import FolderBrowser from './FolderBrowser';
+import FolderBrowser, { RequestList } from './FolderBrowser';
 import CompactUploadButton from './CompactUploadButton';
 import DocumentSearch from './DocumentSearch';
 import { Icon } from '../../../shared';
@@ -219,7 +219,6 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
         currentFolder={currentFolder}
         trail={trail}
         subfolders={subfolders}
-        requests={requestsHere}
         onOpen={open}
         onCreate={createFolder}
         onRename={renameFolder}
@@ -250,6 +249,8 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
         />
       </div>
       )}
+      {/* After the documents, so a long list of requests doesn't push them out of sight */}
+      <RequestList requests={requestsHere} />
       </>
       )}
     </div>

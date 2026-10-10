@@ -135,7 +135,14 @@ def test_signing_up_or_in_keeps_the_guest_document(client, signup, index_server,
     doc_id = _upload(client).get_json()["doc_id"]
 
     response = client.post(route, json={"email": "me@example.com", "password": "password-123"})
-    assert response.status_code in (200, 201)
+    assert response.status_code in (200, 201, 202)
+    if route == "/auth/signup":
+        # The account (and the guest's document with it) comes once the email is confirmed
+        import email_service
+        from conftest import verify_token
+        response = client.post("/auth/verify-email",
+                               json={"token": verify_token(email_service.outbox, "me@example.com")})
+        assert response.status_code == 201
 
     assert [d["id"] for d in client.get("/getDocuments").get_json()] == [doc_id]
     assert not index_server.docs[doc_id]["owner_id"].startswith("guest_")

@@ -180,3 +180,57 @@ def test_folders_are_private(signup, make_pdf):
 def test_guests_have_no_folders(client):
     assert client.get("/folders").status_code == 401
     assert client.post("/folders", json={"name": "x"}).status_code == 401
+
+
+# --- the Signature requests folder ---------------------------------------------------------
+
+def test_requests_go_in_a_signature_requests_folder_unless_another_is_chosen(signup, make_pdf):
+    user = signup()
+    first = _request(user, make_pdf)
+    assert first.status_code in (200, 201), first.get_json()
+    assert _request(user, make_pdf).status_code in (200, 201)
+    folders = _folders(user)
+    # Made once, at the top level, holding both requests
+    assert list(folders) == ["Signature requests"]
+    assert folders["Signature requests"]["parent_id"] is None
+    assert folders["Signature requests"]["request_count"] == 2
+
+    # A chosen folder is used instead
+    deals = _folder(user, "Deals")
+    assert _request(user, make_pdf, folder_id=deals["id"]).status_code in (200, 201)
+    folders = _folders(user)
+    assert folders["Deals"]["request_count"] == 1
+    assert folders["Signature requests"]["request_count"] == 2
+
+
+def test_an_existing_folder_with_that_name_is_used(signup, make_pdf):
+    user = signup()
+    mine = _folder(user, "signature requests")
+    assert _request(user, make_pdf).status_code in (200, 201)
+    folders = _folders(user)
+    assert list(folders) == ["signature requests"]
+    assert folders["signature requests"]["id"] == mine["id"]
+    assert folders["signature requests"]["request_count"] == 1
+
+
+def test_requests_sent_before_the_folder_existed_move_into_it_once(signup, make_pdf):
+    import db
+    import folders as folders_module
+
+    user = signup()
+    assert _request(user, make_pdf).status_code in (200, 201)
+    # As it was before: the request in no folder, no folder, and the move not yet done
+    with db.connect_db() as conn:
+        conn.execute("UPDATE signature_requests SET folder_id = NULL")
+        conn.execute("DELETE FROM folders")
+        conn.execute("DELETE FROM app_migrations")
+
+    folders_module.init_folders()
+    assert _folders(user)["Signature requests"]["request_count"] == 1
+
+    # Only once: a request moved out of the folder later (e.g. the folder was
+    # deleted) isn't put back on the next restart
+    with db.connect_db() as conn:
+        conn.execute("UPDATE signature_requests SET folder_id = NULL")
+    folders_module.init_folders()
+    assert _folders(user)["Signature requests"]["request_count"] == 0

@@ -51,7 +51,7 @@ from flask import Blueprint, g, jsonify, request, send_file
 import config
 from db import connect_db
 from email_service import EmailError, send_email
-from folders import owned_folder
+from folders import owned_folder, signature_requests_folder
 from pdf_to_word_service import validate_pdf_file
 from plans import signature_request_limit_error
 from sign_pdf_service import SignError, certificate_of_completion, load_image, open_pdf, sha256, stamp
@@ -565,10 +565,12 @@ def create_request():
     sequential = bool(data.get("sequential")) and len(signers) > 1
     folder_id = data.get("folder_id") or None
     ai_help = data.get("ai_help", True) is not False
-    if folder_id:
-        with connect_db() as conn:
-            if owned_folder(conn, g.user["id"], folder_id) is None:
-                return _error("That folder doesn't exist.", 400)
+    with connect_db() as conn:
+        if folder_id and owned_folder(conn, g.user["id"], folder_id) is None:
+            return _error("That folder doesn't exist.", 400)
+        # Unless another folder is chosen, requests go in "Signature requests"
+        if not folder_id:
+            folder_id = signature_requests_folder(conn, g.user["id"])
 
     request_id = uuid.uuid4().hex
     created = _now()

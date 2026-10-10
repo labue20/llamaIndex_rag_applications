@@ -74,19 +74,24 @@ test('an email that already has an account offers to sign in instead', async () 
   expect(screen.getByLabelText('Password')).toHaveFocus();
 });
 
-test('forgot password explains how to get a temporary password', async () => {
-  mockFetch({
+test('forgot password emails a reset link to the address typed', async () => {
+  const fetchMock = mockFetch({
     '/auth/me': { status: 401 },
-    '/plans': { body: { trial_days: 7, support_email: 'help@example.com' } },
+    '/auth/forgot-password': { body: { sent: true } },
   });
   await renderAuthPage();
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'me@example.com' } });
 
   const toggle = screen.getByRole('button', { name: 'Forgot password?' });
   expect(toggle).toHaveAttribute('aria-expanded', 'false');
   fireEvent.click(toggle);
-  const note = await screen.findByRole('note');
-  await waitFor(() => expect(within(note).getByRole('link', { name: 'help@example.com' })).toBeInTheDocument());
-  expect(note).toHaveTextContent('temporary password');
+  const form = screen.getByRole('group', { name: 'Reset your password' });
+  expect(within(form).getByLabelText('Email for the reset link')).toHaveValue('me@example.com');
+  fireEvent.click(within(form).getByRole('button', { name: 'Email me a link' }));
+
+  expect(await screen.findByRole('status')).toHaveTextContent("If there's an account for me@example.com");
+  const call = fetchMock.mock.calls.find(([url]) => url.endsWith('/auth/forgot-password'));
+  expect(JSON.parse(call[1].body)).toEqual({ email: 'me@example.com' });
 });
 
 test('warns when Caps Lock is on', async () => {

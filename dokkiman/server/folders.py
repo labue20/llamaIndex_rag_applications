@@ -23,6 +23,7 @@ from db import connect_db
 folders_bp = Blueprint("folders", __name__)
 
 MAX_NAME = 80
+SIGNATURE_REQUESTS_FOLDER = "Signature requests"
 MAX_FOLDERS = 500
 
 
@@ -48,6 +49,32 @@ def init_folders():
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(signature_requests)")}
         if columns and "folder_id" not in columns:
             conn.execute("ALTER TABLE signature_requests ADD COLUMN folder_id TEXT")
+        # Once: requests sent before the Signature requests folder existed move into it
+        conn.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, done_at TEXT NOT NULL)")
+        done = conn.execute("SELECT 1 FROM app_migrations WHERE name = 'signature_requests_folder'").fetchone()
+        if columns and not done:
+            owners = [row["owner_id"] for row in conn.execute(
+                "SELECT DISTINCT owner_id FROM signature_requests WHERE folder_id IS NULL")]
+            for owner_id in owners:
+                conn.execute("UPDATE signature_requests SET folder_id = ? WHERE owner_id = ? AND folder_id IS NULL",
+                             (signature_requests_folder(conn, owner_id), owner_id))
+            conn.execute("INSERT INTO app_migrations (name, done_at) VALUES (?, ?)",
+                         ("signature_requests_folder", datetime.now(timezone.utc).isoformat()))
+
+
+def signature_requests_folder(conn, owner_id):
+    """The account's top-level "Signature requests" folder, where requests are
+    filed unless another folder is chosen. Made the first time it's needed."""
+    row = conn.execute(
+        "SELECT id FROM folders WHERE owner_id = ? AND parent_id IS NULL AND lower(name) = lower(?)",
+        (owner_id, SIGNATURE_REQUESTS_FOLDER),
+    ).fetchone()
+    if row:
+        return row["id"]
+    folder_id = uuid.uuid4().hex
+    conn.execute("INSERT INTO folders (id, owner_id, name, parent_id, created_at) VALUES (?, ?, ?, NULL, ?)",
+                 (folder_id, owner_id, SIGNATURE_REQUESTS_FOLDER, datetime.now(timezone.utc).isoformat()))
+    return folder_id
 
 
 def _error(message, status):

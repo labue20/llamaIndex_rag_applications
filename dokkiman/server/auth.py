@@ -2,12 +2,15 @@
 User accounts and session authentication for the Flask API.
 
 Accounts are created and signed in with Google (sign-in with Apple can be
-added the same way). Email + password is kept for local development behind
-PASSWORD_LOGIN_ENABLED; those passwords are hashed with werkzeug.
+added the same way), or with an email and password when PASSWORD_LOGIN_ENABLED.
+Passwords are hashed (scrypt, via werkzeug). A password sign-up only becomes an
+account once its email is confirmed through an emailed link, so nobody can
+claim an address they don't own; forgotten passwords are reset by email.
 Users live in a small SQLite database, and logged-in state is kept in
 Flask's signed, HTTP-only session cookie.
 """
 
+import hashlib
 import os
 import re
 import secrets
@@ -27,11 +30,13 @@ from auth_limits import (
     KIND_SIGNUP_ADDRESS,
     MAX_EMAIL_LENGTH,
     MAX_PASSWORD_LENGTH,
+    account_email_blocked,
     address_blocked,
     clear_attempts,
     init_auth_limits,
     login_blocked,
     password_problem,
+    record_account_email,
     record_attempt,
     record_failed_login,
     signup_blocked,
@@ -43,6 +48,7 @@ from signature_log import init_signature_log
 from signature_requests import init_signature_requests
 from folders import init_folders
 from sso import SsoError, verify_google_credential
+from email_service import EmailError, send_email
 
 SECRET_KEY_PATH = "instance/secret_key"
 
@@ -55,6 +61,7 @@ _DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_hex(16))
 # Requests that don't need a logged-in user
 # /billing/webhook is called by Stripe (it proves itself with a signature instead)
 PUBLIC_PATHS = {"/", "/auth/config", "/auth/google", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me",
+                "/auth/verify-email", "/auth/forgot-password", "/auth/reset-password",
                 "/plans", "/health", "/billing/webhook"}
 
 # Accounts that sign in with Google have no password (an empty hash)
@@ -134,6 +141,25 @@ def init_db():
         # Bumped when the password changes: sessions from before are signed out
         if "session_version" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0")
+        # Password sign-ups waiting for their email to be confirmed (no account yet)
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS pending_signups (
+                token_hash TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )"""
+        )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS password_resets (
+                token_hash TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at TEXT
+            )"""
+        )
         # Sign-in providers linked to an account (Google now; Apple later)
         conn.execute(
             """CREATE TABLE IF NOT EXISTS user_identities (
@@ -268,6 +294,8 @@ def _create_user(email, password_hash):
             " VALUES (?, ?, ?, ?, 'trial', ?)",
             (user["id"], email, password_hash, datetime.now(timezone.utc).isoformat(), new_trial_end()),
         )
+        # However the account was made (e.g. with Google), unconfirmed password sign-ups for it are void
+        conn.execute("DELETE FROM pending_signups WHERE email = ?", (email,))
     record_attempt(KIND_SIGNUP_ADDRESS, request.remote_addr)
 
     # Documents uploaded before accounts existed belong to the first account
@@ -353,8 +381,49 @@ def google_sign_in():
     return jsonify({"user": _user_payload(user), "created": created}), 201 if created else 200
 
 
+# --- email confirmation and password reset ---------------------------------------------
+
+VERIFY_LINK_HOURS = 24
+RESET_LINK_MINUTES = 60
+EMAILS_BLOCKED = "We've sent several emails to this address. Wait an hour, then try again."
+
+
+def _token_hash(token):
+    """Links carry a random token; only its hash is stored."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _now():
+    return datetime.now(timezone.utc)
+
+
+def _delete_expired_links(conn):
+    """Unused sign-ups and reset links aren't kept once they've expired."""
+    now = _now().isoformat()
+    conn.execute("DELETE FROM pending_signups WHERE expires_at < ?", (now,))
+    conn.execute("DELETE FROM password_resets WHERE expires_at < ?", (now,))
+
+
+def _account_email(to, subject, heading, intro, button, link, outro):
+    """A short email with one button (the link also in plain text)."""
+    html = (
+        '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;'
+        'max-width:480px;margin:0 auto;padding:24px;color:#0f172a">'
+        f'<h1 style="font-size:20px;margin:0 0 12px">{heading}</h1>'
+        f'<p style="font-size:15px;line-height:1.5;color:#334155">{intro}</p>'
+        f'<p style="margin:24px 0"><a href="{link}" style="background:#2563eb;color:#fff;padding:12px 20px;'
+        f'border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">{button}</a></p>'
+        f'<p style="font-size:13px;line-height:1.5;color:#64748b">{outro}</p>'
+        f'<p style="font-size:12px;color:#94a3b8;word-break:break-all">{link}</p>'
+        '</div>'
+    )
+    text = f"{heading}\n\n{intro}\n\n{button}: {link}\n\n{outro}\n"
+    send_email(to, subject, html, text)
+
+
 @auth_bp.route("/signup", methods=["POST"])
 def signup():
+    """Start a password sign-up: the account is made once the emailed link is used."""
     if not config.PASSWORD_LOGIN_ENABLED:
         return _password_login_disabled()
     email, password = _credentials_from_request()
@@ -367,14 +436,152 @@ def signup():
     # Limits free trials: only so many new accounts per network address per day
     if signup_blocked(request.remote_addr):
         return _error(SIGNUPS_BLOCKED, 429)
+    with connect_db() as conn:
+        taken = conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
+    if taken:
+        return _error("An account with this email already exists. Sign in, or reset your password.", 409,
+                      "email_taken")
+    if account_email_blocked(email, request.remote_addr):
+        return _error(EMAILS_BLOCKED, 429)
 
+    token = secrets.token_urlsafe(32)
+    token_hash = _token_hash(token)
+    now = _now()
+    with connect_db() as conn:
+        _delete_expired_links(conn)
+        conn.execute(
+            "INSERT INTO pending_signups (token_hash, email, password_hash, created_at, expires_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (token_hash, email, generate_password_hash(password), now.isoformat(),
+             (now + timedelta(hours=VERIFY_LINK_HOURS)).isoformat()),
+        )
+    record_account_email(email, request.remote_addr)
     try:
-        user = _create_user(email, generate_password_hash(password))
-    except sqlite3.IntegrityError:
-        return _error("An account with this email already exists.", 409, "email_taken")
+        _account_email(
+            email, "Confirm your email for Dokkiman", "Confirm your email",
+            "Click the button to confirm your email address and finish creating your Dokkiman account.",
+            "Confirm my email", f"{config.PUBLIC_APP_URL}/verify-email?token={token}",
+            f"The link works for {VERIFY_LINK_HOURS} hours. If you didn't sign up for Dokkiman, ignore this email: "
+            "no account is created without it.",
+        )
+    except EmailError:
+        current_app.logger.exception("Confirmation email failed")
+        with connect_db() as conn:
+            conn.execute("DELETE FROM pending_signups WHERE token_hash = ?", (token_hash,))
+        return _error("We couldn't send the confirmation email. Please try again in a few minutes.", 502)
 
+    # Opened in this browser, the link finishes the sign-up without asking for the password again
+    session["pending_signup"] = token_hash
+    return jsonify({"verification_sent": True, "email": email}), 202
+
+
+@auth_bp.route("/verify-email", methods=["POST"])
+def verify_email():
+    """Finish a password sign-up from its emailed link. In another browser than the
+    one that signed up, the password chosen is asked for too, so a link someone
+    else triggered can't set their password on your account."""
+    if not config.PASSWORD_LOGIN_ENABLED:
+        return _password_login_disabled()
+    data = request.get_json(silent=True) or {}
+    token_hash = _token_hash(str(data.get("token", "")))
+    with connect_db() as conn:
+        row = conn.execute("SELECT * FROM pending_signups WHERE token_hash = ?", (token_hash,)).fetchone()
+    if row is None or row["expires_at"] < _now().isoformat():
+        return _error("This link has expired or was already used. Sign up again to get a new one.", 400,
+                      "link_invalid")
+
+    email = row["email"]
+    if session.get("pending_signup") != token_hash:
+        password = str(data.get("password", ""))
+        if not password:
+            return _error("Enter the password you chose to finish creating your account.", 400,
+                          "password_needed")
+        if login_blocked(email, request.remote_addr):
+            return _error(TOO_MANY_LOGINS, 429)
+        if len(password) > MAX_PASSWORD_LENGTH or not check_password_hash(row["password_hash"], password):
+            record_failed_login(email, request.remote_addr)
+            return _error("That's not the password you chose when signing up.", 400, "password_needed")
+
+    with connect_db() as conn:
+        taken = conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
+        conn.execute("DELETE FROM pending_signups WHERE email = ?", (email,))
+    if taken:
+        return _error("This email already has an account. Sign in instead.", 409, "email_taken")
+    try:
+        user = _create_user(email, row["password_hash"])
+    except sqlite3.IntegrityError:
+        return _error("This email already has an account. Sign in instead.", 409, "email_taken")
     _start_session(user)
     return jsonify({"user": _user_payload(user)}), 201
+
+
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    """Email a password reset link, if there's an account. The answer is the same
+    either way, so it doesn't tell anyone which emails have accounts."""
+    if not config.PASSWORD_LOGIN_ENABLED:
+        return _password_login_disabled()
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+    if len(email) > MAX_EMAIL_LENGTH or not EMAIL_RE.match(email):
+        return _error("Enter a valid email address.", 400)
+    if account_email_blocked(email, request.remote_addr):
+        return _error(EMAILS_BLOCKED, 429)
+    record_account_email(email, request.remote_addr)
+
+    with connect_db() as conn:
+        user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    if user:
+        token = secrets.token_urlsafe(32)
+        now = _now()
+        with connect_db() as conn:
+            _delete_expired_links(conn)
+            conn.execute(
+                "INSERT INTO password_resets (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                (_token_hash(token), user["id"], now.isoformat(),
+                 (now + timedelta(minutes=RESET_LINK_MINUTES)).isoformat()),
+            )
+        try:
+            _account_email(
+                email, "Reset your Dokkiman password", "Reset your password",
+                "Someone (hopefully you) asked to reset the password for your Dokkiman account.",
+                "Choose a new password", f"{config.PUBLIC_APP_URL}/reset-password?token={token}",
+                f"The link works once, for {RESET_LINK_MINUTES} minutes. If you didn't ask for this, ignore this "
+                "email: your password stays the same.",
+            )
+        except EmailError:
+            current_app.logger.exception("Password reset email failed")
+    return jsonify({"sent": True}), 200
+
+
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    """Set a new password from a reset link; signs out every other device."""
+    if not config.PASSWORD_LOGIN_ENABLED:
+        return _password_login_disabled()
+    data = request.get_json(silent=True) or {}
+    token_hash = _token_hash(str(data.get("token", "")))
+    password = str(data.get("password", ""))
+    with connect_db() as conn:
+        row = conn.execute(
+            "SELECT r.user_id, r.expires_at, u.email FROM password_resets r JOIN users u ON u.id = r.user_id"
+            " WHERE r.token_hash = ? AND r.used_at IS NULL", (token_hash,)
+        ).fetchone()
+    if row is None or row["expires_at"] < _now().isoformat():
+        return _error("This link has expired or was already used. Ask for a new one.", 400, "link_invalid")
+    problem = password_problem(password, row["email"])
+    if problem:
+        return _error(problem, 400)
+
+    set_password(row["user_id"], password)
+    with connect_db() as conn:
+        # Every reset link for the account stops working
+        conn.execute("UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
+                     (_now().isoformat(), row["user_id"]))
+    clear_attempts(KIND_LOGIN_ACCOUNT, row["email"])
+    user = {"id": row["user_id"], "email": row["email"]}
+    _start_session(user)
+    return jsonify({"user": _user_payload(user)}), 200
 
 
 @auth_bp.route("/login", methods=["POST"])

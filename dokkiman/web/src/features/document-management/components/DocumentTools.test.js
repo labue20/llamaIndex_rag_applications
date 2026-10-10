@@ -252,3 +252,13 @@ test('items already in the folder are shown but can’t be picked', async () => 
   expect(already).toBeChecked();
   expect(within(picker).getAllByText('Already in this folder').length).toBeGreaterThan(0);
 });
+
+test('documents come before signature requests, so many requests can’t hide them', async () => {
+  const many = Array.from({ length: 40 }, (_, i) => ({ ...REQUEST, id: `r${i}`, title: `Request ${i}`, folder_id: null }));
+  renderManager('/app/documents', { '/signature-requests': { body: { requests: many } } });
+  const requests = await screen.findByRole('region', { name: 'Signature requests' });
+  const document = screen.getByText('unfiled.pdf');
+  // The document is earlier on the page than the requests
+  expect(document.compareDocumentPosition(requests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(requests).getAllByRole('listitem')).toHaveLength(40);
+});
