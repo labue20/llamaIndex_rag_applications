@@ -72,3 +72,5 @@ services.
 - Work on `dev`. Changes reach `master` (production) through a pull request,
   which Claude reviews (`.github/workflows/claude-review.yml`) and the Tests
   workflow checks. Deploying from `master` is a separate, manual step.
+  Deploy with `dokkiman/deploy/release.sh` (from your machine): it runs
+  `deploy.sh` on the server and tags the live commit `deploy-YYYY-MM-DD`.
