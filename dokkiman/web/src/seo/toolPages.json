@@ -84,19 +84,19 @@
     "path": "/sign-pdf",
     "app": "e-sign",
     "icon": "pen",
-    "accept": ".pdf",
-    "name": "Sign PDF",
-    "title": "Sign PDF Online & Send for Signature · Dokkiman",
-    "description": "Sign a PDF yourself in seconds, or send it to others to sign by email. Draw, type or upload your signature, with an audit trail of who signed and when.",
-    "h1": "Sign PDF online",
-    "lead": "Sign a PDF yourself in seconds, or send it to others to sign by email. Every signature comes with an audit trail of who signed and when.",
-    "cta": "Choose a PDF to sign",
-    "hint": "PDF • Up to 50 MB",
-    "howTo": "How to sign a PDF",
+    "accept": ".pdf,.docx",
+    "name": "Sign PDF & Word",
+    "title": "Sign PDF & Word Documents Online · Dokkiman",
+    "description": "Sign PDFs and Word documents online, or send them to others to sign by email. Draw, type or upload your signature, with an audit trail of who signed and when.",
+    "h1": "Sign PDF and Word documents online",
+    "lead": "Sign a PDF or Word document yourself in seconds, or send it to others to sign by email. Every signature comes with an audit trail of who signed and when.",
+    "cta": "Choose a document to sign",
+    "hint": "PDF or Word (.docx) • Up to 50 MB",
+    "howTo": "How to sign a PDF or Word document",
     "steps": [
       {
-        "title": "Open your PDF",
-        "text": "Choose the document you need to sign."
+        "title": "Open your document",
+        "text": "Choose the PDF or Word document you need to sign. Word documents are turned into a PDF first, so the layout stays exactly as it is."
       },
       {
         "title": "Add your signature",
@@ -114,7 +114,7 @@
       },
       {
         "title": "Send for signature",
-        "text": "Email a PDF to the people who need to sign. They sign from the link, without an account."
+        "text": "Email a PDF or Word document to the people who need to sign. They sign from the link, without an account."
       },
       {
         "title": "Audit trail",
@@ -137,6 +137,10 @@
       {
         "q": "Is an electronic signature legally binding?",
         "a": "In many countries, including the US (ESIGN Act and UETA) and the EU (eIDAS), electronic signatures are legally valid for most documents. Some documents, such as wills, may have other requirements, so check if you're unsure."
+      },
+      {
+        "q": "Can I sign a Word document?",
+        "a": "Yes. Open a Word document (.docx) and it's turned into a PDF, so the layout can't shift, then sign it or send it for signature like any PDF. You download the signed copy as a PDF."
       },
       {
         "q": "Do the people I send a document to need an account?",
@@ -468,7 +472,7 @@
       },
       {
         "title": "Ready to sign",
-        "text": "Turn a contract into a PDF, then sign it or send it for signature."
+        "text": "Need a signature? You can also sign a Word document directly with Sign PDF & Word, or send it for signature."
       },
       {
         "title": "Nothing to install",

@@ -18,7 +18,7 @@ test('lists every tool', () => {
   renderHome();
   const cards = toolCards();
   expect(cards).toHaveLength(8);
-  ['Chat with PDF', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Compress PDF', 'Edit PDF', 'E-Sign', 'Document Manager'].forEach((title, i) => {
+  ['Chat with PDF', 'E-Sign', 'PDF to Word', 'Word to PDF', 'Split PDF', 'Compress PDF', 'Edit PDF', 'Document Manager'].forEach((title, i) => {
     expect(cards[i]).toHaveTextContent(title);
   });
 });
@@ -29,12 +29,12 @@ test('the top bar links to each tool’s public page', () => {
   const links = within(screen.getByRole('navigation', { name: 'Tools' })).getAllByRole('link');
   expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
     ['Chat with PDF', '/chat-with-pdf'],
+    ['E-Sign', '/sign-pdf'],
     ['PDF to Word', '/pdf-to-word'],
     ['Word to PDF', '/word-to-pdf'],
     ['Split PDF', '/split-pdf'],
     ['Compress PDF', '/compress-pdf'],
     ['Edit PDF', '/edit-pdf'],
-    ['E-Sign', '/sign-pdf'],
   ]);
 });
 
@@ -67,18 +67,33 @@ test('tools can be tried without signing up; the Document Manager needs an accou
   expect(onTryTool).toHaveBeenLastCalledWith('chat');
 
   const cards = toolCards();
-  fireEvent.click(cards[1]); // PDF to Word
-  expect(onTryTool).toHaveBeenLastCalledWith('pdf-word');
-  fireEvent.click(cards[3]); // Split PDF
-  expect(onTryTool).toHaveBeenLastCalledWith('split');
-
-  fireEvent.click(cards[4]); // Compress PDF
-  expect(onTryTool).toHaveBeenLastCalledWith('compress');
-  fireEvent.click(cards[5]); // Edit PDF
-  expect(onTryTool).toHaveBeenLastCalledWith('edit');
-  fireEvent.click(cards[6]); // E-Sign
+  fireEvent.click(cards[1]); // E-Sign
   expect(onTryTool).toHaveBeenLastCalledWith('sign');
+  fireEvent.click(cards[2]); // PDF to Word
+  expect(onTryTool).toHaveBeenLastCalledWith('pdf-word');
+  fireEvent.click(cards[4]); // Split PDF
+  expect(onTryTool).toHaveBeenLastCalledWith('split');
+  fireEvent.click(cards[5]); // Compress PDF
+  expect(onTryTool).toHaveBeenLastCalledWith('compress');
+  fireEvent.click(cards[6]); // Edit PDF
+  expect(onTryTool).toHaveBeenLastCalledWith('edit');
 
   fireEvent.click(cards[7]); // Document Manager
   expect(onSignup).toHaveBeenCalledTimes(1);
+});
+
+test('people who are signed in aren’t offered the free trial', () => {
+  mockFetch({});
+  renderAt(<HomePage isLoggedIn onOpenApp={jest.fn()} />);
+  expect(screen.queryByText(/free trial/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/No credit card needed/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument();
+  expect(screen.getAllByRole('button', { name: 'Open the app' }).length).toBeGreaterThan(0);
+});
+
+test('visitors are offered the free trial', async () => {
+  mockFetch({});
+  renderHome();
+  expect(await screen.findByText(/day free trial · No credit card needed/)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /Try it free for/ })).toBeInTheDocument();
 });

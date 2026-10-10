@@ -17,6 +17,7 @@ export { downloadBlob, filenameFromDisposition } from './utils/downloadBlob';
 export { getPdfPageCount } from './utils/pdfPageCount';
 export { dataUrlToBlob } from './utils/dataUrlToBlob';
 export { handFilesToTool, takeFilesForTool } from './utils/toolHandOff';
+export { asPdf, isImageFile, isPdfFile, isWordFile } from './utils/toPdf';
 
 // Services
 export {

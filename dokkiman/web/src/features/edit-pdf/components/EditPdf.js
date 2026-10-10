@@ -15,7 +15,8 @@ import React, {
 } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/webpack';
 import {
-  apiFetch, dataUrlToBlob, DocumentPicker, downloadBlob, filenameFromDisposition, Icon, readApiError,
+  apiFetch, asPdf as convertToPdf, dataUrlToBlob, DocumentPicker, downloadBlob, filenameFromDisposition, Icon,
+  isPdfFile, readApiError,
 } from '../../../shared';
 import SignatureDialog from '../../sign-pdf/components/SignatureDialog';
 import {
@@ -30,7 +31,6 @@ import '../../../shared/styles/converter.scss';
 import '../../sign-pdf/styles/sign-pdf.scss';
 import '../styles/edit-pdf.scss';
 
-const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 const isImage = (file) => /^image\/(png|jpeg)$/.test(file.type) || /\.(png|jpe?g)$/i.test(file.name);
 // Opened by making them into PDFs first
 const CONVERTIBLE = /\.(docx|png|jpe?g|webp)$/i;
@@ -38,16 +38,10 @@ const OPENS = '.pdf,.docx,.png,.jpg,.jpeg,.webp';
 
 /** A PDF, or a Word document or image turned into one by the server. */
 const asPdf = async (file) => {
-  if (isPdf(file)) return file;
-  if (!CONVERTIBLE.test(file.name)) {
+  if (!isPdfFile(file) && !CONVERTIBLE.test(file.name)) {
     throw new Error('Open a PDF, a Word document (.docx) or an image (PNG or JPEG).');
   }
-  const formData = new FormData();
-  formData.append('file', file);
-  const response = await apiFetch('/toPdf', { method: 'POST', body: formData });
-  if (!response.ok) throw new Error(await readApiError(response, `${file.name} couldn’t be opened.`));
-  const blob = await response.blob();
-  return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.pdf`, { type: 'application/pdf' });
+  return convertToPdf(file);
 };
 const HISTORY = 50;
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];

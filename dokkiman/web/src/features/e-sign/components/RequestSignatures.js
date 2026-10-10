@@ -7,14 +7,15 @@
 
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/webpack';
-import { apiFetch, DocumentPicker, Icon, readApiError } from '../../../shared';
+import {
+  apiFetch, asPdf, DocumentPicker, Icon, isPdfFile, isWordFile, readApiError,
+} from '../../../shared';
 import { useAuth } from '../../auth/context/AuthContext';
 import FieldStage from './FieldStage';
 import { folderApi, folderPath } from '../../document-management/services/folderApi';
 import FolderPicker from '../../document-management/components/FolderPicker';
 import { FIELD_KINDS, fieldLabel, firstName, signerColor } from '../fields';
 
-const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 const EMAIL_RE = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
 const MAX_SIGNERS = 10;
 
@@ -35,6 +36,7 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isConverting, setIsConverting] = useState(false); // a Word document becoming a PDF
   const [error, setError] = useState('');
   const [sent, setSent] = useState(null);
   const [folders, setFolders] = useState([]);
@@ -66,15 +68,27 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
   }, []);
 
   const loadFile = useCallback(async (selected) => {
-    if (!isPdf(selected)) {
-      alert('Please select a valid PDF file');
+    if (!isPdfFile(selected) && !isWordFile(selected)) {
+      alert('Please choose a PDF or a Word document (.docx)');
       return;
     }
     reset();
-    setFile(selected);
-    setTitle(selected.name.replace(/\.pdf$/i, ''));
+    let pdfFile = selected;
+    if (isWordFile(selected)) {
+      setIsConverting(true);
+      try {
+        pdfFile = await asPdf(selected);
+      } catch (err) {
+        alert(err.message);
+        return;
+      } finally {
+        setIsConverting(false);
+      }
+    }
+    setFile(pdfFile);
+    setTitle(pdfFile.name.replace(/\.pdf$/i, ''));
     try {
-      const doc = await pdfjsLib.getDocument({ data: await selected.arrayBuffer() }).promise;
+      const doc = await pdfjsLib.getDocument({ data: await pdfFile.arrayBuffer() }).promise;
       setPdf(doc);
       setPageCount(doc.numPages);
     } catch (err) {
@@ -210,15 +224,19 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
     return frame(
       <div className='file-input-section'>
         <div className='upload-area'>
-          <input type='file' accept='.pdf' id='esign-request-file-input'
+          <input type='file' accept='.pdf,.docx' id='esign-request-file-input' disabled={isConverting}
             onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; if (f) loadFile(f); }} />
           <div className='upload-actions'>
-            <label htmlFor='esign-request-file-input' className='upload-label'>Choose PDF File</label>
+            <label htmlFor='esign-request-file-input' className='upload-label'>Choose File</label>
             {allowDocumentManager && (
-              <DocumentPicker acceptedExtensions={['.pdf']} onSelect={(picked) => picked && loadFile(picked)} />
+              <DocumentPicker acceptedExtensions={['.pdf', '.docx']} onSelect={(picked) => picked && loadFile(picked)} />
             )}
           </div>
-          <p className='upload-hint'>Send a PDF to others to sign by email • No account needed for signers</p>
+          <p className='upload-hint'>
+            {isConverting
+              ? 'Converting your Word document…'
+              : 'Send a PDF or Word document to others to sign by email • No account needed for signers'}
+          </p>
           {usageNote && <p className='esign-usage'>{usageNote}</p>}
         </div>
       </div>

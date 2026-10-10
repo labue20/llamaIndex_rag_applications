@@ -7,6 +7,7 @@
 
 import React from 'react';
 import FileSelector from './FileSelector';
+import Icon from './Icon';
 
 const ConverterHeaderActions = ({ converterRef, status, acceptedTypes }) => {
   const { hasFile, isBusy } = status;
@@ -27,8 +28,10 @@ const ConverterHeaderActions = ({ converterRef, status, acceptedTypes }) => {
         className='page-actions__btn'
         onClick={() => converterRef.current?.reset()}
         disabled={!hasFile || isBusy}
+        title='Close document'
       >
-        Close document
+        <Icon name='close' size={16} />
+        <span className='page-actions__label'>Close document</span>
       </button>
     </div>
   );

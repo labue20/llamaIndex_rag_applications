@@ -30,7 +30,7 @@ const showESign = (routes = {}, { guest = false } = {}) => {
 
 const openRequestTab = async () => {
   fireEvent.click(await screen.findByRole('tab', { name: 'Request signatures' }));
-  fireEvent.change(screen.getByLabelText('Choose PDF File', { selector: '#esign-request-file-input' }),
+  fireEvent.change(screen.getByLabelText('Choose File', { selector: '#esign-request-file-input' }),
     { target: { files: [pdfFile()] } });
   await screen.findByRole('toolbar', { name: 'Add a field' });
 };

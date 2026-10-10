@@ -146,3 +146,12 @@ test('price helpers', () => {
   expect(monthsFree(9.99, 90)).toBe(3);
   expect(monthsFree(5, 60)).toBe(0);
 });
+
+test('signed-in users aren’t offered the free trial', async () => {
+  renderPricing({ me: { body: { user: makeUser() } } });
+  await waitFor(() => expect(within(card('Free')).getByRole('button', { name: 'Open the app' })).toBeInTheDocument());
+  expect(screen.getByText(/Keep using the Free plan for as long as you like/)).toBeInTheDocument();
+  expect(screen.queryByText(/day free trial with full access/)).not.toBeInTheDocument();
+  expect(within(card('Free')).queryByText(/Starts with a/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Start free trial' })).not.toBeInTheDocument();
+});

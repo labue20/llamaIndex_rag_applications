@@ -1,6 +1,6 @@
 /**
  * E-Sign
- * Three tabs: sign a PDF yourself, request signatures from others by email,
+ * Three tabs: sign a PDF or Word document yourself, request signatures from others by email,
  * and track the requests you've sent. The header's New document / Close
  * document buttons act on the tab that's open.
  */

@@ -235,10 +235,16 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
       <main className='pricing'>
         <header className='pricing__header'>
           <h1>PDF Tools That Fit Your Budget</h1>
-          <p>
-            Start with a {plan.trial_days}-day free trial with full access. After that, keep using the Free plan
-            for as long as you like, or upgrade to Basic for more, or Pro for no limits.
-          </p>
+          {user ? (
+            <p>
+              Keep using the Free plan for as long as you like, or upgrade to Basic for more, or Pro for no limits.
+            </p>
+          ) : (
+            <p>
+              Start with a {plan.trial_days}-day free trial with full access. After that, keep using the Free plan
+              for as long as you like, or upgrade to Basic for more, or Pro for no limits.
+            </p>
+          )}
 
           {checkoutCancelled && (
             <p className='pricing__notice' role='status'>
@@ -271,10 +277,12 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
               <span className='pricing-card__amount'>$0</span>
               <span className='pricing-card__period'>forever</span>
             </p>
-            <p className='pricing-card__note'>
-              Starts with a {plan.trial_days}-day trial: {plan.trial_max_documents} documents and{' '}
-              {plan.trial_max_questions_per_day} questions a day.
-            </p>
+            {!user && (
+              <p className='pricing-card__note'>
+                Starts with a {plan.trial_days}-day trial: {plan.trial_max_documents} documents and{' '}
+                {plan.trial_max_questions_per_day} questions a day.
+              </p>
+            )}
             {user ? (
               <button type='button' className='home-btn home-btn--ghost pricing-card__cta' onClick={onOpenApp}>
                 Open the app
@@ -353,7 +361,7 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
         </section>
       </main>
 
-      <HomeFooter onLogin={onLogin} onSignup={onSignup} onOpenTool={openTool} />
+      <HomeFooter onLogin={onLogin} onSignup={onSignup} onOpenTool={openTool} isLoggedIn={!!user} />
     </div>
   );
 };

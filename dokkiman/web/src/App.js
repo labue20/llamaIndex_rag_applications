@@ -58,6 +58,7 @@ function App() {
   const sections = useMemo(() => [
     {
       label: 'Document Manager',
+      phoneTab: true,
       shortLabel: 'Documents',
       title: 'My Documents',
       icon: <Icon name='folder' />,
@@ -69,6 +70,7 @@ function App() {
     },
     {
       label: 'AI PDF',
+      phoneTab: true,
       shortLabel: 'Chat',
       icon: <Icon name='chat' />,
       title: 'Chat with PDF',
@@ -81,6 +83,17 @@ function App() {
         />
       ),
       headerAction: <ChatHeaderActions chatRef={chatRef} status={chatStatus} />
+    },
+    {
+      label: 'E-Sign',
+      phoneTab: true,
+      shortLabel: 'E-Sign',
+      icon: <Icon name='pen' />,
+      title: 'E-Sign',
+      content: <ESign ref={eSignRef} onStatusChange={setESignStatus} allowDocumentManager={!isGuest} isGuest={isGuest} />,
+      headerAction: (
+        <ConverterHeaderActions converterRef={eSignRef} status={eSignStatus} acceptedTypes='.pdf' />
+      )
     },
     {
       label: 'PDF to Word',
@@ -125,6 +138,7 @@ function App() {
     },
     {
       label: 'Edit PDF',
+      phoneTab: true,
       shortLabel: 'Edit',
       icon: <Icon name='edit' />,
       title: 'Edit PDF',
@@ -147,18 +161,7 @@ function App() {
       headerAction: (
         <ConverterHeaderActions converterRef={editPdfRef} status={editPdfStatus} acceptedTypes='.pdf' />
       )
-    },
-    {
-      label: 'E-Sign',
-      shortLabel: 'E-Sign',
-      icon: <Icon name='pen' />,
-      title: 'E-Sign',
-      content: <ESign ref={eSignRef} onStatusChange={setESignStatus} allowDocumentManager={!isGuest} isGuest={isGuest} />,
-      headerAction: (
-        <ConverterHeaderActions converterRef={eSignRef} status={eSignStatus} acceptedTypes='.pdf' />
-      )
     }
-
   ], [documents, refreshDocuments, handleUploadSuccess, chatStatus, pdfToWordStatus, wordToPdfStatus, splitPdfStatus, compressPdfStatus, editPdfStatus, eSignStatus, isGuest, navigate]);
 
   // The section shown comes from the address: /app/<slug>

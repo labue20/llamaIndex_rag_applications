@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { FileSelector } from '../../../shared';
+import { FileSelector, Icon } from '../../../shared';
 
 const ChatHeaderActions = ({ chatRef, status }) => {
   const { hasDocument, hasMessages, isBusy } = status;
@@ -28,16 +28,20 @@ const ChatHeaderActions = ({ chatRef, status }) => {
         className='page-actions__btn'
         onClick={() => chatRef.current?.clearChat()}
         disabled={!hasMessages || isBusy}
+        title='Clear chat'
       >
-        Clear chat
+        <Icon name='eraser' size={16} />
+        <span className='page-actions__label'>Clear chat</span>
       </button>
       <button
         type='button'
         className='page-actions__btn'
         onClick={() => chatRef.current?.closeDocument()}
         disabled={!hasDocument || isBusy}
+        title='Close document'
       >
-        Close document
+        <Icon name='close' size={16} />
+        <span className='page-actions__label'>Close document</span>
       </button>
     </div>
   );
