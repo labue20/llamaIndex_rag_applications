@@ -48,3 +48,6 @@ afterEach(() => {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+
+// jsdom doesn't implement window scrolling either; pages scroll to the top when they open
+window.scrollTo = () => {};

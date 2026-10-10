@@ -38,11 +38,18 @@ def test_signup_validation(client, email, password, message):
     assert response.get_json()["error"] == message
 
 
-def test_signup_logs_in_and_normalizes_email(client):
+def test_signup_confirms_the_email_then_logs_in_and_normalizes_email(client):
+    import email_service
+    from conftest import verify_token
+
     response = client.post("/auth/signup", json={"email": "  Me@Example.COM ", "password": "password-123"})
+    assert response.status_code == 202
+    assert response.get_json() == {"verification_sent": True, "email": "me@example.com"}
+    assert client.get("/auth/me").status_code == 401  # no account until the email is confirmed
+
+    response = client.post("/auth/verify-email", json={"token": verify_token(email_service.outbox, "me@example.com")})
     assert response.status_code == 201
     assert response.get_json()["user"]["email"] == "me@example.com"
-
     me = client.get("/auth/me")
     assert me.status_code == 200
     assert me.get_json()["user"]["email"] == "me@example.com"

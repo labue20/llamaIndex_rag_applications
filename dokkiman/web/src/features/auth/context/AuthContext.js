@@ -16,7 +16,8 @@ const AuthContext = createContext(null);
 
 // POST JSON to an auth route and return the user it answers with. Errors carry
 // the server's message and, when given, its code (e.g. 'email_taken').
-const postAuth = async (path, body) => {
+// POST to an auth endpoint; returns the whole JSON answer, or throws its error
+const postJson = async (path, body) => {
   let response;
   try {
     response = await apiFetch(path, {
@@ -35,8 +36,11 @@ const postAuth = async (path, body) => {
     error.status = response.status;
     throw error;
   }
-  return data.user;
+  return data;
 };
+
+// ...and the signed-in user it returns
+const postAuth = async (path, body) => (await postJson(path, body)).user;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -105,8 +109,30 @@ export const AuthProvider = ({ children }) => {
     goAfterAuth();
   }, [goAfterAuth]);
 
+  // A password sign-up emails a confirmation link; the account is made when it's used.
+  // Returns { verificationSent, email } (or signs in straight away if the server says so)
   const signup = useCallback(async (email, password) => {
-    setUser(await postAuth('/auth/signup', { email, password }));
+    const data = await postJson('/auth/signup', { email, password });
+    if (data.user) {
+      setUser(data.user);
+      goAfterAuth();
+      return { verificationSent: false, email };
+    }
+    return { verificationSent: Boolean(data.verification_sent), email: data.email || email };
+  }, [goAfterAuth]);
+
+  // From the emailed link (the password is needed when it's opened in another browser)
+  const verifyEmail = useCallback(async (token, password) => {
+    setUser(await postAuth('/auth/verify-email', password ? { token, password } : { token }));
+    goAfterAuth();
+  }, [goAfterAuth]);
+
+  const requestPasswordReset = useCallback(async (email) => {
+    await postJson('/auth/forgot-password', { email });
+  }, []);
+
+  const resetPassword = useCallback(async (token, password) => {
+    setUser(await postAuth('/auth/reset-password', { token, password }));
     goAfterAuth();
   }, [goAfterAuth]);
 
@@ -155,6 +181,9 @@ export const AuthProvider = ({ children }) => {
       isCheckingSession,
       login,
       signup,
+      verifyEmail,
+      requestPasswordReset,
+      resetPassword,
       loginWithGoogle,
       logout,
       changePassword,
@@ -167,7 +196,7 @@ export const AuthProvider = ({ children }) => {
       tryTool,
       pathAfterAuth,
     }),
-    [user, isCheckingSession, login, signup, loginWithGoogle, logout, changePassword, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade,
+    [user, isCheckingSession, login, signup, verifyEmail, requestPasswordReset, resetPassword, loginWithGoogle, logout, changePassword, refreshUser, isUpgradeOpen, openUpgrade, closeUpgrade,
       showHome, showAuth, tryTool, pathAfterAuth]
   );
 

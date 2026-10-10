@@ -41,12 +41,23 @@ def test_duplicate_email_has_a_code_for_the_sign_in_shortcut(client, signup):
     assert response.get_json()["code"] == "email_taken"
 
 
+def _sign_up_and_confirm(app, email, address):
+    """A password sign-up from a network address, confirmed in the same browser."""
+    import email_service
+    from conftest import verify_token
+
+    browser = app.test_client()
+    response = browser.post("/auth/signup", json={"email": email, "password": "password-123"},
+                            environ_base={"REMOTE_ADDR": address})
+    if response.status_code != 202:
+        return response
+    return browser.post("/auth/verify-email", json={"token": verify_token(email_service.outbox, email)},
+                        environ_base={"REMOTE_ADDR": address})
+
+
 def test_signups_are_limited_per_address(app):
     for number in range(auth_limits.MAX_SIGNUPS_PER_ADDRESS):
-        response = app.test_client().post(
-            "/auth/signup", json={"email": f"user{number}@example.com", "password": "password-123"},
-            environ_base={"REMOTE_ADDR": "10.0.0.9"})
-        assert response.status_code == 201
+        assert _sign_up_and_confirm(app, f"user{number}@example.com", "10.0.0.9").status_code == 201
 
     blocked = app.test_client().post(
         "/auth/signup", json={"email": "one-more@example.com", "password": "password-123"},
@@ -55,10 +66,7 @@ def test_signups_are_limited_per_address(app):
     assert "Try again tomorrow" in blocked.get_json()["error"]
 
     # Another network is unaffected
-    other = app.test_client().post(
-        "/auth/signup", json={"email": "elsewhere@example.com", "password": "password-123"},
-        environ_base={"REMOTE_ADDR": "10.0.0.10"})
-    assert other.status_code == 201
+    assert _sign_up_and_confirm(app, "elsewhere@example.com", "10.0.0.10").status_code == 201
 
 
 def test_rejected_signups_do_not_count_towards_the_limit(app, signup):
@@ -66,9 +74,7 @@ def test_rejected_signups_do_not_count_towards_the_limit(app, signup):
     for _ in range(auth_limits.MAX_SIGNUPS_PER_ADDRESS + 2):
         app.test_client().post("/auth/signup", json={"email": "me@example.com", "password": "password-123"},
                                environ_base={"REMOTE_ADDR": "10.0.0.9"})
-    response = app.test_client().post("/auth/signup", json={"email": "new@example.com", "password": "password-123"},
-                                      environ_base={"REMOTE_ADDR": "10.0.0.9"})
-    assert response.status_code == 201
+    assert _sign_up_and_confirm(app, "new@example.com", "10.0.0.9").status_code == 201
 
 
 def test_account_is_protected_from_guessing_across_addresses(client, signup):

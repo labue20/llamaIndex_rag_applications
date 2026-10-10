@@ -217,14 +217,29 @@ def client(app):
     return app.test_client()
 
 
+def verify_token(outbox, email):
+    """The token in the newest confirmation email sent to this address."""
+    import re
+
+    message = next(m for m in reversed(outbox) if m["to"] == [email] and "verify-email" in m["text"])
+    return re.search(r"verify-email\?token=([\w-]+)", message["text"]).group(1)
+
+
 @pytest.fixture
 def signup(app):
     """Create an account with its own logged-in client: signup('a@x.com') -> client."""
 
     def _signup(email="user@example.com", password="password-123"):
+        import email_service
+
         user_client = app.test_client()
         response = user_client.post("/auth/signup", json={"email": email, "password": password})
+        assert response.status_code == 202, response.get_json()
+        # Confirm the email with the emailed link, in the same browser
+        response = user_client.post("/auth/verify-email", json={"token": verify_token(email_service.outbox, email)})
         assert response.status_code == 201, response.get_json()
+        # Tests that count emails only see the ones they cause
+        email_service.outbox[:] = [m for m in email_service.outbox if "verify-email" not in m["text"]]
         user_client.user = response.get_json()["user"]
         return user_client
 

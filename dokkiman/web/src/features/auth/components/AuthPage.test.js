@@ -80,6 +80,29 @@ test('sign-up creates the account', async () => {
   expect(await screen.findByText('Logged in as me@example.com')).toBeInTheDocument();
 });
 
+test('sign-up with an email asks to confirm it before the account exists', async () => {
+  const fetchMock = mockFetch({
+    '/auth/me': { status: 401 },
+    '/auth/signup': { status: 202, body: { verification_sent: true, email: 'me@example.com' } },
+  });
+  await renderAuthPage({ initialMode: 'signup' });
+
+  fillIn('me@example.com', 'password-123');
+  fireEvent.click(screen.getByRole('button', { name: 'Start free trial' }));
+
+  expect(await screen.findByRole('heading', { name: 'Check your email' })).toBeInTheDocument();
+  expect(screen.getByText('me@example.com')).toBeInTheDocument();
+  expect(screen.queryByText(/Logged in as/)).not.toBeInTheDocument();
+
+  // Send it again: the same sign-up is posted again
+  fireEvent.click(screen.getByRole('button', { name: 'Send it again' }));
+  expect(await screen.findByText('Sent again. It can take a minute to arrive.')).toBeInTheDocument();
+  expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/auth/signup'))).toHaveLength(2);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Use a different email' }));
+  expect(screen.getByLabelText('Email')).toBeInTheDocument();
+});
+
 test('explains when the server is unreachable', async () => {
   global.fetch = jest.fn(() => Promise.reject(new TypeError('Failed to fetch')));
   renderAt(

@@ -25,7 +25,7 @@ __DOMAIN__ {
 	# (web/scripts/seo.js) for search engines and link previews. The app's own
 	# addresses use index.html. Anything else is a real 404 (the app then shows
 	# the homepage), so search engines don't index made-up addresses.
-	@app_pages path / /login /signup /admin /app /app/* /sign/*
+	@app_pages path / /login /signup /verify-email /reset-password /admin /app /app/* /sign/*
 	handle @app_pages {
 		root * /opt/dokkiman/app/dokkiman/web/build
 		header Cache-Control "no-cache"
@@ -52,7 +52,7 @@ __DOMAIN__ {
 	}
 
 	# Keep private and app pages out of search results
-	@noindex path /app /app/* /admin /login /signup /sign/*
+	@noindex path /app /app/* /admin /login /signup /verify-email /reset-password /sign/*
 	header @noindex X-Robots-Tag "noindex, nofollow"
 
 	header {
@@ -73,10 +73,11 @@ __DOMAIN__ {
 			roll_size 20MiB
 			roll_keep 5
 		}
-		# Signing links let whoever has them sign: keep their tokens out of the log
+		# Signing, email confirmation and password reset links let whoever has them
+		# in: keep their tokens out of the log
 		format filter {
-			request>uri regexp "(/sign(?:ing)?/)[A-Za-z0-9_-]{20,}" "${1}[token]"
-			request>headers>Referer regexp "(/sign(?:ing)?/)[A-Za-z0-9_-]{20,}" "${1}[token]"
+			request>uri regexp "(/sign(?:ing)?/|token=)[A-Za-z0-9_-]{20,}" "${1}[token]"
+			request>headers>Referer regexp "(/sign(?:ing)?/|token=)[A-Za-z0-9_-]{20,}" "${1}[token]"
 		}
 	}
 }
