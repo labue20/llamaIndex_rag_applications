@@ -90,7 +90,19 @@ function App() {
       shortLabel: 'E-Sign',
       icon: <Icon name='pen' />,
       title: 'E-Sign',
-      content: <ESign ref={eSignRef} onStatusChange={setESignStatus} allowDocumentManager={!isGuest} isGuest={isGuest} />,
+      content: (
+        <ESign
+          ref={eSignRef}
+          onStatusChange={setESignStatus}
+          allowDocumentManager={!isGuest}
+          isGuest={isGuest}
+          // Accounts only: keep a signed document without downloading it
+          onSaveToDocuments={isGuest ? undefined : async (file) => {
+            await documentApi.uploadDocument(file);
+            handleUploadSuccess();
+          }}
+        />
+      ),
       headerAction: (
         <ConverterHeaderActions converterRef={eSignRef} status={eSignStatus} acceptedTypes='.pdf' />
       )

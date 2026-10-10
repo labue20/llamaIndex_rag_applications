@@ -2,6 +2,8 @@
  * Sign PDF
  * Place signatures, initials and dates on a PDF's pages, then have the server
  * stamp them into the document (/signPdf), optionally with an audit trail page.
+ * The signed PDF can be downloaded, saved to the Document Manager, or both:
+ * it's signed once and that copy is reused until something changes.
  *
  * Item positions are stored as fractions of the page (0..1 from the top-left),
  * which is also what the server expects.
@@ -29,7 +31,7 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 let nextItemId = 1;
 
-const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref) => {
+const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true, onSaveToDocuments }, ref) => {
   const [file, setFile] = useState(null);
   const [pdf, setPdf] = useState(null);
   const [pageCount, setPageCount] = useState(0);
@@ -44,6 +46,8 @@ const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
   const [isConverting, setIsConverting] = useState(false); // a Word document becoming a PDF
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  // The signed copy: { file, fingerprint, recordId, downloaded, saved }
+  const [signed, setSigned] = useState(null);
 
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
@@ -245,7 +249,47 @@ const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
   };
 
   // --- signing ----------------------------------------------------------------------
-  const sign = async () => {
+  // Moving, adding or removing anything (or the audit page setting) means signing again
+  useEffect(() => {
+    setSigned(null);
+    setResult(null);
+  }, [file, items, addAudit]);
+
+  // Sign on the server, once per version of the placements
+  const signDocument = async () => {
+    if (signed) return signed;
+    const kinds = [...new Set(items.filter((i) => i.type === 'image').map((i) => i.kind))];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('audit', addAudit ? 'true' : 'false');
+    formData.append('placements', JSON.stringify(items.map((i) => ({
+      type: i.type, page: i.page, x: i.x, y: i.y, width: i.width, height: i.height, label: i.label,
+      ...(i.type === 'image' ? { image: kinds.indexOf(i.kind) } : { text: i.text }),
+    }))));
+    for (const kind of kinds) {
+      formData.append('images', dataUrlToBlob(images[kind].dataUrl), `${kind}.png`);
+    }
+
+    const response = await apiFetch('/signPdf', { method: 'POST', body: formData });
+    if (!response.ok) {
+      throw new Error(await readApiError(response, 'The PDF could not be signed.'));
+    }
+    const blob = await response.blob();
+    const fileName = filenameFromDisposition(
+      response.headers.get('Content-Disposition'),
+      `${file.name.replace(/\.pdf$/i, '')}_signed.pdf`
+    );
+    return {
+      file: new File([blob], fileName, { type: 'application/pdf' }),
+      fingerprint: response.headers.get('X-Document-SHA256'),
+      recordId: response.headers.get('X-Audit-Record-Id'),
+      downloaded: false,
+      saved: false,
+    };
+  };
+
+  // action: 'download' or 'save' (to the Document Manager)
+  const sign = async (action = 'download') => {
     if (!file) return;
     if (items.length === 0) {
       setError('Add a signature, initials or date to the document first.');
@@ -253,35 +297,17 @@ const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
     }
     setIsSigning(true);
     setError('');
-    setResult(null);
     try {
-      const kinds = [...new Set(items.filter((i) => i.type === 'image').map((i) => i.kind))];
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('audit', addAudit ? 'true' : 'false');
-      formData.append('placements', JSON.stringify(items.map((i) => ({
-        type: i.type, page: i.page, x: i.x, y: i.y, width: i.width, height: i.height, label: i.label,
-        ...(i.type === 'image' ? { image: kinds.indexOf(i.kind) } : { text: i.text }),
-      }))));
-      for (const kind of kinds) {
-        formData.append('images', dataUrlToBlob(images[kind].dataUrl), `${kind}.png`);
+      const copy = await signDocument();
+      if (action === 'save') {
+        await onSaveToDocuments(copy.file);
+        copy.saved = true;
+      } else {
+        downloadBlob(copy.file, copy.file.name);
+        copy.downloaded = true;
       }
-
-      const response = await apiFetch('/signPdf', { method: 'POST', body: formData });
-      if (!response.ok) {
-        throw new Error(await readApiError(response, 'The PDF could not be signed.'));
-      }
-      const blob = await response.blob();
-      const fileName = filenameFromDisposition(
-        response.headers.get('Content-Disposition'),
-        `${file.name.replace(/\.pdf$/i, '')}_signed.pdf`
-      );
-      downloadBlob(blob, fileName);
-      setResult({
-        fileName,
-        fingerprint: response.headers.get('X-Document-SHA256'),
-        recordId: response.headers.get('X-Audit-Record-Id'),
-      });
+      setSigned({ ...copy });
+      setResult({ fileName: copy.file.name, recordId: copy.recordId, downloaded: copy.downloaded, saved: copy.saved });
     } catch (err) {
       console.error('Signing failed:', err);
       setError(err.message);
@@ -428,19 +454,29 @@ const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
             <div className='converter-message converter-message--success' role='status'>
               <Icon name='checkCircle' size={16} />
               <span>
-                Signed and downloaded {result.fileName}.
+                {result.downloaded && result.saved && `Signed ${result.fileName}: downloaded and saved to your Document Manager.`}
+                {result.downloaded && !result.saved && `Signed and downloaded ${result.fileName}.`}
+                {!result.downloaded && result.saved && `Signed and saved ${result.fileName} to your Document Manager.`}
                 {result.recordId && <> Audit record {result.recordId.slice(0, 8)}…</>}
               </span>
             </div>
           )}
 
           <div className='conversion-action'>
-            <button type='button' className='convert-btn' onClick={sign} disabled={isSigning}>
+            <button type='button' className='convert-btn' onClick={() => sign('download')} disabled={isSigning}>
               <span className='btn-icon' aria-hidden='true'>
                 {isSigning ? <span className='btn-spinner' /> : <Icon name='pen' size={18} />}
               </span>
-              {isSigning ? 'Signing...' : 'Sign & download'}
+              {isSigning ? 'Signing...' : signed ? 'Download' : 'Sign & download'}
             </button>
+            {/* Accounts only: keep the signed copy without downloading it */}
+            {onSaveToDocuments && (
+              <button type='button' className='convert-btn convert-btn--secondary' onClick={() => sign('save')}
+                disabled={isSigning || !!signed?.saved}>
+                <span className='btn-icon' aria-hidden='true'><Icon name='folder' size={18} /></span>
+                {signed?.saved ? 'Saved to Documents' : signed ? 'Save to Documents' : 'Sign & save to Documents'}
+              </button>
+            )}
           </div>
         </>
       )}

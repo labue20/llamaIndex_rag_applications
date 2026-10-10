@@ -41,7 +41,9 @@ const AccountNeeded = () => {
   );
 };
 
-const ESign = forwardRef(({ onStatusChange, allowDocumentManager = true, isGuest = false }, ref) => {
+const ESign = forwardRef(({
+  onStatusChange, allowDocumentManager = true, isGuest = false, onSaveToDocuments,
+}, ref) => {
   const [tab, setTab] = useState('self');
   const selfRef = useRef(null);
   const requestRef = useRef(null);
@@ -96,7 +98,8 @@ const ESign = forwardRef(({ onStatusChange, allowDocumentManager = true, isGuest
 
       {/* All tabs stay mounted, so switching doesn't lose work in progress */}
       <div role='tabpanel' id='esign-panel-self' aria-labelledby='esign-tab-self' hidden={tab !== 'self'}>
-        <SignPdf ref={selfRef} onStatusChange={reportSelf} allowDocumentManager={allowDocumentManager} />
+        <SignPdf ref={selfRef} onStatusChange={reportSelf} allowDocumentManager={allowDocumentManager}
+          onSaveToDocuments={onSaveToDocuments} />
       </div>
       <div role='tabpanel' id='esign-panel-request' aria-labelledby='esign-tab-request' hidden={tab !== 'request'}>
         {isGuest ? <AccountNeeded /> : (
