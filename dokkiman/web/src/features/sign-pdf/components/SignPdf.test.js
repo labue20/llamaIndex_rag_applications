@@ -48,7 +48,7 @@ const mockCanvas = () => {
 };
 
 const openPdf = async () => {
-  fireEvent.change(screen.getByLabelText('Choose PDF File'), { target: { files: [pdf()] } });
+  fireEvent.change(screen.getByLabelText('Choose File'), { target: { files: [pdf()] } });
   await screen.findByRole('toolbar', { name: 'Add to document' });
 };
 
@@ -174,4 +174,30 @@ test('shows the server error when signing fails', async () => {
 test('guests do not see the Document Manager picker', async () => {
   render(<SignPdf allowDocumentManager={false} />);
   expect(screen.queryByRole('button', { name: /Document Manager/ })).toBeNull();
+});
+
+test('Word documents are turned into a PDF, then signed like any PDF', async () => {
+  // jsdom's File may lack arrayBuffer(); browsers have it
+  if (!File.prototype.arrayBuffer) {
+    File.prototype.arrayBuffer = function arrayBuffer() { return Promise.resolve(new ArrayBuffer(4)); };
+  }
+  const requests = [];
+  global.fetch = jest.fn((url, options) => {
+    requests.push({ url, form: options.body });
+    return Promise.resolve({ ok: true, status: 200, blob: () => Promise.resolve(new Blob(['%PDF'], { type: 'application/pdf' })) });
+  });
+  render(<SignPdf />);
+  expect(screen.getByLabelText('Choose File')).toHaveAttribute('accept', '.pdf,.docx');
+
+  fireEvent.change(screen.getByLabelText('Choose File'), { target: { files: [new File(['docx'], 'contract.docx')] } });
+  await screen.findByRole('toolbar', { name: 'Add to document' });
+  expect(requests[0].url).toMatch(/\/toPdf$/);
+  expect(requests[0].form.get('file').name).toBe('contract.docx');
+});
+
+test('other kinds of files are refused', () => {
+  jest.spyOn(window, 'alert').mockImplementation(() => {});
+  render(<SignPdf />);
+  fireEvent.change(screen.getByLabelText('Choose File'), { target: { files: [new File(['x'], 'notes.txt')] } });
+  expect(window.alert).toHaveBeenCalledWith('Please choose a PDF or a Word document (.docx)');
 });

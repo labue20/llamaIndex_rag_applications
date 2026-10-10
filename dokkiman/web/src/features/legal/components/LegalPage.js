@@ -239,7 +239,7 @@ const TermsOfService = ({ plan }) => (
       <h2>2. The service</h2>
       <p>
         The service lets you chat with your PDFs using AI, keep documents in a Document Manager, convert between
-        PDF and Word, split and edit PDFs, and sign PDFs. Some tools can be tried without an account, with limits.
+        PDF and Word, split and edit PDFs, and sign PDF and Word documents. Some tools can be tried without an account, with limits.
       </p>
     </section>
 

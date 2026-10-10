@@ -11,18 +11,20 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef,
 import * as pdfjsLib from 'pdfjs-dist/webpack';
 import {
   apiFetch,
+  asPdf,
   dataUrlToBlob,
   DocumentPicker,
   downloadBlob,
   filenameFromDisposition,
   Icon,
+  isPdfFile,
+  isWordFile,
   readApiError,
 } from '../../../shared';
 import SignatureDialog from './SignatureDialog';
 import '../../../shared/styles/converter.scss';
 import '../styles/sign-pdf.scss';
 
-const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 let nextItemId = 1;
@@ -39,6 +41,7 @@ const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
   const [dialogKind, setDialogKind] = useState(null); // 'signature' | 'initials' | null
   const [addAudit, setAddAudit] = useState(true);
   const [isSigning, setIsSigning] = useState(false);
+  const [isConverting, setIsConverting] = useState(false); // a Word document becoming a PDF
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
 
@@ -61,14 +64,26 @@ const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
   }, []);
 
   const loadFile = useCallback(async (selectedFile) => {
-    if (!isPdf(selectedFile)) {
-      alert('Please select a valid PDF file');
+    if (!isPdfFile(selectedFile) && !isWordFile(selectedFile)) {
+      alert('Please choose a PDF or a Word document (.docx)');
       return;
     }
     reset();
-    setFile(selectedFile);
+    let pdfFile = selectedFile;
+    if (isWordFile(selectedFile)) {
+      setIsConverting(true);
+      try {
+        pdfFile = await asPdf(selectedFile);
+      } catch (err) {
+        alert(err.message);
+        return;
+      } finally {
+        setIsConverting(false);
+      }
+    }
+    setFile(pdfFile);
     try {
-      const doc = await pdfjsLib.getDocument({ data: await selectedFile.arrayBuffer() }).promise;
+      const doc = await pdfjsLib.getDocument({ data: await pdfFile.arrayBuffer() }).promise;
       setPdf(doc);
       setPageCount(doc.numPages);
     } catch (err) {
@@ -283,17 +298,22 @@ const SignPdf = forwardRef(({ onStatusChange, allowDocumentManager = true }, ref
       {!file && (
         <div className='file-input-section'>
           <div className='upload-area'>
-            <input type='file' accept='.pdf' onChange={handleFileSelect} id='sign-pdf-file-input' />
+            <input type='file' accept='.pdf,.docx' onChange={handleFileSelect} id='sign-pdf-file-input'
+              disabled={isConverting} />
             <div className='upload-actions'>
-              <label htmlFor='sign-pdf-file-input' className='upload-label'>Choose PDF File</label>
+              <label htmlFor='sign-pdf-file-input' className='upload-label'>Choose File</label>
               {allowDocumentManager && (
                 <DocumentPicker
-                  acceptedExtensions={['.pdf']}
+                  acceptedExtensions={['.pdf', '.docx']}
                   onSelect={(picked) => picked && loadFile(picked)}
                 />
               )}
             </div>
-            <p className='upload-hint'>Add your signature, initials and the date to any PDF • Max 50MB</p>
+            <p className='upload-hint'>
+              {isConverting
+                ? 'Converting your Word document…'
+                : 'Add your signature, initials and the date to a PDF or Word document • Max 50MB'}
+            </p>
           </div>
         </div>
       )}
