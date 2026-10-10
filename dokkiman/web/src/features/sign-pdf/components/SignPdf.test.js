@@ -201,3 +201,31 @@ test('other kinds of files are refused', () => {
   fireEvent.change(screen.getByLabelText('Choose File'), { target: { files: [new File(['x'], 'notes.txt')] } });
   expect(window.alert).toHaveBeenCalledWith('Please choose a PDF or a Word document (.docx)');
 });
+
+test('save the signed document to the Document Manager, without downloading it; signed only once', async () => {
+  const requests = mockSignServer();
+  const onSave = jest.fn(() => Promise.resolve());
+  render(<SignPdf onSaveToDocuments={onSave} />);
+  await openPdf();
+  fireEvent.click(screen.getByRole('button', { name: /Date/ }));
+
+  fireEvent.click(screen.getByRole('button', { name: 'Sign & save to Documents' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Signed and saved lease_signed.pdf to your Document Manager.');
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'lease_signed.pdf', type: 'application/pdf' }));
+  expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Saved to Documents' })).toBeDisabled();
+
+  // Downloading afterwards uses the same signed copy (no second signature or audit record)
+  fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('downloaded and saved to your Document Manager');
+  expect(HTMLAnchorElement.prototype.click).toHaveBeenCalled();
+  expect(requests).toHaveLength(1);
+});
+
+test('guests only get Sign & download', async () => {
+  mockSignServer();
+  render(<SignPdf />);
+  await openPdf();
+  expect(screen.getByRole('button', { name: /Sign & download/ })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Documents/ })).not.toBeInTheDocument();
+});
