@@ -68,7 +68,7 @@ test('an email that already has an account offers to sign in instead', async () 
   fireEvent.click(screen.getByRole('button', { name: 'Start free trial' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Sign in instead' }));
 
-  expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Sign in to Dokkiman' })).toBeInTheDocument();
   expect(screen.getByLabelText('Email')).toHaveValue('me@example.com');
   expect(screen.getByLabelText('Password')).toHaveValue('');
   expect(screen.getByLabelText('Password')).toHaveFocus();

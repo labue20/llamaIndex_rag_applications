@@ -14,6 +14,9 @@
   min-height: 100%;
   gap: 1.5rem;
 
+  // Folders, documents and signature requests: each a labelled list, evenly spaced
+  .folders__heading { margin-bottom: 0.5rem; }
+
   &__header {
     display: flex;
     justify-content: space-between;
@@ -718,4 +721,62 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+
+// --- Documents look like the folder rows: no column lines, a quiet header,
+// size and date in grey (later in the file, so these win) -----------------------------------
+.viewer {
+  border-radius: 10px;
+
+  &__table {
+    thead {
+      background-color: theme-color(secondary);
+      border-bottom: 1px solid theme-color(border);
+    }
+
+    th {
+      padding: 0.5rem 1rem;
+      border-right: none;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: theme-color(text-secondary);
+    }
+
+    th:first-child { width: 44px; }
+    th:nth-child(2) { width: auto; }
+    th:nth-child(3) { width: 130px; }
+    th:nth-child(4) { width: 210px; }
+  }
+
+  &__table-row {
+    &:hover { border-left: none; background-color: theme-color(secondary); }
+    &--selected { border-left: none; background-color: theme-color(accent-light); }
+  }
+
+  &__table-cell {
+    padding: 0.75rem 1rem;
+    border-right: none;
+
+    &--select { width: 44px; padding: 0 0 0 0.875rem; }
+    &--size,
+    &--date { font-size: 0.8125rem; font-weight: 400; color: theme-color(text-secondary); }
+  }
+}
+
+// Line up every list's icons: folders and signature requests start where the
+// documents' icons do (after the documents' select column)
+$list-indent: 44px;
+.folders__open { padding-left: $list-indent; }
+.folders__request { padding-left: $list-indent; }
+.viewer__table th:first-child,
+.viewer__table-cell--select { width: 40px; padding-left: 0.875rem; padding-right: 0; }
+.viewer__table th:nth-child(2),
+.viewer__table-cell--name { padding-left: 0.25rem; }
+
+// Phones: every bit of width goes to the names
+@media (max-width: 640px) {
+  .folders__open,
+  .folders__request { padding-left: 0.75rem; }
 }

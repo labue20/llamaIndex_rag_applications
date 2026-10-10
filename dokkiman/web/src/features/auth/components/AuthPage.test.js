@@ -59,7 +59,7 @@ test('sign-up checks the password length before calling the server', async () =>
   const fetchMock = mockFetch({ '/auth/me': { status: 401 } });
   await renderAuthPage({ initialMode: 'signup' });
 
-  expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
   fillIn('new@example.com', 'short');
   fireEvent.click(screen.getByRole('button', { name: 'Start free trial' }));
 
@@ -128,15 +128,15 @@ test('explains when the connection drops while signing in', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent("Can't reach the server");
 });
 
-test('switches between tabs and toggles password visibility', async () => {
+test('switches between sign in and sign up, and toggles password visibility', async () => {
   mockFetch({ '/auth/me': { status: 401 } });
   const onBack = jest.fn();
   await renderAuthPage({ onBack });
 
-  fireEvent.click(screen.getByRole('tab', { name: 'Create account' }));
-  expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('tab', { name: 'Sign in' }));
-  expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Create one' }));
+  expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  expect(screen.getByRole('heading', { name: 'Sign in to Dokkiman' })).toBeInTheDocument();
 
   const password = screen.getByLabelText('Password');
   expect(password).toHaveAttribute('type', 'password');
@@ -146,4 +146,15 @@ test('switches between tabs and toggles password visibility', async () => {
   fireEvent.click(screen.getByRole('button', { name: /Back to home/ }));
   expect(onBack).toHaveBeenCalled();
   await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+});
+
+test('with Google available, the email form opens from a button', async () => {
+  mockFetch({
+    '/auth/me': { status: 401 },
+    '/auth/config': { body: { google_client_id: 'client-id', password_login: true } },
+  });
+  renderAt(<AuthProvider><AuthPage initialMode='signup' /></AuthProvider>, '/signup');
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign up with Email' }));
+  expect(screen.getByLabelText('Email')).toBeInTheDocument();
+  expect(screen.getByLabelText('Password')).toBeInTheDocument();
 });

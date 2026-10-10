@@ -32,15 +32,15 @@ test('the homepage is at /', async () => {
   expect(screen.queryByText('The app')).toBeNull();
 });
 
-test('sign-in pages have their own addresses, and the tabs keep the address in step', async () => {
+test('sign-in pages have their own addresses, and switching keeps the address in step', async () => {
   mockFetch({ '/auth/me': { status: 401 } });
   renderSite('/');
 
   fireEvent.click(within(await screen.findByRole('banner')).getByRole('button', { name: 'Start free trial' }));
-  expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
   expect(path()).toBe('/signup');
 
-  fireEvent.click(await screen.findByRole('tab', { name: 'Sign in' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in' }));
   expect(path()).toBe('/login');
 
   fireEvent.click(screen.getByRole('button', { name: /Back to home/ }));
@@ -97,7 +97,7 @@ test('an expired session sends a signed-in user to the sign-in page', async () =
     await apiFetch('/getDocuments');
   });
   expect(path()).toBe('/login');
-  expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Sign in to Dokkiman' })).toBeInTheDocument();
 });
 
 test('unknown addresses go to the homepage', async () => {
