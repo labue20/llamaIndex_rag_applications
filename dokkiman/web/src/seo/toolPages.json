@@ -135,8 +135,12 @@
     ],
     "faqs": [
       {
-        "q": "Is an electronic signature legally binding?",
-        "a": "In many countries, including the US (ESIGN Act and UETA) and the EU (eIDAS), electronic signatures are legally valid for most documents. Some documents, such as wills, may have other requirements, so check if you're unsure."
+        "q": "Are Dokkiman signatures legally binding?",
+        "a": "Yes, for most contracts and agreements. In the US, the ESIGN Act and UETA give electronic signatures the same legal effect as handwritten ones when the signer means to sign and the signed record is kept. When you send a document for others to sign with Request Signatures, each signer agrees to sign electronically and you get a Certificate of Completion as evidence. In the EU, UK, Canada and Australia, electronic signatures are also valid for most contracts; Dokkiman's are simple electronic signatures, not the qualified signatures a few EU documents require. This is general information, not legal advice."
+      },
+      {
+        "q": "Which documents can't be signed electronically?",
+        "a": "In the US: wills, codicils and testamentary trusts; adoption, divorce and other family-law papers; court orders and official court documents; notices of utility shut-off, foreclosure or eviction, and cancellation of health or life insurance; and documents that must be notarized. Some deeds, recordings and promissory notes have their own rules too. Other countries have similar lists, so check for yours."
       },
       {
         "q": "Can I sign a Word document?",
@@ -226,8 +230,16 @@
         "a": "The free trial includes a few requests a month and Basic more; Pro is unlimited within fair use. The Free plan, after the trial, doesn't include requests. See the pricing page for the numbers."
       },
       {
-        "q": "Is it legally binding?",
-        "a": "Electronic signatures with an audit trail are generally valid under the US ESIGN Act and UETA and the EU's eIDAS for most documents. Some documents have other requirements, so check for yours."
+        "q": "Are Dokkiman signatures legally binding?",
+        "a": "Yes, for most contracts and agreements. In the US, the ESIGN Act and UETA give electronic signatures the same legal effect as handwritten ones when the signer means to sign, agrees to sign electronically, and the signed record is kept. Dokkiman records each of these: signers tick a box agreeing to sign electronically before they finish, and every signed document comes with a Certificate of Completion. In the EU, UK, Canada and Australia, electronic signatures are also valid for most contracts; Dokkiman's are simple electronic signatures, not the qualified signatures a few EU documents require. This is general information, not legal advice."
+      },
+      {
+        "q": "Which documents can't be signed electronically?",
+        "a": "In the US: wills, codicils and testamentary trusts; adoption, divorce and other family-law papers; court orders and official court documents; notices of utility shut-off, foreclosure or eviction, and cancellation of health or life insurance; and documents that must be notarized. Some deeds, recordings and promissory notes have their own rules too. Other countries have similar lists, so check for yours."
+      },
+      {
+        "q": "What proves who signed?",
+        "a": "Each signer gets their own private link by email, so signing shows they had access to that email address. The Certificate of Completion lists every step (sent, opened, signed or declined) with the time, IP address and browser, plus SHA-256 fingerprints of the document before and after signing, so any later change shows. The signed PDF and certificate are emailed to everyone and kept in your Document Manager."
       },
       {
         "q": "Can I send a Word document?",
