@@ -234,7 +234,7 @@ const PricingPage = ({ onLogin, onSignup, onTryTool, onOpenApp }) => {
 
       <main className='pricing'>
         <header className='pricing__header'>
-          <h1>PDF Tools That Fit Your Budget</h1>
+          <h1>Simple pricing for every PDF task</h1>
           {user ? (
             <p>
               Keep using the Free plan for as long as you like, or upgrade to Basic for more, or Pro for no limits.

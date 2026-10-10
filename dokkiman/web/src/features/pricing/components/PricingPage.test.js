@@ -30,7 +30,7 @@ const path = () => screen.getByTestId('current-path').textContent;
 test('shows Free, Basic and Pro with the limits and prices from the server', async () => {
   renderPricing();
 
-  expect(await screen.findByRole('heading', { level: 1, name: 'PDF Tools That Fit Your Budget' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { level: 1, name: 'Simple pricing for every PDF task' })).toBeInTheDocument();
   expect(document.title).toBe('Pricing · Dokkiman');
   await waitFor(() => expect(card('Free')).toHaveTextContent('Up to 3 documents'));
   expect(card('Free')).toHaveTextContent('10 AI questions a day');
@@ -89,7 +89,7 @@ test('the FAQ explains renewal and Pro fair use with the real numbers', async ()
 
 test('without a support address, upgrading is shown as coming soon', async () => {
   renderPricing({ plan: { ...PLAN, support_email: '' } });
-  await screen.findByRole('heading', { level: 1, name: 'PDF Tools That Fit Your Budget' });
+  await screen.findByRole('heading', { level: 1, name: 'Simple pricing for every PDF task' });
   expect(within(card('Pro')).getByRole('button', { name: 'Upgrades open soon' })).toBeDisabled();
   expect(within(card('Pro')).queryByRole('link', { name: 'Upgrade to Pro' })).toBeNull();
 });
@@ -123,7 +123,7 @@ test('the homepage links to the pricing page', async () => {
     '/'
   );
   fireEvent.click(within(await screen.findByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Pricing' }));
-  expect(await screen.findByRole('heading', { level: 1, name: 'PDF Tools That Fit Your Budget' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { level: 1, name: 'Simple pricing for every PDF task' })).toBeInTheDocument();
   expect(path()).toBe('/pricing');
 });
 

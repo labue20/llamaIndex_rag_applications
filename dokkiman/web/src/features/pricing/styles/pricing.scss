@@ -12,7 +12,7 @@
   @media (max-width: 640px) { padding: 2rem 1rem 3rem; }
 
   &__header {
-    max-width: 640px;
+    max-width: 900px;
     margin: 0 auto 2.5rem;
     text-align: center;
 
@@ -21,10 +21,14 @@
       font-weight: 700;
       letter-spacing: -0.03em;
       text-wrap: balance; // even line lengths when the heading wraps on phones
+
+      // One line wherever it fits
+      @media (min-width: 760px) { white-space: nowrap; }
     }
 
     p {
-      margin-top: 0.75rem;
+      max-width: 640px;
+      margin: 0.75rem auto 0;
       font-size: 1.0625rem;
       line-height: 1.6;
       color: theme-color(text-secondary);
