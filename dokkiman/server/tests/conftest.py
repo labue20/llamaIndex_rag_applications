@@ -75,6 +75,13 @@ class FakeIndexServer:
             return _Value({"error": "The original file for this document isn't stored."})
         return _Value({"path": doc["file_path"], "file_name": doc["file_name"]})
 
+    def rename_document(self, doc_id, owner_id, new_name):
+        doc = self._owned(doc_id, owner_id)
+        if not doc:
+            return _Value({"error": "Document not found"})
+        doc["file_name"] = new_name
+        return _Value({"success": True, "doc_id": doc_id, "filename": new_name})
+
     def chat_with_document(self, message, document_id, owner_id):
         self.calls.append(("chat_with_document", message, document_id, owner_id))
         if not self._owned(document_id, owner_id):

@@ -184,6 +184,18 @@ def _doc_display_name(doc_info, doc_id):
     return doc_info.get("file_name") or os.path.basename(doc_info.get("file_path") or doc_id)
 
 
+def rename_document(doc_id, owner_id, new_name):
+    """Give one of owner_id's documents a new display name (the stored file keeps its own)."""
+    with lock:
+        doc_info = _owned_doc(doc_id, owner_id)
+        if doc_info is None:
+            return {"error": "Document not found"}
+        doc_info["file_name"] = new_name
+        with open(pkl_name, "wb") as f:
+            pickle.dump(stored_docs, f)
+    return {"success": True, "doc_id": doc_id, "filename": new_name}
+
+
 def claim_guest_documents(guest_id, owner_id):
     """Move a guest's documents into the account they signed up or logged in with."""
     if not guest_id or not str(guest_id).startswith("guest_"):
@@ -1083,6 +1095,7 @@ if __name__ == "__main__":
     manager.register('background_index_document', background_index_document)
     manager.register('claim_unowned_documents', claim_unowned_documents)
     manager.register('get_document_file', get_document_file)
+    manager.register('rename_document', rename_document)
     manager.register('ping', ping)
     manager.register('claim_guest_documents', claim_guest_documents)
     manager.register('document_counts', document_counts)

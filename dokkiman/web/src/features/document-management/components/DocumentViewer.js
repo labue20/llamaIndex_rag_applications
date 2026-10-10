@@ -1,16 +1,20 @@
 /**
  * Document Viewer Component
- * Displays a table of documents with selection, deletion, and metadata viewing capabilities
+ * Displays a table of documents with selection, deletion, and metadata viewing capabilities.
+ * Clicking a document (anywhere on its row but the checkbox) opens it to view;
+ * right-clicking it, or its ⋯ button, shows what else you can do with it.
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Icon } from '../../../shared';
 import FolderPicker from './FolderPicker';
+import DocumentMenu from './DocumentMenu';
 
 const MAX_TITLE_LENGTH = 45;
 
 const DocumentViewer = ({
-  documentList, onDeleteDocument, moveTargets, onMoveDocuments, emptyText = null, hideEmptyState = false,
+  documentList, onDeleteDocument, moveTargets, onMoveDocuments, onOpenDocument, onCopyDocument,
+  onDownloadDocument, onRenameDocument, emptyText = null, hideEmptyState = false,
 }) => {
   console.log('DocumentViewer received documentList:', documentList);
   
@@ -19,6 +23,9 @@ const DocumentViewer = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [hoveredDocument, setHoveredDocument] = useState(null);
+  const [menu, setMenu] = useState(null); // { document, name, x, y }
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const hasMenu = Boolean(onOpenDocument || onRenameDocument || onCopyDocument || onDownloadDocument);
   // Touch screens have no hover, so always show the row checkboxes there
   const [isTouchScreen] = useState(
     () => typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches
@@ -218,12 +225,31 @@ const DocumentViewer = ({
     }
   };
 
+  // The menu's Delete asks first, like deleting a selection of one
+  const askToDelete = (documentId) => {
+    setSelectedDocuments(new Set([documentId]));
+    setShowDeleteConfirm(true);
+  };
+
+  const menuItems = (document, name) => [
+    onOpenDocument && { label: 'Open', icon: 'file', onSelect: () => onOpenDocument(document, name) },
+    onRenameDocument && { label: 'Rename', icon: 'edit', onSelect: () => onRenameDocument(document, name) },
+    onCopyDocument && { label: 'Make a copy', icon: 'copy', onSelect: () => onCopyDocument(document, name) },
+    onDownloadDocument && document.has_file !== false
+      && { label: 'Download', icon: 'download', onSelect: () => onDownloadDocument(document, name) },
+    onDeleteDocument && { label: 'Delete', icon: 'trash', danger: true, onSelect: () => askToDelete(document.id) },
+  ].filter(Boolean);
+
   const cancelDelete = () => {
     setShowDeleteConfirm(false);
   };
 
   return (
     <div className='viewer'>
+      {menu && (
+        <DocumentMenu name={menu.name} x={menu.x} y={menu.y} items={menuItems(menu.document, menu.name)}
+          onClose={closeMenu} />
+      )}
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className='viewer__modal-overlay'>
@@ -317,6 +343,7 @@ const DocumentViewer = ({
                 <th>Name</th>
                 <th>Size</th>
                 <th>Date Uploaded</th>
+                {hasMenu && <th className='viewer__table-header--more'><span className='viewer__hidden-label'>Actions</span></th>}
               </tr>
             </thead>
             <tbody>
@@ -333,6 +360,14 @@ const DocumentViewer = ({
                     className={`viewer__table-row ${isSelected ? 'viewer__table-row--selected' : ''}`}
                     onMouseEnter={() => setHoveredDocument(document.id)}
                     onMouseLeave={() => setHoveredDocument(null)}
+                    // The whole row opens it; the name below is the button keyboards and screen readers use
+                    onClick={(e) => {
+                      if (onOpenDocument && !e.target.closest('input, button')) onOpenDocument(document, displayName);
+                    }}
+                    onContextMenu={hasMenu ? (e) => {
+                      e.preventDefault();
+                      setMenu({ document, name: displayName, x: e.clientX, y: e.clientY });
+                    } : undefined}
                   >
                     <td className='viewer__table-cell viewer__table-cell--select'>
                       {(isTouchScreen || hoveredDocument === document.id || isSelected || selectedDocuments.size > 0) && (
@@ -349,9 +384,17 @@ const DocumentViewer = ({
                         <Icon name='file' size={16} />
                       </span>
                       <span className='viewer__file-text'>
-                        <span className='viewer__file-name' title={displayName}>
-                          {truncatedName}
-                        </span>
+                        {onOpenDocument ? (
+                          <button type='button' className='viewer__file-name viewer__file-open' title={displayName}
+                            aria-label={`Open ${displayName}`}
+                            onClick={() => onOpenDocument(document, displayName)}>
+                            {truncatedName}
+                          </button>
+                        ) : (
+                          <span className='viewer__file-name' title={displayName}>
+                            {truncatedName}
+                          </span>
+                        )}
                         {/* Size and date, shown here on phones where those columns are hidden */}
                         <span className='viewer__file-meta'>
                           {getDocumentSize(document)} · {formatDate(document.processing_timestamp)}
@@ -364,6 +407,18 @@ const DocumentViewer = ({
                     <td className='viewer__table-cell viewer__table-cell--date'>
                       {formatDate(document.processing_timestamp)}
                     </td>
+                    {hasMenu && (
+                      <td className='viewer__table-cell viewer__table-cell--more'>
+                        <button type='button' className='viewer__more' aria-label={`More actions for ${displayName}`}
+                          aria-haspopup='menu' aria-expanded={menu?.document.id === document.id}
+                          onClick={(e) => {
+                            const box = e.currentTarget.getBoundingClientRect();
+                            setMenu({ document, name: displayName, x: box.right - 180, y: box.bottom + 4 });
+                          }}>
+                          <Icon name='more' size={18} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

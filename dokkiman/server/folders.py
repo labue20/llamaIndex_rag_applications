@@ -101,6 +101,16 @@ def document_folder_map(owner_id):
             "SELECT doc_id, folder_id FROM document_folders WHERE owner_id = ?", (owner_id,))}
 
 
+def file_document(owner_id, doc_id, folder_id):
+    """Put a document in a folder (a copy goes where its original is)."""
+    with connect_db() as conn:
+        conn.execute(
+            "INSERT INTO document_folders (doc_id, owner_id, folder_id) VALUES (?, ?, ?)"
+            " ON CONFLICT(doc_id) DO UPDATE SET folder_id = excluded.folder_id",
+            (doc_id, owner_id, folder_id),
+        )
+
+
 def forget_document(owner_id, doc_id):
     """A deleted document leaves its folder."""
     with connect_db() as conn:

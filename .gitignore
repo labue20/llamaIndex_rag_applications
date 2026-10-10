@@ -19,6 +19,7 @@ dokkiman/server/stored_documents.pkl
 # Backend runtime data (user accounts, session secret, uploads)
 dokkiman/server/instance/
 dokkiman/server/documents/
+dokkiman/server/previews/
 
 # Test caches
 .pytest_cache/
