@@ -2,7 +2,8 @@
  * Replace global.fetch with a fake backend for tests.
  *
  * routes maps a path (e.g. '/auth/me') to either a response spec
- * { status, body } (JSON) or { file: Blob } (a download), or a function
+ * { status, body } (JSON), { file: Blob } (a download) or { text } (a text
+ * file), or a function
  * (url, options) => spec. Unknown paths
  * answer 404. Returns the jest mock so tests can inspect calls.
  */
@@ -29,7 +30,17 @@ export const mockFetch = (routes) => {
     if (!spec) return Promise.resolve(jsonResponse(404, { error: 'Not found' }));
     if (spec.file) {
       // A file download: { file: Blob }
-      return Promise.resolve({ ok: true, status: 200, blob: () => Promise.resolve(spec.file), headers: { get: () => null } });
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        blob: () => Promise.resolve(spec.file),
+        // pdf.js is faked in tests, so any bytes will do
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+        headers: { get: () => null },
+      });
+    }
+    if (spec.text !== undefined) {
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(spec.text), headers: { get: () => 'text/plain' } });
     }
     return Promise.resolve(jsonResponse(spec.status ?? 200, spec.body ?? {}));
   });

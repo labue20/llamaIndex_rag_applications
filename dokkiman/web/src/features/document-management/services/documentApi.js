@@ -4,6 +4,7 @@
  */
 
 import { apiClient, apiFetch, readApiError } from '../../../shared/services/apiClient';
+import { downloadBlob } from '../../../shared/utils/downloadBlob';
 
 export const documentApi = {
   /**
@@ -70,6 +71,44 @@ export const documentApi = {
       console.error('Error fetching full document:', error);
       throw error;
     }
+  },
+
+  /**
+   * Rename a document (it keeps its file type)
+   * @param {string} documentId - The document ID
+   * @param {string} name - The new name
+   * @returns {Promise<Object>} { doc_id, filename }
+   */
+  async renameDocument(documentId, name) {
+    const response = await apiFetch(`/documents/${encodeURIComponent(documentId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!response.ok) throw new Error(await readApiError(response, 'The document couldn’t be renamed. Please try again.'));
+    return response.json();
+  },
+
+  /**
+   * Make a copy of a document ("Copy of ..."), in the same folder
+   * @param {string} documentId - The document to copy
+   * @returns {Promise<Object>} { doc_id, filename, folder_id } of the copy
+   */
+  async copyDocument(documentId) {
+    const response = await apiFetch(`/documents/${encodeURIComponent(documentId)}/copy`, { method: 'POST' });
+    if (!response.ok) throw new Error(await readApiError(response, 'The copy couldn’t be made. Please try again.'));
+    return response.json();
+  },
+
+  /**
+   * Download a document's original file
+   * @param {string} documentId - The document ID
+   * @param {string} fileName - The name to save it as
+   */
+  async downloadDocument(documentId, fileName) {
+    const response = await apiFetch(`/documents/${encodeURIComponent(documentId)}/file`);
+    if (!response.ok) throw new Error(await readApiError(response, 'The download didn’t work. Please try again.'));
+    downloadBlob(await response.blob(), fileName);
   },
 
   /**

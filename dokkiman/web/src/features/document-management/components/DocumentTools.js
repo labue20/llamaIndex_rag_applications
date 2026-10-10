@@ -4,7 +4,8 @@
  * requests filed in each, and the documents. The open folder is in the
  * address (/app/documents?folder=<id>), so Back works and uploads know
  * where to go. A search box finds folders, documents and requests across
- * every folder; folders sort A–Z or by recent activity.
+ * every folder; folders sort A–Z or by recent activity. Clicking a document
+ * opens it to view; right-clicking it can also rename, copy, download or delete it.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,10 +13,12 @@ import { useSearchParams } from 'react-router-dom';
 import { DocumentViewer } from '../index';
 import { useDocuments } from '../hooks/useDocuments';
 import { folderApi, folderPath } from '../services/folderApi';
+import { documentApi } from '../services/documentApi';
 import { fetchSignatureRequests } from '../../e-sign/requestsApi';
 import FolderBrowser, { RequestList } from './FolderBrowser';
 import CompactUploadButton from './CompactUploadButton';
 import DocumentSearch from './DocumentSearch';
+import DocumentPreview from './DocumentPreview';
 import { Icon } from '../../../shared';
 import '../styles/folders.scss';
 
@@ -42,6 +45,9 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
   const [loaded, setLoaded] = useState(false);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState(readSort);
+  const [viewing, setViewing] = useState(null); // { document, name }
+  const openDocument = useCallback((document, name) => setViewing({ document, name }), []);
+  const closeDocument = useCallback(() => setViewing(null), []);
 
   const changeSort = (value) => {
     setSort(value);
@@ -169,6 +175,37 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
     refreshAll();
   };
 
+  // Asks for the new name; the file type (.pdf, .docx) stays, so it isn't in the box
+  const renameDocument = async (document, currentName) => {
+    const extension = currentName.match(/\.[^.]+$/)?.[0] || '';
+    const stem = extension ? currentName.slice(0, -extension.length) : currentName;
+    const name = window.prompt('Rename document', stem);
+    if (name === null || !name.trim() || name.trim() === stem) return;
+    try {
+      await documentApi.renameDocument(document.id, name.trim());
+      refreshAll();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const copyDocument = async (document) => {
+    try {
+      await documentApi.copyDocument(document.id);
+      refreshAll();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const downloadDocument = async (document, name) => {
+    try {
+      await documentApi.downloadDocument(document.id, name);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const handleDeleteDocument = async (documentId) => {
     try {
       await deleteDocument(documentId);
@@ -203,6 +240,7 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
           requests={requests}
           pathOf={(id) => folderPath(folders, id)}
           nameOf={nameOf}
+          onOpenDocument={openDocument}
           onOpenFolder={(id) => {
             setQuery('');
             open(id);
@@ -244,6 +282,10 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
           onDeleteDocument={handleDeleteDocument}
           moveTargets={moveTargets}
           onMoveDocuments={moveDocuments}
+          onOpenDocument={openDocument}
+          onRenameDocument={renameDocument}
+          onCopyDocument={copyDocument}
+          onDownloadDocument={downloadDocument}
           emptyText={currentFolder
             ? 'No documents in this folder yet. Upload one with “Upload files”, or move documents here.'
             : null}
@@ -254,6 +296,7 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
       <RequestList requests={requestsHere} />
       </>
       )}
+      {viewing && <DocumentPreview document={viewing.document} name={viewing.name} onClose={closeDocument} />}
     </div>
   );
 };

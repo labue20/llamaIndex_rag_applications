@@ -2,6 +2,7 @@
 
 import io
 import os
+import zipfile
 import re
 
 
@@ -238,3 +239,146 @@ def test_unexpected_errors_do_not_reveal_internals(signup, index_server, monkeyp
         assert response.status_code == 500
         assert "secret detail" not in response.get_json()["error"]
         assert "/opt/" not in response.get_json()["error"]
+
+
+# --- viewing documents (My Documents) ------------------------------------------
+
+def test_a_pdf_is_shown_in_the_browser_not_downloaded(signup):
+    user_client = signup()
+    doc_id = _upload(user_client, content=b"%PDF-1.4 original bytes").get_json()["doc_id"]
+
+    response = user_client.get(f"/documents/{doc_id}/preview")
+    assert response.status_code == 200
+    assert response.data == b"%PDF-1.4 original bytes"
+    assert response.mimetype == "application/pdf"
+    assert "attachment" not in response.headers.get("Content-Disposition", "")
+
+
+def test_only_the_owner_can_view_a_document(signup):
+    alice, bob = signup("alice@example.com"), signup("bob@example.com")
+    doc_id = _upload(alice).get_json()["doc_id"]
+    assert bob.get(f"/documents/{doc_id}/preview").status_code == 404
+    assert bob.get("/documents/unknown/preview").status_code == 404
+
+
+def _docx_bytes():
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("word/document.xml", "<w:document/>")
+    return buffer.getvalue()
+
+
+def test_a_word_document_is_converted_once_and_the_copy_goes_with_it(signup, monkeypatch, tmp_path):
+    import flask_demo
+
+    conversions = []
+
+    def convert(input_path, output_path):
+        conversions.append(input_path)
+        with open(output_path, "wb") as out:
+            out.write(b"%PDF-1.4 converted")
+
+    monkeypatch.setattr(flask_demo.converter, "convert_docx_to_pdf", convert)
+    user_client = signup()
+    doc_id = _upload(user_client, "Offer letter.docx", content=_docx_bytes()).get_json()["doc_id"]
+
+    for _ in range(2):
+        response = user_client.get(f"/documents/{doc_id}/preview")
+        assert response.status_code == 200 and response.data == b"%PDF-1.4 converted"
+    assert len(conversions) == 1
+    assert [p.name for p in (tmp_path / "previews").iterdir()] == [f"{doc_id}.pdf"]
+
+    assert user_client.delete(f"/documents/{doc_id}").status_code == 200
+    assert list((tmp_path / "previews").iterdir()) == []
+
+
+def test_a_failed_word_conversion_says_to_download_it(signup, monkeypatch, tmp_path):
+    import flask_demo
+
+    def fail(input_path, output_path):
+        raise flask_demo.ConversionError("LibreOffice is not installed")
+
+    monkeypatch.setattr(flask_demo.converter, "convert_docx_to_pdf", fail)
+    user_client = signup()
+    doc_id = _upload(user_client, "Offer letter.docx", content=_docx_bytes()).get_json()["doc_id"]
+
+    response = user_client.get(f"/documents/{doc_id}/preview")
+    assert response.status_code == 500
+    assert "Download it" in response.get_json()["error"]
+    assert "LibreOffice" not in response.get_json()["error"]
+    assert not any((tmp_path / "previews").iterdir())
+
+
+def test_other_files_are_not_previewed_as_pdf(signup):
+    user_client = signup()
+    doc_id = _upload(user_client, "notes.txt", content=b"plain notes").get_json()["doc_id"]
+    assert user_client.get(f"/documents/{doc_id}/preview").status_code == 415
+
+
+# --- copying documents (My Documents) ------------------------------------------
+
+def test_a_copy_has_its_own_file_and_name_and_stays_in_the_folder(signup, index_server):
+    user_client = signup()
+    doc_id = _upload(user_client, "Lease.pdf", content=b"%PDF-1.4 lease").get_json()["doc_id"]
+    folder = user_client.post("/folders", json={"name": "214 Willow Lane"}).get_json()
+    folder_id = folder.get("id") or folder["folder"]["id"]
+    user_client.post("/folders/move", json={"folder_id": folder_id, "document_ids": [doc_id]})
+
+    response = user_client.post(f"/documents/{doc_id}/copy")
+    assert response.status_code == 201
+    copy = response.get_json()
+    assert copy["filename"] == "Copy of Lease.pdf" and copy["folder_id"] == folder_id
+    assert copy["doc_id"] != doc_id
+
+    listed = {d["id"]: d for d in user_client.get("/getDocuments").get_json()}
+    assert listed[copy["doc_id"]]["filename"] == "Copy of Lease.pdf"
+    assert listed[copy["doc_id"]]["folder_id"] == folder_id
+    assert user_client.get(f"/documents/{copy['doc_id']}/file").data == b"%PDF-1.4 lease"
+
+    # Deleting the copy leaves the original
+    assert user_client.delete(f"/documents/{copy['doc_id']}").status_code == 200
+    assert user_client.get(f"/documents/{doc_id}/file").data == b"%PDF-1.4 lease"
+
+
+def test_only_the_owner_can_copy_a_document(signup):
+    alice, bob = signup("alice@example.com"), signup("bob@example.com")
+    doc_id = _upload(alice).get_json()["doc_id"]
+    assert bob.post(f"/documents/{doc_id}/copy").status_code == 404
+    assert bob.get("/getDocuments").get_json() == []
+
+
+def test_a_copy_counts_toward_the_document_limit(signup, monkeypatch):
+    import flask_demo
+
+    user_client = signup()
+    doc_id = _upload(user_client).get_json()["doc_id"]
+    monkeypatch.setattr(flask_demo, "document_limit_error",
+                        lambda user_id, count: (flask_demo.jsonify({"error": "Limit reached"}), 403) if count >= 1 else None)
+    response = user_client.post(f"/documents/{doc_id}/copy")
+    assert response.status_code == 403
+    assert len(user_client.get("/getDocuments").get_json()) == 1
+
+
+# --- renaming documents (My Documents) ------------------------------------------
+
+def test_renaming_keeps_the_file_type_and_tidies_the_name(signup):
+    user_client = signup()
+    doc_id = _upload(user_client, "lease.pdf").get_json()["doc_id"]
+
+    response = user_client.patch(f"/documents/{doc_id}", json={"name": "  214 Willow / Lease\n2027 "})
+    assert response.status_code == 200
+    assert response.get_json()["filename"] == "214 Willow - Lease 2027.pdf"
+    assert user_client.get("/getDocuments").get_json()[0]["filename"] == "214 Willow - Lease 2027.pdf"
+    # Typing the extension doesn't double it
+    assert user_client.patch(f"/documents/{doc_id}", json={"name": "Final.PDF"}).get_json()["filename"] == "Final.PDF"
+    # The downloaded file has the new name
+    assert "Final.PDF" in user_client.get(f"/documents/{doc_id}/file").headers["Content-Disposition"]
+
+
+def test_a_rename_needs_a_name_and_your_own_document(signup):
+    alice, bob = signup("alice@example.com"), signup("bob@example.com")
+    doc_id = _upload(alice).get_json()["doc_id"]
+    assert alice.patch(f"/documents/{doc_id}", json={"name": "  "}).status_code == 400
+    assert alice.patch(f"/documents/{doc_id}", json={"name": "x" * 300}).status_code == 400
+    assert bob.patch(f"/documents/{doc_id}", json={"name": "Mine now"}).status_code == 404
+    assert alice.get("/getDocuments").get_json()[0]["filename"] == "report.pdf"

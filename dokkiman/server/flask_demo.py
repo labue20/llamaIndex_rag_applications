@@ -13,13 +13,14 @@ from sign_pdf_service import SignError, sign_pdf
 from edit_pdf_service import IMAGE_TYPES, EditError, edit_pdf, images_to_pdf, text_lines
 from signature_log import save_signature_record
 from pathlib import Path
+import shutil
 import tempfile
 import uuid
 import zipfile
 from auth import init_auth, current_user_id
 from billing import billing_bp
 from signature_requests import requests_bp
-from folders import document_folder_map, folders_bp, forget_document
+from folders import document_folder_map, file_document, folders_bp, forget_document
 from account import account_bp
 from admin import admin_bp
 from support import support_bp
@@ -77,6 +78,7 @@ INDEX_SERVER_FUNCTIONS = [
     'ping',
     'claim_guest_documents',
     'document_counts',
+    'rename_document',
 ]
 
 
@@ -302,20 +304,133 @@ def get_full_document(doc_id):
         })), 500
 
 
-@app.route("/documents/<doc_id>/file", methods=["GET"])
-def get_document_file(doc_id):
-    """Download the original file of one of the user's documents."""
+# Word documents converted to PDF for viewing, made once and kept until the document is deleted
+PREVIEW_DIR = "previews"
+
+
+def _stored_file(doc_id):
+    """(path, file name, None) for one of the user's stored originals, or
+    (None, None, error response) when there isn't one."""
     result = manager.get_document_file(doc_id, current_user_id())._getvalue()
     if result.get("error"):
-        return jsonify({"error": result["error"]}), 404
+        return None, None, (jsonify({"error": result["error"]}), 404)
 
     # Only ever serve files from the uploads folder
     documents_dir = os.path.realpath("documents")
     path = os.path.realpath(result["path"])
     if os.path.commonpath([documents_dir, path]) != documents_dir:
-        return jsonify({"error": "File not found"}), 404
+        return None, None, (jsonify({"error": "File not found"}), 404)
+    return path, result["file_name"], None
 
-    return send_file(path, as_attachment=True, download_name=result["file_name"])
+
+def _preview_path(doc_id):
+    return os.path.abspath(os.path.join(PREVIEW_DIR, f"{secure_filename(doc_id) or 'document'}.pdf"))
+
+
+@app.route("/documents/<doc_id>/file", methods=["GET"])
+def get_document_file(doc_id):
+    """Download the original file of one of the user's documents."""
+    path, file_name, problem = _stored_file(doc_id)
+    if problem:
+        return problem
+    return send_file(path, as_attachment=True, download_name=file_name)
+
+
+@app.route("/documents/<doc_id>/preview", methods=["GET"])
+def preview_document(doc_id):
+    """One of the user's documents as a PDF to look at in the browser: a PDF as
+    it is, a Word document converted (once). Other files are shown as text by
+    the browser, from /file."""
+    path, _, problem = _stored_file(doc_id)
+    if problem:
+        return problem
+    extension = Path(path).suffix.lower()
+    if extension == ".pdf":
+        return send_file(path, mimetype="application/pdf", max_age=0)
+    if extension != ".docx":
+        return jsonify({"error": "This kind of file can't be shown here. Download it to open it."}), 415
+
+    preview = _preview_path(doc_id)
+    if not os.path.exists(preview) or os.path.getmtime(preview) < os.path.getmtime(path):
+        if not zipfile.is_zipfile(path):
+            return jsonify({"error": "This Word document can't be shown. Download it to open it."}), 415
+        os.makedirs(PREVIEW_DIR, exist_ok=True)
+        # Written next to its final place, then swapped in, so a half-made preview is never served
+        partial = f"{preview}.{uuid.uuid4().hex}.part.pdf"
+        try:
+            converter.convert_docx_to_pdf(path, partial)
+            os.replace(partial, preview)
+        except ConversionError as e:
+            app.logger.error(f"Word preview conversion error: {e}")
+            return jsonify({"error": "This Word document can't be shown right now. Download it to open it."}), 500
+        except Exception:
+            app.logger.exception("Word preview conversion failed")
+            return jsonify({"error": "This Word document can't be shown right now. Download it to open it."}), 500
+        finally:
+            if os.path.exists(partial):
+                os.remove(partial)
+    return send_file(preview, mimetype="application/pdf", max_age=0)
+
+
+MAX_DOCUMENT_NAME = 200
+
+
+@app.route("/documents/<doc_id>", methods=["PATCH"])
+def rename_document(doc_id):
+    """Rename one of the user's documents. Its file type stays: "Lease" for
+    "lease.pdf" becomes "Lease.pdf"."""
+    _, file_name, problem = _stored_file(doc_id)
+    if problem:
+        return problem
+    data = request.get_json(silent=True) or {}
+    # One line of printable text; slashes would read like folders
+    name = "".join(ch for ch in " ".join(str(data.get("name", "")).split()) if ch.isprintable())
+    name = name.replace("/", "-").replace("\\", "-").strip(" .")
+    if not name:
+        return jsonify({"error": "Type a name for the document."}), 400
+    extension = Path(file_name).suffix
+    if extension and not name.lower().endswith(extension.lower()):
+        name += extension
+    if len(name) > MAX_DOCUMENT_NAME:
+        return jsonify({"error": f"Names can be up to {MAX_DOCUMENT_NAME} characters."}), 400
+
+    result = manager.rename_document(doc_id, current_user_id(), name)._getvalue()
+    if result.get("error"):
+        return jsonify({"error": "That document wasn't found."}), 404
+    return jsonify({"doc_id": doc_id, "filename": name}), 200
+
+
+@app.route("/documents/<doc_id>/copy", methods=["POST"])
+def copy_document(doc_id):
+    """Make a copy of one of the user's documents, named "Copy of ...", in the
+    same folder. It counts toward the plan's documents like an upload."""
+    path, file_name, problem = _stored_file(doc_id)
+    if problem:
+        return problem
+    owner_id = current_user_id()
+    limit_error = document_limit_error(owner_id, len(manager.get_documents_list(owner_id)._getvalue()))
+    if limit_error:
+        return limit_error
+
+    copy_name = f"Copy of {file_name}"
+    copy_id = uuid.uuid4().hex
+    copy_path = os.path.join("documents", f"{copy_id}_{secure_filename(copy_name) or 'document'}")
+    try:
+        shutil.copyfile(path, copy_path)
+        result = manager.insert_into_index(copy_path, copy_id, "ultra-fast", owner_id, copy_name)._getvalue()
+        if not (result and result.get("success")):
+            raise RuntimeError(result.get("error") if result else "no result")
+    except Exception:
+        app.logger.exception("Couldn't copy a document")
+        if os.path.exists(copy_path):
+            os.remove(copy_path)
+        return jsonify({"error": "The copy couldn't be made. Please try again."}), 500
+
+    record_document(owner_id)
+    folder_id = document_folder_map(owner_id).get(doc_id)
+    if folder_id:
+        file_document(owner_id, copy_id, folder_id)
+    return jsonify({"doc_id": copy_id, "filename": copy_name, "folder_id": folder_id}), 201
 
 
 @app.route("/documents/<doc_id>", methods=["DELETE"])
@@ -330,6 +445,8 @@ def delete_document(doc_id):
             return make_response(jsonify(result)), 400
         if not g.user.get("guest"):
             forget_document(current_user_id(), doc_id)
+        if os.path.exists(_preview_path(doc_id)):
+            os.remove(_preview_path(doc_id))
             
         return make_response(jsonify(result)), 200
         

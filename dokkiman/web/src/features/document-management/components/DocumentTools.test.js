@@ -262,3 +262,141 @@ test('documents come before signature requests, so many requests can’t hide th
   expect(document.compareDocumentPosition(requests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(requests).getAllByRole('listitem')).toHaveLength(40);
 });
+
+// --- viewing a document ---------------------------------------------------------
+
+test('clicking a document opens it to view, every page, and Escape closes it', async () => {
+  const { fetchMock } = renderManager('/app/documents', {
+    '/documents/d2/preview': { file: new Blob(['%PDF'], { type: 'application/pdf' }) },
+  });
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Open unfiled.pdf' }));
+
+  const viewer = await screen.findByRole('dialog', { name: 'unfiled.pdf' });
+  // The faked pdf.js document has 3 pages
+  expect(await within(viewer).findAllByRole('img', { name: /^Page \d$/ })).toHaveLength(3);
+  expect(within(viewer).getByText('3 pages')).toBeInTheDocument();
+  expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/documents/d2/preview'))).toBe(true);
+
+  fireEvent.keyDown(window, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('clicking anywhere on a document’s row opens it, but its checkbox only selects it', async () => {
+  renderManager('/app/documents', {
+    '/documents/d2/preview': { file: new Blob(['%PDF'], { type: 'application/pdf' }) },
+  });
+  await screen.findByRole('button', { name: 'Open unfiled.pdf' });
+  const row = screen.getAllByRole('row').find((r) => within(r).queryByRole('button', { name: 'Open unfiled.pdf' }));
+
+  fireEvent.mouseEnter(row);
+  fireEvent.click(within(row).getByRole('checkbox'));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+  fireEvent.click(row);
+  expect(await screen.findByRole('dialog', { name: 'unfiled.pdf' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('a document found by search opens to view', async () => {
+  renderManager('/app/documents', {
+    '/documents/d1/preview': { file: new Blob(['%PDF'], { type: 'application/pdf' }) },
+  });
+  fireEvent.change(await screen.findByRole('searchbox', { name: 'Search documents' }), { target: { value: 'inspection' } });
+  const results = screen.getByRole('region', { name: 'Matching documents' });
+  fireEvent.click(within(results).getByRole('button', { name: /inspection\.pdf/ }));
+  expect(await screen.findByRole('dialog', { name: 'inspection.pdf' })).toBeInTheDocument();
+});
+
+test('a text file is shown as text, and a document that can’t be shown says so', async () => {
+  const documents = [
+    { id: 't1', filename: 'notes.txt', file_type: '.txt', folder_id: null },
+    { id: 'w1', filename: 'offer.docx', file_type: '.docx', folder_id: null },
+  ];
+  mockFetch({
+    '/folders': { body: { folders: [] } },
+    '/signature-requests': { body: { requests: [] } },
+    '/documents/t1/file': { text: '<b>Not bold</b>\nSecond line' },
+    '/documents/w1/preview': { status: 500, body: { error: 'This Word document can’t be shown right now. Download it to open it.' } },
+  });
+  renderAt(<DocumentTools documents={documents} refreshDocuments={jest.fn()} />, '/app/documents');
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Open notes.txt' }));
+  const viewer = await screen.findByRole('dialog', { name: 'notes.txt' });
+  // Shown as text, never as HTML
+  expect(await within(viewer).findByText(/<b>Not bold<\/b>/)).toBeInTheDocument();
+  fireEvent.click(within(viewer).getByRole('button', { name: 'Close' }));
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open offer.docx' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Download it to open it');
+});
+
+// --- the document menu (right-click, or ⋯) ---------------------------------------
+
+test('right-clicking a document shows its menu, and Make a copy copies it', async () => {
+  const { fetchMock, refreshDocuments } = renderManager('/app/documents', {
+    '/documents/d2/copy': { status: 201, body: { doc_id: 'd3', filename: 'Copy of unfiled.pdf', folder_id: null } },
+  });
+  const name = await screen.findByRole('button', { name: 'Open unfiled.pdf' });
+
+  fireEvent.contextMenu(name);
+  const menu = screen.getByRole('menu', { name: 'Actions for unfiled.pdf' });
+  expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent))
+    .toEqual(['Open', 'Rename', 'Make a copy', 'Download', 'Delete']);
+
+  fireEvent.click(within(menu).getByRole('menuitem', { name: 'Make a copy' }));
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  await waitFor(() => expect(refreshDocuments).toHaveBeenCalled());
+  const copyCall = fetchMock.mock.calls.find(([url]) => url.endsWith('/documents/d2/copy'));
+  expect(copyCall[1].method).toBe('POST');
+});
+
+test('the ⋯ button opens the same menu (phones have no right-click), and Escape closes it', async () => {
+  renderManager();
+  fireEvent.click(await screen.findByRole('button', { name: 'More actions for unfiled.pdf' }));
+  expect(screen.getByRole('menu', { name: 'Actions for unfiled.pdf' })).toBeInTheDocument();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+});
+
+test('the menu opens a document, and Delete asks first', async () => {
+  renderManager('/app/documents', {
+    '/documents/d2/preview': { file: new Blob(['%PDF'], { type: 'application/pdf' }) },
+  });
+  const name = await screen.findByRole('button', { name: 'Open unfiled.pdf' });
+
+  fireEvent.contextMenu(name);
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Open' }));
+  expect(await screen.findByRole('dialog', { name: 'unfiled.pdf' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+  fireEvent.contextMenu(name);
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+  expect(screen.getByText(/Are you sure you want to delete 1 document\?/)).toBeInTheDocument();
+});
+
+test('a copy that can’t be made says why', async () => {
+  renderManager('/app/documents', {
+    '/documents/d2/copy': { status: 403, body: { error: 'Your plan holds 10 documents. Delete one to make room.' } },
+  });
+  fireEvent.contextMenu(await screen.findByRole('button', { name: 'Open unfiled.pdf' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Make a copy' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Delete one to make room');
+});
+
+test('Rename asks for the new name, without the file type, and saves it', async () => {
+  const { fetchMock, refreshDocuments } = renderManager('/app/documents', {
+    '/documents/d2': { body: { doc_id: 'd2', filename: 'Lease 2027.pdf' } },
+  });
+  const prompt = jest.spyOn(window, 'prompt').mockReturnValue('Lease 2027');
+
+  fireEvent.contextMenu(await screen.findByRole('button', { name: 'Open unfiled.pdf' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+
+  expect(prompt).toHaveBeenCalledWith('Rename document', 'unfiled');
+  await waitFor(() => expect(refreshDocuments).toHaveBeenCalled());
+  const [, options] = fetchMock.mock.calls.find(([url, o]) => url.endsWith('/documents/d2') && o?.method === 'PATCH');
+  expect(JSON.parse(options.body)).toEqual({ name: 'Lease 2027' });
+});

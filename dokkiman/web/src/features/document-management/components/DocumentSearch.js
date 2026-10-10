@@ -33,7 +33,7 @@ const Result = ({ icon, tone, title, detail, where, onOpen, badge }) => (
   </li>
 );
 
-const DocumentSearch = ({ query, folders, documents, requests, pathOf, nameOf, onOpenFolder }) => {
+const DocumentSearch = ({ query, folders, documents, requests, pathOf, nameOf, onOpenFolder, onOpenDocument }) => {
   const where = (folderId) => (folderId ? `in ${pathOf(folderId)}` : 'in All documents');
   const folderHits = folders.filter((f) => matches(f.name, query));
   const documentHits = documents.filter((d) => matches(nameOf(d), query));
@@ -67,7 +67,7 @@ const DocumentSearch = ({ query, folders, documents, requests, pathOf, nameOf, o
           <ul className='search-results__list'>
             {documentHits.map((d) => (
               <Result key={d.id} icon='file' tone='file' title={nameOf(d)} where={where(d.folder_id)}
-                onOpen={() => onOpenFolder(d.folder_id || null)} />
+                onOpen={() => (onOpenDocument ? onOpenDocument(d, nameOf(d)) : onOpenFolder(d.folder_id || null))} />
             ))}
           </ul>
         </section>
