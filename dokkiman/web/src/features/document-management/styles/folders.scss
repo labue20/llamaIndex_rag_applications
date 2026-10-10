@@ -5,7 +5,7 @@
 @import '../../../shared/styles/variables';
 
 .folders {
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 
   &__bar {
     display: flex;
@@ -13,7 +13,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem 1rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1.25rem;
   }
 
   &__trail {
@@ -103,7 +103,7 @@
   &__list, &__request-list {
     display: flex;
     flex-direction: column;
-    margin: 0 0 1rem;
+    margin: 0;
     padding: 0;
     border: 1px solid theme-color(border);
     border-radius: 10px;
@@ -373,7 +373,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  margin-bottom: 0.875rem;
+  margin-bottom: 0;
 
   .icon {
     position: absolute;
@@ -395,12 +395,12 @@
   &:focus { outline: 2px solid rgba(theme-color(accent), 0.35); border-color: theme-color(accent); }
 }
 
+// In the toolbar, before New folder
 .folders__sort {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin: -0.25rem 0 0.5rem;
+  gap: 0.375rem;
+  margin: 0 0.25rem 0 0;
   font-size: 0.8125rem;
   color: theme-color(text-secondary);
 

@@ -51,7 +51,7 @@ const GoogleSignInButton = ({ clientId, text = 'continue_with', onCredential }) 
           type: 'standard',
           theme: 'outline',
           size: 'large',
-          shape: 'pill',
+          shape: 'rectangular',
           text,
           logo_alignment: 'center',
           width: Math.min(400, Math.max(220, container.clientWidth || 320)),

@@ -195,27 +195,6 @@ const PasswordForm = ({ isSignup, switchMode }) => {
 
   return (
     <>
-      <div className='auth-card__tabs' role='tablist'>
-        <button
-          type='button'
-          role='tab'
-          aria-selected={!isSignup}
-          className={`auth-card__tab ${!isSignup ? 'auth-card__tab--active' : ''}`}
-          onClick={() => { setError(null); setShowForgot(false); switchMode('login'); }}
-        >
-          Sign in
-        </button>
-        <button
-          type='button'
-          role='tab'
-          aria-selected={isSignup}
-          className={`auth-card__tab ${isSignup ? 'auth-card__tab--active' : ''}`}
-          onClick={() => { setError(null); setShowForgot(false); switchMode('signup'); }}
-        >
-          Create account
-        </button>
-      </div>
-
       <form className='auth-form' onSubmit={handleSubmit} noValidate>
         <div className='auth-form__field'>
           <label className='auth-form__label' htmlFor='auth-email'>Email</label>
@@ -281,6 +260,8 @@ const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
   const [mode, setMode] = useState(initialMode);
   const [googleError, setGoogleError] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
+  // With Google there, the email form opens on request (it makes the card long)
+  const [emailOpen, setEmailOpen] = useState(false);
 
   const isSignup = mode === 'signup';
   const hasGoogle = Boolean(authConfig.google_client_id);
@@ -306,26 +287,28 @@ const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
   return (
     <div className='auth-page'>
       <div className='auth-card'>
-        {onBack && (
-          <button type='button' className='auth-card__back' onClick={onBack}>
-            <Icon name='arrowLeft' size={16} />
-            Back to home
-          </button>
-        )}
-        <div className='auth-card__brand'>
-          <span className='auth-card__logo'>
-            <LogoMark size={20} />
-          </span>
-          <span className='auth-card__product'>Dokkiman</span>
+        <div className='auth-card__top'>
+          <div className='auth-card__brand'>
+            <span className='auth-card__logo'>
+              <LogoMark size={20} />
+            </span>
+            <span className='auth-card__product'>Dokkiman</span>
+          </div>
+          {onBack && (
+            <button type='button' className='auth-card__back' onClick={onBack}>
+              <Icon name='arrowLeft' size={16} />
+              Back to home
+            </button>
+          )}
         </div>
 
         <h1 className='auth-card__title'>
-          {isSignup ? 'Start your free trial' : 'Welcome back'}
+          {isSignup ? 'Create your account' : 'Sign in to Dokkiman'}
         </h1>
         <p className='auth-card__subtitle'>
           {isSignup
-            ? `Full access for ${trialDays} days. No credit card needed.`
-            : 'Sign in to chat with your documents.'}
+            ? `Edit, sign and share documents. Free for ${trialDays} days, no credit card needed.`
+            : 'Welcome back. Pick up where you left off.'}
         </p>
 
         {hasGoogle && (
@@ -343,15 +326,6 @@ const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
               />
             )}
             {googleError && <ErrorMessage error={{ message: googleError }} />}
-            <p className='auth-sso__note'>
-              {isSignup
-                ? 'Use your Google account. No new password to remember.'
-                : 'Use the Google account you signed up with.'}
-            </p>
-            <p className='auth-sso__legal'>
-              By continuing, you agree to our <Link to='/terms'>Terms of Service</Link> and{' '}
-              <Link to='/privacy'>Privacy Policy</Link>.
-            </p>
           </div>
         )}
 
@@ -367,16 +341,30 @@ const AuthPage = ({ initialMode = 'login', onBack, onModeChange }) => {
         )}
 
         {authConfig.password_login && (
-          <>
-            {hasGoogle && <div className='auth-sso__divider'><span>or use email</span></div>}
-            <PasswordForm isSignup={isSignup} switchMode={switchMode} />
-          </>
+          hasGoogle && !emailOpen ? (
+            <>
+              <div className='auth-sso__divider'><span>or</span></div>
+              <button type='button' className='auth-email-toggle' onClick={() => setEmailOpen(true)}>
+                <Icon name='mail' size={18} />
+                {isSignup ? 'Sign up with Email' : 'Sign in with Email'}
+              </button>
+            </>
+          ) : (
+            <>
+              {hasGoogle && <div className='auth-sso__divider'><span>or</span></div>}
+              <PasswordForm isSignup={isSignup} switchMode={switchMode} />
+            </>
+          )
         )}
 
-        <p className='auth-card__switch'>
+        <p className='auth-sso__legal'>
+          By {isSignup ? 'signing up' : 'continuing'}, you accept the <Link to='/terms'>Terms of Service</Link> and{' '}
+          <Link to='/privacy'>Privacy Policy</Link>.
+        </p>
+        <p className='auth-card__switch auth-card__footer'>
           {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
           <button type='button' onClick={() => switchMode(isSignup ? 'login' : 'signup')}>
-            {isSignup ? 'Sign in' : 'Start a free trial'}
+            {isSignup ? 'Sign in' : 'Create one'}
           </button>
         </p>
       </div>

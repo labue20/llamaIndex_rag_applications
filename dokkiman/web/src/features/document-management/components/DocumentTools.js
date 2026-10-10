@@ -238,6 +238,7 @@ const DocumentTools = ({ documents, refreshDocuments, onUploadSuccess }) => {
       {/* Nothing to list here (the folders and requests above say it all): no empty table */}
       {!(documentsHere.length === 0 && !currentFolder && (subfolders.length > 0 || requestsHere.length > 0)) && (
       <div className='document-tools__content'>
+        {documentsHere.length > 0 && <h3 className='folders__heading'>Documents</h3>}
         <DocumentViewer
           documentList={documentsHere}
           onDeleteDocument={handleDeleteDocument}

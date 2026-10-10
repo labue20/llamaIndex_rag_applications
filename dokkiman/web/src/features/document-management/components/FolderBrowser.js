@@ -154,6 +154,16 @@ const FolderBrowser = ({
           ))}
         </nav>
         <div className='folders__actions'>
+          {subfolders.length > 1 && onSortChange && (
+            <label className='folders__sort'>
+              Sort
+              <select id='folder-sort' aria-label='Sort folders' value={sort}
+                onChange={(e) => onSortChange(e.target.value)}>
+                <option value='name'>A–Z</option>
+                <option value='recent'>Recently used</option>
+              </select>
+            </label>
+          )}
           {canCreate && !isCreating && (
             <button type='button' className='folders__btn' onClick={() => setIsCreating(true)}>
               + New folder
@@ -193,16 +203,7 @@ const FolderBrowser = ({
       )}
       {error && <p className='folders__error' role='alert'>{error}</p>}
 
-      {subfolders.length > 1 && onSortChange && (
-        <div className='folders__sort'>
-          <label htmlFor='folder-sort'>Sort folders</label>
-          <select id='folder-sort' value={sort} onChange={(e) => onSortChange(e.target.value)}>
-            <option value='name'>A–Z</option>
-            <option value='recent'>Recently used</option>
-          </select>
-        </div>
-      )}
-
+      {subfolders.length > 0 && <h3 className='folders__heading'>Folders</h3>}
       {subfolders.length > 0 && (
         <ul className='folders__list' aria-label='Folders'>
           {subfolders.map((folder) => {

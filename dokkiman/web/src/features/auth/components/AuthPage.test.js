@@ -128,14 +128,14 @@ test('explains when the connection drops while signing in', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent("Can't reach the server");
 });
 
-test('switches between tabs and toggles password visibility', async () => {
+test('switches between sign in and sign up, and toggles password visibility', async () => {
   mockFetch({ '/auth/me': { status: 401 } });
   const onBack = jest.fn();
   await renderAuthPage({ onBack });
 
-  fireEvent.click(screen.getByRole('tab', { name: 'Create account' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start a free trial' }));
   expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('tab', { name: 'Sign in' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
   expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
 
   const password = screen.getByLabelText('Password');
@@ -146,4 +146,15 @@ test('switches between tabs and toggles password visibility', async () => {
   fireEvent.click(screen.getByRole('button', { name: /Back to home/ }));
   expect(onBack).toHaveBeenCalled();
   await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+});
+
+test('with Google available, the email form opens from a button', async () => {
+  mockFetch({
+    '/auth/me': { status: 401 },
+    '/auth/config': { body: { google_client_id: 'client-id', password_login: true } },
+  });
+  renderAt(<AuthProvider><AuthPage initialMode='signup' /></AuthProvider>, '/signup');
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign up with email' }));
+  expect(screen.getByLabelText('Email')).toBeInTheDocument();
+  expect(screen.getByLabelText('Password')).toBeInTheDocument();
 });

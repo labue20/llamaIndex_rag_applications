@@ -32,7 +32,7 @@ test('the homepage is at /', async () => {
   expect(screen.queryByText('The app')).toBeNull();
 });
 
-test('sign-in pages have their own addresses, and the tabs keep the address in step', async () => {
+test('sign-in pages have their own addresses, and switching keeps the address in step', async () => {
   mockFetch({ '/auth/me': { status: 401 } });
   renderSite('/');
 
@@ -40,7 +40,7 @@ test('sign-in pages have their own addresses, and the tabs keep the address in s
   expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
   expect(path()).toBe('/signup');
 
-  fireEvent.click(await screen.findByRole('tab', { name: 'Sign in' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in' }));
   expect(path()).toBe('/login');
 
   fireEvent.click(screen.getByRole('button', { name: /Back to home/ }));
