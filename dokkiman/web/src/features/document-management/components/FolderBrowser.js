@@ -127,7 +127,7 @@ const RequestRow = ({ request }) => {
 };
 
 const FolderBrowser = ({
-  folders, currentFolder, trail, subfolders, requests, onOpen, onCreate, onRename, onDelete, error, uploadButton,
+  folders, currentFolder, trail, subfolders, onOpen, onCreate, onRename, onDelete, error, uploadButton,
   sort = 'name', onSortChange, pickerProps, onAddItems,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
@@ -234,17 +234,18 @@ const FolderBrowser = ({
           })}
         </ul>
       )}
-
-      {requests.length > 0 && (
-        <section className='folders__requests' aria-labelledby='folder-requests-title'>
-          <h3 id='folder-requests-title' className='folders__heading'>Signature requests</h3>
-          <ul className='folders__request-list'>
-            {requests.map((request) => <RequestRow key={request.id} request={request} />)}
-          </ul>
-        </section>
-      )}
     </div>
   );
 };
+
+/** The signature requests filed in the open folder, with the signed PDF and certificate once done. */
+export const RequestList = ({ requests }) => (requests.length > 0 ? (
+  <section className='folders folders__requests' aria-labelledby='folder-requests-title'>
+    <h3 id='folder-requests-title' className='folders__heading'>Signature requests</h3>
+    <ul className='folders__request-list'>
+      {requests.map((request) => <RequestRow key={request.id} request={request} />)}
+    </ul>
+  </section>
+) : null);
 
 export default FolderBrowser;

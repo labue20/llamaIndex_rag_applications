@@ -9,7 +9,9 @@
 .document-tools {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  // Grows with what's listed (the page scrolls), so a long list of folders or
+  // signature requests can't squeeze the documents out of sight
+  min-height: 100%;
   gap: 1.5rem;
 
   &__header {
@@ -57,7 +59,7 @@
   }
 
   &__content {
-    flex: 1;
+    flex: 1 0 auto;
     overflow: hidden;
   }
 }
