@@ -81,7 +81,8 @@ const ToolPage = ({ page, onOpen, onLogin, onSignup, onOpenApp, onOpenManager, i
           )}
           {!isLoggedIn && (
             <p className='tool-hero__note'>
-              <Icon name='lock' size={14} /> Free to try, no sign-up needed
+              <Icon name='lock' size={14} />
+              {page.requiresAccount ? ' Needs a free account; the people who sign don’t' : ' Free to try, no sign-up needed'}
             </p>
           )}
         </section>

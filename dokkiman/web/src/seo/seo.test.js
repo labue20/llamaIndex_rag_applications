@@ -1,4 +1,5 @@
-import { htmlForPage, renderToolPage as toolPageHtml, sitemap } from '../../scripts/seo';
+import { htmlForPage, renderSolutionPage as solutionPageHtml, renderToolPage as toolPageHtml, sitemap } from '../../scripts/seo';
+import SOLUTION_PAGES from './solutionPages.json';
 import TOOL_PAGES from './toolPages.json';
 
 const INDEX = [
@@ -41,4 +42,10 @@ test('the sitemap lists every page', () => {
   const xml = sitemap([{ path: '/' }, { path: '/compress-pdf' }], '2026-10-09');
   expect(xml).toContain('<url><loc>https://dokkiman.com/compress-pdf</loc><lastmod>2026-10-09</lastmod></url>');
   expect(xml.match(/<url>/g)).toHaveLength(2);
+});
+
+test('solution pages are rendered to HTML with their jobs and tool links', () => {
+  const html = solutionPageHtml(SOLUTION_PAGES.find((p) => p.path === '/solutions/legal'));
+  expect(html).toContain('Document work for legal teams');
+  expect(html).toContain('href="/edit-pdf"');
 });

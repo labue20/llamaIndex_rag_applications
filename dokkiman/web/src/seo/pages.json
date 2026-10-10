@@ -22,6 +22,16 @@
       "path": "/terms",
       "title": "Terms of Service · Dokkiman",
       "description": "The terms for using Dokkiman's PDF, e-signature and AI document tools."
+    },
+    {
+      "path": "/support",
+      "title": "Support · Dokkiman",
+      "description": "Get help with Dokkiman: quick answers about accounts, plans, files and signing, or send us a message and we'll get back to you."
+    },
+    {
+      "path": "/solutions",
+      "title": "Solutions · Dokkiman",
+      "description": "How Dokkiman helps individuals, small businesses and teams in real estate, legal, tax and accounting, HR and insurance get paperwork done."
     }
   ]
 }

@@ -1,0 +1,394 @@
+[
+  {
+    "path": "/solutions/individuals",
+    "group": "size",
+    "name": "Individuals & freelancers",
+    "icon": "file",
+    "title": "PDF Tools for Individuals & Freelancers · Dokkiman",
+    "description": "Sign contracts, fill in forms, send invoices for signature and keep your paperwork in one place. Free to try, nothing to install.",
+    "h1": "Paperwork done, so you can get back to work",
+    "lead": "Sign client contracts, fill in tax and onboarding forms, and keep every document in one place, from any device.",
+    "jobs": [
+      {
+        "title": "Sign a client contract",
+        "text": "Add your signature and the date to a PDF or Word contract in a minute.",
+        "tool": "/sign-pdf"
+      },
+      {
+        "title": "Fill in forms",
+        "text": "Type straight into fillable PDFs, including tax forms like the W-9.",
+        "tool": "/edit-pdf"
+      },
+      {
+        "title": "Get a contract signed",
+        "text": "Email it to your client; they sign from the link, no account needed.",
+        "tool": "/request-signatures"
+      },
+      {
+        "title": "Shrink a big file to email",
+        "text": "Compress scans and portfolios so they go through as attachments.",
+        "tool": "/compress-pdf"
+      }
+    ],
+    "benefits": [
+      {
+        "title": "Free to start",
+        "text": "Try every tool free for 30 days, then keep using the Free plan."
+      },
+      {
+        "title": "Nothing to install",
+        "text": "Works in your browser on a computer, tablet or phone."
+      },
+      {
+        "title": "An audit trail on every signature",
+        "text": "Who signed, when and from where, with a fingerprint of the document."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Do my clients need an account to sign?",
+        "a": "No. They get an email with a private link and sign in their browser."
+      },
+      {
+        "q": "Can I fill in a W-9 or other tax form?",
+        "a": "Yes. Open the fillable PDF in Edit PDF, type into its fields, and download it, ready to send."
+      }
+    ]
+  },
+  {
+    "path": "/solutions/small-business",
+    "group": "size",
+    "name": "Small businesses",
+    "icon": "folder",
+    "title": "PDF & E-Signature Tools for Small Businesses · Dokkiman",
+    "description": "Send agreements for signature, keep documents organized in folders, and edit and convert PDFs, with affordable plans for small teams.",
+    "h1": "Everyday document work for small businesses",
+    "lead": "Send agreements for signature, keep every document organized, and edit or convert PDFs without expensive software.",
+    "jobs": [
+      {
+        "title": "Send agreements for signature",
+        "text": "Customer agreements, quotes and NDAs, signed by email with reminders.",
+        "tool": "/request-signatures"
+      },
+      {
+        "title": "Keep documents organized",
+        "text": "Folders for each client or job, with signed copies filed automatically.",
+        "tool": "/edit-pdf"
+      },
+      {
+        "title": "Combine a document pack",
+        "text": "Merge quotes, terms and brochures into one PDF to send.",
+        "tool": "/merge-pdf"
+      },
+      {
+        "title": "Find answers in long documents",
+        "text": "Ask questions about a supplier contract or a policy and get plain answers.",
+        "tool": "/chat-with-pdf"
+      }
+    ],
+    "benefits": [
+      {
+        "title": "Simple pricing",
+        "text": "Start free, then Basic or Pro when you need more. No per-seat contracts."
+      },
+      {
+        "title": "Signature requests in one place",
+        "text": "See who has signed, send reminders, and download signed copies with their certificate."
+      },
+      {
+        "title": "Private by default",
+        "text": "Your documents are tied to your account; files you only convert or edit aren't kept."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Can several people sign one document?",
+        "a": "Yes. Add each signer and their fields; they can sign in any order or one after another."
+      },
+      {
+        "q": "Where do signed documents go?",
+        "a": "They're kept with the request in your Document Manager, in a Signature requests folder unless you choose another."
+      }
+    ]
+  },
+  {
+    "path": "/solutions/real-estate",
+    "group": "industry",
+    "name": "Real estate",
+    "icon": "folder",
+    "title": "E-Sign Leases & Real Estate Documents · Dokkiman",
+    "description": "Get leases, purchase offers and disclosures signed by email, fill in forms and keep every property's documents together. Try it free.",
+    "h1": "Leases and offers, signed without the back-and-forth",
+    "lead": "Send leases, purchase offers and disclosures for signature, fill in forms, and keep every property's paperwork in its own folder.",
+    "jobs": [
+      {
+        "title": "Get a lease signed",
+        "text": "Place signature, initials and date fields for each tenant and landlord, then send.",
+        "tool": "/request-signatures"
+      },
+      {
+        "title": "Fill in disclosures and forms",
+        "text": "Type into fillable PDFs, tick boxes and add notes.",
+        "tool": "/edit-pdf"
+      },
+      {
+        "title": "Put an offer package together",
+        "text": "Merge the offer, disclosures and photos into one PDF.",
+        "tool": "/merge-pdf"
+      },
+      {
+        "title": "Check what a lease says",
+        "text": "Ask about rent, deposits, pets or notice periods and get the answer from the document.",
+        "tool": "/chat-with-pdf"
+      }
+    ],
+    "benefits": [
+      {
+        "title": "A folder per property",
+        "text": "Keep each address's documents and signature requests together."
+      },
+      {
+        "title": "Signers don't need an account",
+        "text": "Tenants and buyers sign from the link in their email, on any device."
+      },
+      {
+        "title": "Audit trail",
+        "text": "Each signed document records who signed, when and from where."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Can tenants sign on their phone?",
+        "a": "Yes. The signing page works on phones, tablets and computers."
+      },
+      {
+        "q": "Can I use my own lease template?",
+        "a": "Yes. Upload your PDF or Word lease and place the fields where each person should sign."
+      }
+    ]
+  },
+  {
+    "path": "/solutions/legal",
+    "group": "industry",
+    "name": "Legal",
+    "icon": "redact",
+    "title": "PDF Editing, Redaction & E-Signatures for Legal Work · Dokkiman",
+    "description": "Redact for real, get engagement letters signed with an audit trail, and find what matters in long documents with AI. Try it free.",
+    "h1": "Document work for legal teams",
+    "lead": "Redact sensitive details for real, get engagement letters and agreements signed with an audit trail, and find what matters in long documents.",
+    "jobs": [
+      {
+        "title": "Redact before sharing",
+        "text": "Black out names and numbers; the text underneath is removed from the file.",
+        "tool": "/edit-pdf"
+      },
+      {
+        "title": "Get engagement letters signed",
+        "text": "Send for signature by email, with a certificate of completion.",
+        "tool": "/request-signatures"
+      },
+      {
+        "title": "Find the clause you need",
+        "text": "Ask about a long agreement and get answers drawn from the document.",
+        "tool": "/chat-with-pdf"
+      },
+      {
+        "title": "Split out exhibits",
+        "text": "Pull the pages you need into separate files.",
+        "tool": "/split-pdf"
+      }
+    ],
+    "benefits": [
+      {
+        "title": "Real redaction",
+        "text": "Redacted text and images are removed when you save, not just covered."
+      },
+      {
+        "title": "Evidence of signing",
+        "text": "Who signed, when, their IP address, and a SHA-256 fingerprint before and after."
+      },
+      {
+        "title": "Answers aren't advice",
+        "text": "AI answers help you find things fast; they quote the document rather than replace your judgment."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Are Dokkiman's e-signatures legally binding?",
+        "a": "They're electronic signatures with an audit trail, generally valid under the US ESIGN Act and UETA and the EU's eIDAS for most documents. Some documents have other requirements, so check for yours."
+      },
+      {
+        "q": "Is my documents' content used to train AI?",
+        "a": "No. Documents are processed by OpenAI to answer your questions and aren't used to train AI models."
+      }
+    ]
+  },
+  {
+    "path": "/solutions/tax-accounting",
+    "group": "industry",
+    "name": "Tax & accounting",
+    "icon": "compress",
+    "title": "PDF Tools for Tax & Accounting · Fill IRS Forms · Dokkiman",
+    "description": "Fill in IRS and other tax forms, collect client signatures, and split and compress large returns. Fillable forms keep working. Try it free.",
+    "h1": "Tax forms filled, signed and sent",
+    "lead": "Fill in IRS and state forms, collect client signatures, and split or compress large returns and statements.",
+    "jobs": [
+      {
+        "title": "Fill in IRS forms",
+        "text": "Type into fillable IRS forms, like the 1040 and its schedules, then download them.",
+        "tool": "/edit-pdf"
+      },
+      {
+        "title": "Collect client signatures",
+        "text": "Send engagement letters and authorizations for signature by email.",
+        "tool": "/request-signatures"
+      },
+      {
+        "title": "Split a long return",
+        "text": "Pull out the pages a client or agency needs.",
+        "tool": "/split-pdf"
+      },
+      {
+        "title": "Shrink statements to upload",
+        "text": "Compress scanned statements to fit portal size limits.",
+        "tool": "/compress-pdf"
+      }
+    ],
+    "benefits": [
+      {
+        "title": "Forms keep working",
+        "text": "Split and edited IRS forms stay fillable in Adobe Acrobat and other viewers."
+      },
+      {
+        "title": "Organized by client",
+        "text": "A folder per client for their documents and signature requests."
+      },
+      {
+        "title": "Files you process aren't kept",
+        "text": "Forms you fill, split or compress are sent straight back to you."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Can I fill in a scanned form?",
+        "a": "A scan has no form fields, so use Add text to type on it. Making scans searchable (OCR) is coming soon."
+      },
+      {
+        "q": "Will Adobe open the forms I edit?",
+        "a": "Yes. Edited and split forms are saved as standard PDF forms that Adobe Acrobat and other viewers open."
+      }
+    ]
+  },
+  {
+    "path": "/solutions/human-resources",
+    "group": "industry",
+    "name": "Human resources",
+    "icon": "pen",
+    "title": "E-Sign Offer Letters & HR Documents · Dokkiman",
+    "description": "Send offer letters and onboarding paperwork for signature, track who has signed, and keep employee documents organized. Try it free.",
+    "h1": "Offer letters and onboarding, signed on time",
+    "lead": "Send offer letters, policies and onboarding paperwork for signature, see who has signed, and keep each employee's documents together.",
+    "jobs": [
+      {
+        "title": "Send an offer letter",
+        "text": "Turn your Word offer letter into a signature request in minutes.",
+        "tool": "/request-signatures"
+      },
+      {
+        "title": "Onboarding paperwork",
+        "text": "Send policies, agreements and acknowledgments for new hires to sign; their name and the date are added as they sign.",
+        "tool": "/request-signatures"
+      },
+      {
+        "title": "Build an onboarding pack",
+        "text": "Merge the handbook, policies and forms into one PDF.",
+        "tool": "/merge-pdf"
+      },
+      {
+        "title": "Answer policy questions",
+        "text": "Ask the handbook a question and get the answer from the document.",
+        "tool": "/chat-with-pdf"
+      }
+    ],
+    "benefits": [
+      {
+        "title": "Sign Word documents too",
+        "text": "Open your .docx templates directly; they're turned into PDFs so the layout can't shift."
+      },
+      {
+        "title": "Reminders and tracking",
+        "text": "See who has signed and remind the people who haven't."
+      },
+      {
+        "title": "A folder per employee",
+        "text": "Keep each person's documents and signed copies together."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Do new hires need an account to sign?",
+        "a": "No. They sign from the link in their email."
+      },
+      {
+        "q": "Can several people sign in order?",
+        "a": "Yes. Choose signing in order, and each person gets the email when it's their turn."
+      }
+    ]
+  },
+  {
+    "path": "/solutions/insurance",
+    "group": "industry",
+    "name": "Insurance",
+    "icon": "edit",
+    "title": "PDF Forms & E-Signatures for Insurance · Dokkiman",
+    "description": "Fill in applications and claim forms, get them signed by email with an audit trail, and find answers in long policies. Try it free.",
+    "h1": "Applications, claims and policies, handled faster",
+    "lead": "Fill in applications and claim forms, get them signed by email with an audit trail, and find answers in long policy documents.",
+    "jobs": [
+      {
+        "title": "Fill in applications and claims",
+        "text": "Type into fillable forms and add the details that are missing.",
+        "tool": "/edit-pdf"
+      },
+      {
+        "title": "Get forms signed",
+        "text": "Send for signature by email; customers sign on any device.",
+        "tool": "/request-signatures"
+      },
+      {
+        "title": "Find answers in a policy",
+        "text": "Ask what's covered or excluded and get answers drawn from the policy.",
+        "tool": "/chat-with-pdf"
+      },
+      {
+        "title": "Send photos and documents as one PDF",
+        "text": "Combine claim photos and forms into a single file.",
+        "tool": "/merge-pdf"
+      }
+    ],
+    "benefits": [
+      {
+        "title": "Audit trail",
+        "text": "Each signature records who signed, when and from where."
+      },
+      {
+        "title": "Redact what isn't needed",
+        "text": "Remove personal details before sharing a document further."
+      },
+      {
+        "title": "Works on any device",
+        "text": "Customers fill in and sign from their phone."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Can customers send photos with a claim?",
+        "a": "Yes. Photos (JPG, PNG) can be combined with forms into one PDF in Merge PDF or Edit PDF."
+      },
+      {
+        "q": "Are answers about a policy reliable?",
+        "a": "Answers are drawn from the document you upload, and you can ask about specific pages. Check important details in the policy itself."
+      }
+    ]
+  }
+]

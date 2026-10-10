@@ -22,6 +22,7 @@ from signature_requests import requests_bp
 from folders import document_folder_map, folders_bp, forget_document
 from account import account_bp
 from admin import admin_bp
+from support import support_bp
 from werkzeug.middleware.proxy_fix import ProxyFix
 import config
 from config import MAX_UPLOAD_MB, MAX_UPLOAD_BYTES, TRUSTED_PROXY_COUNT
@@ -118,6 +119,7 @@ app.register_blueprint(requests_bp)
 app.register_blueprint(folders_bp)
 app.register_blueprint(account_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(support_bp)
 # Blueprints reach the index server through this (tests swap `manager`)
 app.config["INDEX_MANAGER"] = lambda: manager
 if config.STRIPE_CONFIG_ERROR:

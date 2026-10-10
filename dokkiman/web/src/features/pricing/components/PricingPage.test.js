@@ -122,7 +122,7 @@ test('the homepage links to the pricing page', async () => {
     </AuthProvider>,
     '/'
   );
-  fireEvent.click(within(await screen.findByRole('banner')).getByRole('link', { name: 'Pricing' }));
+  fireEvent.click(within(await screen.findByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Pricing' }));
   expect(await screen.findByRole('heading', { level: 1, name: 'PDF Tools That Fit Your Budget' })).toBeInTheDocument();
   expect(path()).toBe('/pricing');
 });

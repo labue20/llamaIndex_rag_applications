@@ -10,6 +10,8 @@
  *   /terms         Terms of Service
  *   /admin         Admin portal (admins only; the server checks)
  *   /verify-email, /reset-password  where the links in account emails lead
+ *   /support       quick answers and a form to contact us
+ *   /solutions, /solutions/<who>  how Dokkiman helps each kind of user (src/seo/solutionPages.json)
  *   /compress-pdf, /edit-pdf...  a public page for each tool (src/seo/toolPages.json)
  */
 
@@ -29,7 +31,11 @@ import { AdminPage } from '../../admin';
 import usePageMeta from '../../../seo/usePageMeta';
 import TOOL_PAGES from '../../../seo/toolPages.json';
 import { ToolPage } from '../../tool-pages';
+import { SupportPage } from '../../support';
+import { SolutionPage, SolutionsIndexPage } from '../../solutions';
+import SOLUTION_PAGES from '../../../seo/solutionPages.json';
 import { handFilesToTool } from '../../../shared/utils/toolHandOff';
+import { sendForSignature } from '../../e-sign';
 
 const AuthGate = ({ children }) => {
   const { user, isCheckingSession, showHome, showAuth, tryTool, pathAfterAuth } = useAuth();
@@ -39,7 +45,7 @@ const AuthGate = ({ children }) => {
 
   // Tool pages arrive with their content already in the HTML: show it at once,
   // rather than a spinner while the session is checked
-  const isToolPage = TOOL_PAGES.some((page) => page.path === pathname);
+  const isToolPage = [...TOOL_PAGES, ...SOLUTION_PAGES].some((page) => page.path === pathname) || pathname === '/solutions';
   if (isCheckingSession && !isToolPage) {
     return (
       <div className='auth-page'>
@@ -47,6 +53,14 @@ const AuthGate = ({ children }) => {
       </div>
     );
   }
+
+  const publicPageProps = {
+    isLoggedIn: !!user,
+    onLogin: () => showAuth('login'),
+    onSignup: () => showAuth('signup'),
+    onOpenManager: () => showAuth('signup'),
+    onOpenApp: () => navigate(HOME_AFTER_LOGIN),
+  };
 
   const authPage = (mode) =>
     user ? (
@@ -99,13 +113,32 @@ const AuthGate = ({ children }) => {
               onOpenApp={() => navigate(HOME_AFTER_LOGIN)}
               // Open the tool, with the files chosen here
               onOpen={(files) => {
-                if (files.length) handFilesToTool(page.app, files);
+                // Request Signatures opens E-Sign's Request signatures tab with the file
+                if (files.length && page.mode === 'request') sendForSignature(files[0]);
+                else if (files.length) handFilesToTool(page.app, files);
                 navigate(appPath(page.app));
               }}
             />
           }
         />
       ))}
+      {/* Public pages share these */}
+      <Route path='/solutions' element={<SolutionsIndexPage {...publicPageProps} />} />
+      {SOLUTION_PAGES.map((page) => (
+        <Route key={page.path} path={page.path} element={<SolutionPage page={page} {...publicPageProps} />} />
+      ))}
+      <Route
+        path='/support'
+        element={
+          <SupportPage
+            isLoggedIn={!!user}
+            onLogin={() => showAuth('login')}
+            onSignup={() => showAuth('signup')}
+            onOpenManager={() => showAuth('signup')}
+            onOpenApp={() => navigate(HOME_AFTER_LOGIN)}
+          />
+        }
+      />
       <Route path='/privacy' element={<LegalPage doc='privacy' />} />
       <Route path='/terms' element={<LegalPage doc='terms' />} />
       {/* Signing a document someone sent: no account needed */}

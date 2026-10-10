@@ -47,6 +47,7 @@ from plans import init_plans, new_trial_end, plan_status, signature_request_usag
 from signature_log import init_signature_log
 from signature_requests import init_signature_requests
 from folders import init_folders
+from support import init_support
 from sso import SsoError, verify_google_credential
 from email_service import EmailError, send_email
 
@@ -62,7 +63,7 @@ _DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_hex(16))
 # /billing/webhook is called by Stripe (it proves itself with a signature instead)
 PUBLIC_PATHS = {"/", "/auth/config", "/auth/google", "/auth/signup", "/auth/login", "/auth/logout", "/auth/me",
                 "/auth/verify-email", "/auth/forgot-password", "/auth/reset-password",
-                "/plans", "/health", "/billing/webhook"}
+                "/plans", "/health", "/billing/webhook", "/support"}
 
 # Accounts that sign in with Google have no password (an empty hash)
 NO_PASSWORD = ""
@@ -178,6 +179,7 @@ def init_db():
     init_signature_log()
     init_signature_requests()
     init_folders()
+    init_support()
     init_auth_limits()
     init_billing()
     init_admin()

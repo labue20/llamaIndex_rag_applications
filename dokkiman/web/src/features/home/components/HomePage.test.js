@@ -23,19 +23,40 @@ test('lists every tool', () => {
   });
 });
 
-test('the top bar links to each tool’s public page', () => {
+test('the top bar has a Features menu with every tool, then Pricing', () => {
   mockFetch({});
   renderHome();
-  const links = within(screen.getByRole('navigation', { name: 'Tools' })).getAllByRole('link');
-  expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
-    ['Chat with PDF', '/chat-with-pdf'],
-    ['E-Sign', '/sign-pdf'],
-    ['PDF to Word', '/pdf-to-word'],
-    ['Word to PDF', '/word-to-pdf'],
-    ['Split PDF', '/split-pdf'],
-    ['Compress PDF', '/compress-pdf'],
-    ['Edit PDF', '/edit-pdf'],
+  const nav = screen.getByRole('navigation', { name: 'Main' });
+  const features = within(nav).getByRole('button', { name: /Features/ });
+  expect(features).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(features);
+  expect(features).toHaveAttribute('aria-expanded', 'true');
+
+  // Every tool's page, and nothing else from the tools in the bar itself
+  const tools = within(nav).getByRole('list', { name: 'Tools' });
+  expect(within(tools).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
+    '/edit-pdf', '/sign-pdf', '/request-signatures', '/compress-pdf', '/merge-pdf', '/split-pdf', '/pdf-to-word', '/word-to-pdf', '/chat-with-pdf',
   ]);
+  expect(within(nav).getByRole('link', { name: 'Pricing' })).toHaveAttribute('href', '/pricing');
+
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(features).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('the Solutions menu lists solutions by business size and industry', () => {
+  mockFetch({});
+  renderHome();
+  const nav = screen.getByRole('navigation', { name: 'Main' });
+  fireEvent.click(within(nav).getByRole('button', { name: /Solutions/ }));
+  const bySize = within(nav).getByRole('list', { name: 'By business size' });
+  const byIndustry = within(nav).getByRole('list', { name: 'By industry' });
+  expect(within(bySize).getAllByRole('link').map((l) => l.textContent)).toEqual(['Individuals & freelancers', 'Small businesses']);
+  expect(within(byIndustry).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual([
+    '/solutions/real-estate', '/solutions/legal', '/solutions/tax-accounting', '/solutions/human-resources',
+    '/solutions/insurance',
+  ]);
+  expect(within(nav).getByRole('link', { name: /All solutions/ })).toHaveAttribute('href', '/solutions');
+  expect(within(screen.getByRole('banner')).getByRole('link', { name: 'Support' })).toHaveAttribute('href', '/support');
 });
 
 test('shows the trial terms from the server', async () => {

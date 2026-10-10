@@ -1,0 +1,140 @@
+/**
+ * Support Page Styles
+ */
+
+@import '../../../shared/styles/variables';
+
+// Scoped to the page, so these win over the homepage's resets (.home h2, .home p)
+.support-page {
+  .support-hero {
+    padding: 4rem 1.5rem 2rem;
+    text-align: center;
+    background: radial-gradient(ellipse at 50% -10%, rgba(theme-color(accent), 0.1), transparent 60%);
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    p { margin: 0 auto; max-width: 560px; color: theme-color(text-secondary); font-size: 1.0625rem; }
+  }
+
+  .support-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 2rem;
+    align-items: start;
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem 4rem;
+
+    @media (max-width: 860px) { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .support-answers {
+    h2 { margin: 0 0 0.75rem; font-size: 1.125rem; }
+
+    &__item {
+      border-bottom: 1px solid theme-color(border);
+
+      summary {
+        padding: 0.875rem 0;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      p { margin: 0 0 1rem; color: theme-color(text-secondary); line-height: 1.6; }
+      a { color: theme-color(accent); }
+    }
+  }
+
+  .support-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    border: 1px solid theme-color(border);
+    border-radius: 16px;
+    background: theme-color(primary);
+    box-shadow: 0 12px 32px -18px rgba(15, 23, 42, 0.25);
+
+    h2 { margin: 0; font-size: 1.25rem; }
+
+    &__intro { margin: -0.5rem 0 0; color: theme-color(text-secondary); }
+
+    &__row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+
+      @media (max-width: 520px) { grid-template-columns: 1fr; }
+    }
+
+    &__field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+
+      em { font-style: normal; font-weight: 400; color: theme-color(text-secondary); }
+
+      input, select, textarea {
+        padding: 0.625rem 0.75rem;
+        border: 1px solid theme-color(border);
+        border-radius: 8px;
+        background: theme-color(primary);
+        font: inherit;
+        font-weight: 400;
+        font-size: 0.9375rem;
+
+        &:focus { outline: 2px solid rgba(theme-color(accent), 0.35); border-color: theme-color(accent); }
+      }
+
+      textarea { resize: vertical; min-height: 140px; }
+    }
+
+    // The bot trap: off screen for people
+    &__trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+    &__error {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      margin: 0;
+      color: theme-color(error);
+      font-size: 0.875rem;
+    }
+
+    &__send { align-self: flex-start; }
+
+    &--sent {
+      align-items: center;
+      text-align: center;
+
+      p { margin: 0; color: theme-color(text-secondary); }
+    }
+
+    &__done {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(theme-color(success), 0.12);
+      color: darken(theme-color(success), 10%);
+    }
+
+    &__again {
+      border: none;
+      background: none;
+      color: theme-color(accent);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  }
+}

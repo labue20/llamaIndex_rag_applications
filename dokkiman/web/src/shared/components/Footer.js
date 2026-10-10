@@ -4,11 +4,8 @@
  */
 
 import { Link } from 'react-router-dom';
-import { usePlanInfo } from '../../features/auth';
 
 const Footer = () => {
-  const { support_email: supportEmail } = usePlanInfo();
-
   return (
     <footer className='app-footer'>
       <p className='app-footer__copyright'>
@@ -18,12 +15,8 @@ const Footer = () => {
         <Link to='/privacy'>Privacy Policy</Link>
         <span aria-hidden='true'>•</span>
         <Link to='/terms'>Terms of Service</Link>
-        {supportEmail && (
-          <>
-            <span aria-hidden='true'>•</span>
-            <a href={`mailto:${supportEmail}`}>Contact Us</a>
-          </>
-        )}
+        <span aria-hidden='true'>•</span>
+        <Link to='/support'>Contact Us</Link>
       </p>
     </footer>
   );

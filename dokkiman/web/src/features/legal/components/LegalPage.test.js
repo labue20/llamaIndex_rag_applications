@@ -83,11 +83,10 @@ test('the sign-in page links to the terms and privacy policy next to Google sign
   delete window.google;
 });
 
-test('the app footer links to the pages, and to support when there is an address', async () => {
-  mockFetch({ '/plans': { body: PLAN } });
+test('the app footer links to the legal pages and the Support page', () => {
   renderAt(<Footer />, '/app/documents');
 
   expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
   expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms');
-  expect(await screen.findByRole('link', { name: 'Contact Us' })).toHaveAttribute('href', 'mailto:help@example.com');
+  expect(screen.getByRole('link', { name: 'Contact Us' })).toHaveAttribute('href', '/support');
 });
