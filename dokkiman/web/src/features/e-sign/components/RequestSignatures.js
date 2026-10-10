@@ -20,6 +20,10 @@ const EMAIL_RE = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
 const MAX_SIGNERS = 10;
 
 let nextId = 1;
+// Where requests go unless another folder is chosen (made by the server when needed)
+const DEFAULT_FOLDER = 'Signature requests';
+const isDefaultFolder = (folder) => !folder.parent_id && folder.name.toLowerCase() === DEFAULT_FOLDER.toLowerCase();
+
 const newSigner = () => ({ key: nextId++, name: '', email: '' });
 
 const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allowDocumentManager = true }, ref) => {
@@ -367,24 +371,26 @@ const RequestSignatures = forwardRef(({ onStatusChange, onSent, onShowSent, allo
         <label className='esign-label' htmlFor='esign-message'>Message (optional)</label>
         <textarea id='esign-message' className='esign-input esign-input--wide' rows={3} maxLength={2000}
           placeholder='Hi, please review and sign this.' value={message} onChange={(e) => setMessage(e.target.value)} />
-        <span className='esign-label' id='esign-folder-label'>Save in folder (optional)</span>
+        <span className='esign-label' id='esign-folder-label'>Save in folder</span>
         <div className='esign-folder' role='group' aria-labelledby='esign-folder-label'>
           <FolderPicker
             options={[
-              { id: null, label: 'No folder' },
+              // Unless another is chosen, the server files requests in "Signature requests"
+              { id: null, label: DEFAULT_FOLDER },
               ...folders
+                .filter((f) => !isDefaultFolder(f))
                 .map((f) => ({ id: f.id, label: folderPath(folders, f.id) }))
                 .sort((a, b) => a.label.localeCompare(b.label)),
             ]}
             onSelect={(id) => setFolderId(id || '')}
-            buttonLabel={folderId ? folderPath(folders, folderId) : 'No folder'}
+            buttonLabel={folderId ? folderPath(folders, folderId) : DEFAULT_FOLDER}
             buttonClassName='esign-input esign-folder__button'
             align='left'
           />
         </div>
         <p className='esign-hint'>
-          The request, and the signed PDF and certificate once everyone has signed, show up in that folder in your
-          Document Manager. Create folders there.
+          The request, and the signed PDF and certificate once everyone has signed, are kept in this folder in your
+          Document Manager. Choose another folder, or create one there.
         </p>
         <label className='esign-check esign-check--spaced'>
           <input type='checkbox' checked={aiHelp} onChange={(e) => setAiHelp(e.target.checked)} />
