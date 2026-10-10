@@ -156,9 +156,88 @@
       }
     ],
     "related": [
+      "/request-signatures",
       "/edit-pdf",
-      "/merge-pdf",
-      "/chat-with-pdf"
+      "/merge-pdf"
+    ]
+  },
+  {
+    "path": "/request-signatures",
+    "app": "e-sign",
+    "mode": "request",
+    "requiresAccount": true,
+    "icon": "mail",
+    "accept": ".pdf,.docx",
+    "name": "Request Signatures",
+    "title": "Request Signatures Online · Send a PDF to Sign · Dokkiman",
+    "description": "Send a PDF or Word document to others to sign by email. Signers need no account; you get reminders, a signing order and an audit certificate.",
+    "h1": "Send documents for signature",
+    "lead": "Send a contract, offer letter or form to the people who need to sign it. They sign from a link in their email, and you get the signed copy with a certificate.",
+    "cta": "Choose a document to send",
+    "hint": "PDF or Word (.docx) • Up to 50 MB",
+    "howTo": "How to request a signature",
+    "steps": [
+      {
+        "title": "Choose your document",
+        "text": "A PDF or a Word document; Word files are turned into a PDF so the layout can't shift."
+      },
+      {
+        "title": "Add signers and fields",
+        "text": "Enter each signer's name and email, and place their signature, initials, date and name fields."
+      },
+      {
+        "title": "Send it",
+        "text": "Everyone gets a private link by email. When all have signed, you all get the signed PDF and its certificate."
+      }
+    ],
+    "features": [
+      {
+        "title": "No account for signers",
+        "text": "People sign from the link in their email, on a phone, tablet or computer."
+      },
+      {
+        "title": "Signing order",
+        "text": "Let everyone sign at once, or one after another: each person is emailed when it's their turn."
+      },
+      {
+        "title": "Reminders and tracking",
+        "text": "See who has opened and signed, and remind the people who haven't."
+      },
+      {
+        "title": "Certificate of completion",
+        "text": "An audit trail of who signed, when and from where, with a fingerprint of the document."
+      },
+      {
+        "title": "Signers can ask about it",
+        "text": "If you allow it, signers can ask questions about the document and get plain answers before they sign."
+      },
+      {
+        "title": "Filed for you",
+        "text": "Requests and signed copies are kept in your Document Manager, in a Signature requests folder."
+      }
+    ],
+    "faqs": [
+      {
+        "q": "Do signers need a Dokkiman account?",
+        "a": "No. Only you need a free account to send requests; signers just use the link in their email."
+      },
+      {
+        "q": "How many requests can I send?",
+        "a": "The free trial includes a few requests a month and Basic more; Pro is unlimited within fair use. The Free plan, after the trial, doesn't include requests. See the pricing page for the numbers."
+      },
+      {
+        "q": "Is it legally binding?",
+        "a": "Electronic signatures with an audit trail are generally valid under the US ESIGN Act and UETA and the EU's eIDAS for most documents. Some documents have other requirements, so check for yours."
+      },
+      {
+        "q": "Can I send a Word document?",
+        "a": "Yes. It's turned into a PDF first, so it looks the same for everyone who signs."
+      }
+    ],
+    "related": [
+      "/sign-pdf",
+      "/edit-pdf",
+      "/merge-pdf"
     ]
   },
   {

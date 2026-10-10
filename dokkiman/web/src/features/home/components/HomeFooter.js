@@ -7,6 +7,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import LogoMark from '../../../shared/components/LogoMark';
 import TOOL_PAGES from '../../../seo/toolPages.json';
+import SOLUTION_PAGES from '../../../seo/solutionPages.json';
 
 const HomeFooter = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false }) => (
   <footer className='home-footer'>
@@ -28,6 +29,12 @@ const HomeFooter = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false }) => (
         <button type='button' onClick={() => onOpenTool('manager')}>Document Manager</button>
       </div>
       <div className='home-footer__col'>
+        <h4>Solutions</h4>
+        {SOLUTION_PAGES.map((page) => (
+          <Link key={page.path} to={page.path}>{page.name}</Link>
+        ))}
+      </div>
+      <div className='home-footer__col'>
         <h4>Account</h4>
         {!isLoggedIn && (
           <>
@@ -36,6 +43,7 @@ const HomeFooter = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false }) => (
           </>
         )}
         <Link to='/pricing'>Pricing</Link>
+        <Link to='/support'>Support</Link>
       </div>
       <div className='home-footer__col'>
         <h4>Legal</h4>
@@ -49,6 +57,8 @@ const HomeFooter = ({ onLogin, onSignup, onOpenTool, isLoggedIn = false }) => (
         <Link to='/privacy'>Privacy Policy</Link>
         <span aria-hidden='true'>•</span>
         <Link to='/terms'>Terms of Service</Link>
+        <span aria-hidden='true'>•</span>
+        <Link to='/support'>Support</Link>
       </p>
     </div>
   </footer>

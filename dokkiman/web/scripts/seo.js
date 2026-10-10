@@ -17,6 +17,7 @@ const Module = require('module');
 const path = require('path');
 const seo = require('../src/seo/pages.json');
 const TOOL_PAGES = require('../src/seo/toolPages.json');
+const SOLUTION_PAGES = require('../src/seo/solutionPages.json');
 
 const SRC = path.join(__dirname, '..', 'src');
 
@@ -37,15 +38,21 @@ const loadAppModule = (file) => {
   return require(path.join(SRC, file));
 };
 
-/** A tool page's content as HTML, as the app first shows it. */
-const renderToolPage = (page) => {
+/** A page component's content as HTML at this address, as the app first shows it. */
+const renderPage = (file, path, props = {}) => {
   const React = require('react');
   const { renderToStaticMarkup } = require('react-dom/server');
   const { StaticRouter } = require('react-router-dom');
-  const ToolPage = loadAppModule('features/tool-pages/components/ToolPage.js').default;
-  return renderToStaticMarkup(
-    React.createElement(StaticRouter, { location: page.path }, React.createElement(ToolPage, { page }))
-  );
+  const Component = loadAppModule(file).default;
+  return renderToStaticMarkup(React.createElement(StaticRouter, { location: path }, React.createElement(Component, props)));
+};
+
+const renderToolPage = (page) => renderPage('features/tool-pages/components/ToolPage.js', page.path, { page });
+const renderSolutionPage = (page) => renderPage('features/solutions/components/SolutionPage.js', page.path, { page });
+
+// Pages in pages.json whose content is rendered too
+const PAGE_CONTENT = {
+  '/solutions': () => renderPage('features/solutions/components/SolutionsIndexPage.js', '/solutions'),
 };
 
 const escapeAttr = (text) => text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -94,7 +101,11 @@ const sitemap = (pages, date) => [
 
 const run = (buildDir) => {
   const html = fs.readFileSync(path.join(buildDir, 'index.html'), 'utf8');
-  const pages = [...seo.pages, ...TOOL_PAGES.map((page) => ({ ...page, content: renderToolPage(page) }))];
+  const pages = [
+    ...seo.pages.map((page) => (PAGE_CONTENT[page.path] ? { ...page, content: PAGE_CONTENT[page.path]() } : page)),
+    ...TOOL_PAGES.map((page) => ({ ...page, content: renderToolPage(page) })),
+    ...SOLUTION_PAGES.map((page) => ({ ...page, content: renderSolutionPage(page) })),
+  ];
   for (const page of pages) {
     const file = page.path === '/'
       ? path.join(buildDir, 'index.html')
@@ -110,4 +121,4 @@ const run = (buildDir) => {
 // BUILD_PATH: where react-scripts put the build, if not build/
 if (require.main === module) run(path.resolve(process.env.BUILD_PATH || path.join(__dirname, '..', 'build')));
 
-module.exports = { htmlForPage, renderToolPage, sitemap, run };
+module.exports = { htmlForPage, renderToolPage, renderSolutionPage, sitemap, run };
