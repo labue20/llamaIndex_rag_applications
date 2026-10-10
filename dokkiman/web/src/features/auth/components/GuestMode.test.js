@@ -46,7 +46,7 @@ test('the Document Manager invites guests to create an account', async () => {
   expect(screen.queryByRole('button', { name: /Upload files/ })).toBeNull();
 
   fireEvent.click(screen.getAllByRole('button', { name: 'Create free account' })[0]);
-  expect(await screen.findByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
 });
 
 test('hitting a guest limit offers a free account', async () => {
@@ -63,7 +63,7 @@ test('hitting a guest limit offers a free account', async () => {
   expect(dialog).toHaveTextContent("the document you're working on comes with you");
 
   fireEvent.click(within(dialog).getByRole('button', { name: 'I already have an account' }));
-  expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Sign in to Dokkiman' })).toBeInTheDocument();
 });
 
 test('a converter tool card opens that tool', async () => {

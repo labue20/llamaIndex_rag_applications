@@ -77,7 +77,7 @@ test('the sign-in page links to the terms and privacy policy next to Google sign
   });
   renderSite('/signup');
 
-  expect(await screen.findByText(/By continuing, you agree to our/)).toBeInTheDocument();
+  expect(await screen.findByText(/By signing up, you accept the/)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms');
   expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
   delete window.google;

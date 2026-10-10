@@ -932,7 +932,7 @@
   justify-content: center;
   gap: 0.625rem;
   width: 100%;
-  min-height: 42px;
+  min-height: 40px; // Google's large button
   border: 1px solid #dadce0;
   border-radius: 4px;
   background: theme-color(primary);

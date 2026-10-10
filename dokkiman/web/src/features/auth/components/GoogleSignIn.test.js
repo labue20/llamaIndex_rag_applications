@@ -69,7 +69,7 @@ test('the free trial page shows "Sign up with Google"', async () => {
 
   expect(await screen.findByRole('button', { name: 'Sign up with Google' })).toBeInTheDocument();
   expect(buttonOptions.text).toBe('signup_with');
-  expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
   expect(await screen.findByRole('button', { name: 'Sign in with Google' })).toBeInTheDocument();

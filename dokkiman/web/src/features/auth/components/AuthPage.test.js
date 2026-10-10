@@ -59,7 +59,7 @@ test('sign-up checks the password length before calling the server', async () =>
   const fetchMock = mockFetch({ '/auth/me': { status: 401 } });
   await renderAuthPage({ initialMode: 'signup' });
 
-  expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
   fillIn('new@example.com', 'short');
   fireEvent.click(screen.getByRole('button', { name: 'Start free trial' }));
 
@@ -133,10 +133,10 @@ test('switches between sign in and sign up, and toggles password visibility', as
   const onBack = jest.fn();
   await renderAuthPage({ onBack });
 
-  fireEvent.click(screen.getByRole('button', { name: 'Start a free trial' }));
-  expect(screen.getByRole('heading', { name: 'Start your free trial' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Create one' }));
+  expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-  expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Sign in to Dokkiman' })).toBeInTheDocument();
 
   const password = screen.getByLabelText('Password');
   expect(password).toHaveAttribute('type', 'password');
@@ -154,7 +154,7 @@ test('with Google available, the email form opens from a button', async () => {
     '/auth/config': { body: { google_client_id: 'client-id', password_login: true } },
   });
   renderAt(<AuthProvider><AuthPage initialMode='signup' /></AuthProvider>, '/signup');
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign up with email' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign up with Email' }));
   expect(screen.getByLabelText('Email')).toBeInTheDocument();
   expect(screen.getByLabelText('Password')).toBeInTheDocument();
 });
